@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Banned Students{% endblock %}
+{% block page_title %}Banned Students{% endblock %}
+{% block topbar_actions %}
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+  <a href="/students/" class="btn btn-ghost btn-sm">Back to Students</a>
+  <span class="pill pill-red">{{ banned|length }} banned</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Banned List</span>
+    <span style="font-size:.78rem;color:var(--text3)">Students here cannot be enrolled until unbanned</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Phone</th><th>Banned Date</th><th>Reason</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for s in banned %}
+        <tr>
+          <td><a href="/students/{{ s.id }}" style="color:var(--text);text-decoration:none;font-weight:600">{{ s.name }}</a></td>
+          <td class="mono">{{ s.phone or '—' }}</td>
+          <td class="mono">{{ s.banned_date or '—' }}</td>
+          <td style="font-size:.82rem;color:var(--text2)">{{ s.banned_reason or '—' }}</td>
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button type="button" class="btn btn-ghost btn-xs" onclick="openHistoryPopup({{ s.id }})">History</button>
+              {% if s.phone %}
+              <button type="button" class="btn btn-ghost btn-xs" onclick="callStudent('{{ s.id }}', {{ (s.phone or '')|tojson }})">Call</button>
+              {% endif %}
+              <form method="post" action="/students/{{ s.id }}/unban" style="display:inline">
+                <button class="btn btn-green btn-xs" type="submit">Unban</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not banned %}
+        <tr><td colspan="5" style="text-align:center;padding:28px;color:var(--text3)">No banned students</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openHistoryPopup(studentId) {
+  window.open('/students/' + studentId + '/history', 'history-' + studentId, 'width=980,height=720,scrollbars=yes,resizable=yes');
+}
+function callStudent(sid, phone) {
+  fetch('/students/' + sid + '/log-call', { method: 'POST' }).catch(function () {});
+  window.location.href = 'tel:' + phone;
+}
+</script>
+{% endblock %}

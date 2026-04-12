@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }}{% endblock %}
+{% block page_title %}{{ group.name }}{% endblock %}
+{% block topbar_actions %}
+<div class="flex gap-2">
+  {% if group.status=='active' %}<span class="pill pill-green">● Active</span>
+  {% elif group.status=='paused' %}<span class="pill pill-yellow">⏸ Paused</span>
+  {% else %}<span class="pill pill-grey">Archived</span>{% endif %}
+  <span class="pill pill-blue">{{ group.group_type }}</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<a href="/groups/" class="btn btn-ghost btn-sm mb-4" style="display:inline-flex">← All Groups</a>
+
+<!-- Group stats -->
+<div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+  <div class="stat-card">
+    <div class="stat-label">Active Students</div>
+    <div class="stat-value accent">{{ students_active|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Lessons Held</div>
+    <div class="stat-value">{{ total_lessons }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Countable</div>
+    <div class="stat-value accent">{{ total_countable }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Monthly Price</div>
+    <div class="stat-value green" style="font-size:1.3rem">{{ "{:,.0f}".format(group.price_monthly|int) }}</div>
+    <div class="stat-sub">UZS · {{ (group.teacher_pct*100)|int }}% to teacher</div>
+  </div>
+</div>
+
+<div class="grid-2 mb-6">
+  <!-- Group info -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Group Info</span>
+      <a href="/settings/" class="btn btn-ghost btn-sm">Edit in Settings →</a>
+    </div>
+    <div class="card-body" style="display:grid;gap:10px;font-size:.875rem">
+      <div class="flex-between"><span style="color:var(--text3)">Schedule</span><span class="mono" style="font-size:.8rem">{{ group.schedule or '—' }}</span></div>
+      <div class="flex-between"><span style="color:var(--text3)">Price/month</span><span class="money">{{ "{:,.0f}".format(group.price_monthly|int) }} UZS</span></div>
+      <div class="flex-between"><span style="color:var(--text3)">Teacher %</span><span style="color:var(--accent)">{{ (group.teacher_pct*100)|int }}%</span></div>
+      <div class="flex-between"><span style="color:var(--text3)">Lessons/month</span><span class="mono">{{ group.lessons_per_week }}×{{ group.weeks_per_month }} = {{ group.lessons_per_week*group.weeks_per_month }}</span></div>
+      {% if group.notes %}<div style="padding:9px;background:var(--bg3);border-radius:6px;font-size:.82rem;color:var(--text2)">{{ group.notes }}</div>{% endif %}
+    </div>
+  </div>
+
+  <!-- This month finance -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Finance — {{ month_start.strftime('%B %Y') }}</span>
+      <form method="get" style="display:flex;gap:6px">
+        <input class="form-control" name="month" type="month" value="{{ month_str }}" style="width:140px;padding:4px 8px">
+        <button class="btn btn-ghost btn-sm">Go</button>
+      </form>
+    </div>
+    <div class="card-body">
+      {% set lpm = group.lessons_per_week * group.weeks_per_month %}
+      {% set ppl = (group.price_monthly / lpm)|round|int if lpm else 0 %}
+      {% set epl = (ppl * group.teacher_pct)|round|int %}
+      <div style="font-family:var(--font-m);font-size:.8rem;color:var(--text3);margin-bottom:14px;padding:10px;background:var(--bg3);border-radius:6px">
+        {{ "{:,.0f}".format(group.price_monthly|int) }} ÷ {{ lpm }} lessons = {{ "{:,.0f}".format(ppl) }}/lesson × {{ (group.teacher_pct*100)|int }}% = <strong style="color:var(--accent)">{{ "{:,.0f}".format(epl) }} UZS/lesson</strong>
+      </div>
+      <div class="flex-between">
+        <span style="color:var(--text3)">Countable lessons</span>
+        <span style="font-weight:600;color:var(--text)">{{ countable }}</span>
+      </div>
+      <div class="divider"></div>
+      <div class="flex-between">
+        <span style="font-weight:600">Teacher Income</span>
+        <span class="money" style="font-size:1.1rem">{{ "{:,.0f}".format(income) }} UZS</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Monthly attendance matrix -->
+{% if lessons %}
+<div class="card mb-6">
+  <div class="card-header"><span class="card-title">Attendance — {{ month_start.strftime('%B %Y') }}</span></div>
+  <div style="overflow-x:auto">
+    <table style="border-collapse:collapse;font-size:.8rem;width:100%">
+      <thead>
+        <tr>
+          <th style="background:var(--bg3);padding:8px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--text3);font-size:.68rem;letter-spacing:.07em;text-transform:uppercase;min-width:140px">Student</th>
+          {% for l in lessons %}
+          <th style="background:var(--bg3);padding:6px 4px;text-align:center;border-bottom:1px solid var(--border);border-left:1px solid var(--border);min-width:42px;color:var(--text3);font-size:.68rem">
+            {{ l.date.strftime('%d') }}<br>
+            <span style="font-size:.6rem;opacity:.7">{{ l.date.strftime('%a') }}</span><br>
+            {% if l.status=='Held' %}<span style="color:var(--green)">●</span>
+            {% elif l.status=='Holiday' %}<span style="color:var(--yellow)">🏖</span>
+            {% elif l.status=='Cancelled' %}<span style="color:var(--red)">✕</span>
+            {% else %}<span style="color:var(--yellow)">↻</span>{% endif %}
+          </th>
+          {% endfor %}
+          <th style="background:var(--bg3);padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);border-left:1px solid var(--border);color:var(--text3);font-size:.68rem;text-transform:uppercase;letter-spacing:.07em">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in all_students %}
+        <tr style="{% if s.archived %}opacity:.55{% endif %}">
+          <td style="padding:8px 14px;border-bottom:1px solid var(--border);white-space:nowrap">
+            <a href="/students/{{ s.id }}" style="color:{% if s.archived %}var(--text3){% else %}var(--text){% endif %};text-decoration:none;font-weight:{% if not s.archived %}500{% else %}400{% endif %}">{{ s.name }}</a>
+            {% if s.archived %}<span class="pill pill-grey" style="margin-left:4px;font-size:.6rem">Alumni</span>{% endif %}
+          </td>
+          {% set ns = namespace(present=0) %}
+          {% for l in lessons %}
+            {% set status = matrix.get((s.id, l.id)) %}
+            {% if l.status == 'Holiday' %}
+            <td style="background:var(--yellow-bg);text-align:center;border-bottom:1px solid var(--border);border-left:1px solid var(--border);font-size:.72rem;color:var(--yellow)">🏖</td>
+            {% elif status == 'Present' %}
+              {% set ns.present = ns.present + 1 %}
+              <td style="background:var(--green-bg);text-align:center;border-bottom:1px solid var(--border);border-left:1px solid var(--border);color:var(--green);font-weight:700;font-size:.78rem;cursor:pointer" onclick="cycleCell(this,{{ l.id }},{{ s.id }})">P</td>
+            {% elif status == 'Absent' %}
+              <td style="background:var(--red-bg);text-align:center;border-bottom:1px solid var(--border);border-left:1px solid var(--border);color:var(--red);font-weight:700;font-size:.78rem;cursor:pointer" onclick="cycleCell(this,{{ l.id }},{{ s.id }})">A</td>
+            {% elif status == 'Excused' %}
+              <td style="background:var(--yellow-bg);text-align:center;border-bottom:1px solid var(--border);border-left:1px solid var(--border);color:var(--yellow);font-weight:700;font-size:.78rem;cursor:pointer" onclick="cycleCell(this,{{ l.id }},{{ s.id }})">E</td>
+            {% elif l.status == 'Held' %}
+              <td style="background:var(--bg3);text-align:center;border-bottom:1px solid var(--border);border-left:1px solid var(--border);color:var(--text3);font-size:.72rem;cursor:pointer" onclick="cycleCell(this,{{ l.id }},{{ s.id }})">·</td>
+            {% else %}
+              <td style="background:var(--bg);text-align:center;border-bottom:1px solid var(--border);border-left:1px solid var(--border);color:var(--text3);font-size:.7rem">—</td>
+            {% endif %}
+          {% endfor %}
+          <td style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);border-left:1px solid var(--border);font-weight:600;color:var(--accent);font-family:var(--font-m);font-size:.82rem">{{ ns.present }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div style="padding:10px 16px;font-size:.75rem;color:var(--text3);border-top:1px solid var(--border)">
+    💡 Click any cell to cycle: P (Present) → A (Absent) → E (Excused). Changes save instantly.
+  </div>
+</div>
+{% endif %}
+
+
+<!-- Performance in group profile -->
+{% if perf_data %}
+<div class="card mb-6">
+  <div class="card-header">
+    <span class="card-title">Performance — {{ perf_month }}</span>
+    <a href="/performance/?group_id={{ group.id }}&month={{ perf_month }}" class="btn btn-ghost btn-sm">Full View →</a>
+  </div>
+  <div style="overflow-x:auto">
+    <table style="border-collapse:collapse;width:100%;font-size:.8rem">
+      <thead>
+        <tr>
+          <th style="background:var(--bg3);padding:8px 14px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);font-size:.67rem;text-transform:uppercase;letter-spacing:.07em">Student</th>
+          {% for w in [1,2,3,4] %}
+          <th colspan="3" style="background:var(--accent-glow);padding:6px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--accent);font-size:.67rem;text-transform:uppercase;letter-spacing:.06em">W{{ w }}</th>
+          {% endfor %}
+          <th style="background:var(--bg3);padding:8px 8px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);font-size:.67rem;text-transform:uppercase">Avg</th>
+        </tr>
+        <tr>
+          <th style="background:var(--bg4);padding:4px 14px;border-bottom:1px solid var(--border)"></th>
+          {% for w in [1,2,3,4] %}
+          {% for lbl in ['G','A','V'] %}
+          <th style="background:var(--bg4);padding:4px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);font-size:.62rem">{{ lbl }}</th>
+          {% endfor %}
+          {% endfor %}
+          <th style="background:var(--bg4);border-bottom:1px solid var(--border)"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in perf_data %}
+        {% set s = row.student %}
+        <tr>
+          <td style="padding:8px 14px;border-bottom:1px solid var(--border);font-weight:500;color:var(--text)">
+            <a href="/students/{{ s.id }}" style="color:var(--text);text-decoration:none">{{ s.name }}</a>
+          </td>
+          {% set tot = namespace(s=0,c=0) %}
+          {% for w in [1,2,3,4] %}
+          {% set wp = row.weeks.get(w) %}
+          {% for attr in ['grammar','activity','vocabulary'] %}
+          {% set val = wp.grammar if attr=='grammar' and wp else wp.activity if attr=='activity' and wp else wp.vocabulary if attr=='vocabulary' and wp else none %}
+          <td style="padding:6px 4px;text-align:center;border-bottom:1px solid var(--border);font-size:.95rem">
+            {% if val==1 %}🔴{% elif val==2 %}🟡{% elif val==3 %}🟢{% else %}<span style="color:var(--text3)">—</span>{% endif %}
+          </td>
+          {% if val and val>0 %}{% set tot.s=tot.s+val %}{% set tot.c=tot.c+1 %}{% endif %}
+          {% endfor %}
+          {% endfor %}
+          <td style="padding:8px;text-align:center;border-bottom:1px solid var(--border);font-family:var(--font-m);font-size:.78rem;font-weight:600;color:{% if tot.c>0 and tot.s/tot.c>=2.5 %}var(--green){% elif tot.c>0 and tot.s/tot.c>=1.8 %}var(--yellow){% elif tot.c>0 %}var(--red){% else %}var(--text3){% endif %}">
+            {% if tot.c>0 %}{{ "%.1f"|format(tot.s/tot.c) }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+<!-- Monthly history -->
+{% if monthly_list %}
+<div class="card mb-6">
+  <div class="card-header"><span class="card-title">Monthly History (All Time)</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>Lessons</th><th>Present</th><th>Absent</th><th>Rate</th></tr></thead>
+      <tbody>
+        {% for month, data in monthly_list %}
+        {% set total_m = data.present + data.absent %}
+        {% set rate_m = (data.present / total_m * 100)|round|int if total_m else 0 %}
+        <tr>
+          <td class="mono">{{ month }}</td>
+          <td class="mono">{{ data.lessons }}</td>
+          <td><span class="pill pill-green">{{ data.present }}</span></td>
+          <td><span class="pill pill-red">{{ data.absent }}</span></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:7px">
+              <div class="progress" style="width:55px"><div class="progress-bar {% if rate_m>=80 %}pb-green{% elif rate_m>=60 %}pb-yellow{% else %}pb-red{% endif %}" style="width:{{ rate_m }}%"></div></div>
+              <span style="font-size:.78rem;color:var(--text2)">{{ rate_m }}%</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Students -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Students</span>
+    <div class="flex gap-2">
+      <span style="font-size:.78rem;color:var(--text3)">{{ students_active|length }} active{% if students_alumni %}, {{ students_alumni|length }} alumni{% endif %}</span>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Level</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for s in students_active %}
+        <tr>
+          <td><a href="/students/{{ s.id }}" style="color:var(--accent);text-decoration:none;font-weight:500">{{ s.name }}</a></td>
+          <td>{% if s.level %}<span class="level-badge">{{ s.level }}</span>{% else %}—{% endif %}</td>
+          <td><span class="pill pill-green">Active</span></td>
+          <td>
+            <button class="btn btn-ghost btn-xs" onclick="openModal('transfer{{ s.id }}')">Transfer</button>
+          </td>
+        </tr>
+        {% endfor %}
+        {% for s in students_alumni %}
+        <tr style="opacity:.6">
+          <td><a href="/students/{{ s.id }}" style="color:var(--text3);text-decoration:none">{{ s.name }}</a></td>
+          <td>{% if s.level %}<span class="level-badge">{{ s.level }}</span>{% endif %}</td>
+          <td><span class="pill pill-grey">Alumni</span></td>
+          <td>—</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Transfer modals -->
+{% for s in students_active %}
+<div class="modal-overlay" id="transfer{{ s.id }}" onclick="if(event.target===this)closeModal('transfer{{ s.id }}')">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Transfer {{ s.name }}</span><button class="modal-close" onclick="closeModal('transfer{{ s.id }}')">✕</button></div>
+    <div class="modal-body">
+      <form method="post" action="/groups/{{ group.id }}/transfer-student">
+        <input type="hidden" name="student_id" value="{{ s.id }}">
+        <div class="form-group">
+          <label class="form-label">Move to Group</label>
+          <select class="form-control" name="new_group_id" required>
+            {% for g in all_groups if g.id != group.id %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('transfer{{ s.id }}')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Transfer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% block scripts %}
+<script>
+const cycle = ['Present','Absent','Excused'];
+const styles = {
+  'Present': 'background:var(--green-bg);color:var(--green);font-weight:700',
+  'Absent':  'background:var(--red-bg);color:var(--red);font-weight:700',
+  'Excused': 'background:var(--yellow-bg);color:var(--yellow);font-weight:700',
+  '':        'background:var(--bg3);color:var(--text3)'
+};
+const labels = {'Present':'P','Absent':'A','Excused':'E','':'·'};
+const cur_status = {};
+
+function cycleCell(td, lessonId, studentId) {
+  const key = `${lessonId}-${studentId}`;
+  const current = cur_status[key] || td.textContent.trim();
+  const mapped = current==='P'?'Present':current==='A'?'Absent':current==='E'?'Excused':'';
+  const idx = cycle.indexOf(mapped);
+  const next = cycle[(idx+1)%cycle.length];
+  cur_status[key] = next;
+  td.textContent = labels[next];
+  td.style.cssText = `text-align:center;border-bottom:1px solid var(--border);border-left:1px solid var(--border);font-size:.78rem;cursor:pointer;${styles[next]}`;
+  fetch('/attendance/update', {
+    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:`lesson_id=${lessonId}&student_id=${studentId}&status=${next}`
+  });
+}
+</script>
+{% endblock %}
+{% endblock %}

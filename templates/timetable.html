@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Timetable{% endblock %}
+{% block page_title %}Timetable{% endblock %}
+
+{% block topbar_actions %}
+<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+  {% if view == 'daily' %}{% set export_url = '/timetable-export/?view=daily&d=' + view_date.isoformat() + '&show=' + show %}
+  {% elif view == 'weekly' %}{% set export_url = '/timetable-export/?view=weekly&week=' + week_start.isoformat() + '&show=' + show %}
+  {% else %}{% set export_url = '/timetable-export/?view=monthly&month=' + month_str + '&show=' + show %}{% endif %}
+  <a href="{{ export_url }}" target="_blank" class="btn btn-primary btn-sm">🖨 Export</a>
+  <!-- View switcher -->
+  <div style="display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+    {% set base_d = '/timetable/?show=' + show + ('&d=' + view_date.isoformat() if view == 'daily' else '') %}
+    {% set base_w = '/timetable/weekly?show=' + show + ('&week=' + week_start.isoformat() if view == 'weekly' else '') %}
+    {% set base_m = '/timetable/monthly?show=' + show + ('&month=' + month_str if view == 'monthly' else '') %}
+    <a href="/timetable/?show={{ show }}" class="btn btn-xs {% if view=='daily' %}btn-primary{% else %}btn-ghost{% endif %}" style="border-radius:0;border:none">Day</a>
+    <a href="/timetable/weekly?show={{ show }}" class="btn btn-xs {% if view=='weekly' %}btn-primary{% else %}btn-ghost{% endif %}" style="border-radius:0;border:none;border-left:1px solid var(--border)">Week</a>
+    <a href="/timetable/monthly?show={{ show }}" class="btn btn-xs {% if view=='monthly' %}btn-primary{% else %}btn-ghost{% endif %}" style="border-radius:0;border:none;border-left:1px solid var(--border)">Month</a>
+  </div>
+
+  <!-- Filter buttons -->
+  <div style="display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+    {% if view == 'daily' %}{% set vp = '?d=' + view_date.isoformat() %}
+    {% elif view == 'weekly' %}{% set vp = '/weekly?week=' + week_start.isoformat() %}
+    {% elif view == 'monthly' %}{% set vp = '/monthly?month=' + month_str %}
+    {% else %}{% set vp = '?' %}{% endif %}
+    <a href="/timetable{{ vp }}&show=all" class="btn btn-xs {% if show=='all' %}btn-primary{% else %}btn-ghost{% endif %}" style="border-radius:0;border:none">All</a>
+    <a href="/timetable{{ vp }}&show=active" class="btn btn-xs {% if show=='active' %}btn-primary{% else %}btn-ghost{% endif %}" style="border-radius:0;border:none;border-left:1px solid var(--border)">Active</a>
+    <a href="/timetable{{ vp }}&show=archived" class="btn btn-xs {% if show=='archived' %}btn-primary{% else %}btn-ghost{% endif %}" style="border-radius:0;border:none;border-left:1px solid var(--border)">Archived</a>
+  </div>
+
+  <!-- Navigation -->
+  {% if view == 'daily' %}
+  <a href="/timetable/?d={{ prev_date }}&show={{ show }}" class="btn btn-ghost btn-xs">←</a>
+  <input type="date" value="{{ view_date.isoformat() }}" onchange="window.location='/timetable/?d='+this.value+'&show={{ show }}'" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:4px 8px;font-size:.78rem;cursor:pointer;font-family:var(--font-b)">
+  <a href="/timetable/?d={{ next_date }}&show={{ show }}" class="btn btn-ghost btn-xs">→</a>
+  <a href="/timetable/?show={{ show }}" class="btn btn-ghost btn-xs">Today</a>
+  {% elif view == 'weekly' %}
+  <a href="/timetable/weekly?week={{ prev_week }}&show={{ show }}" class="btn btn-ghost btn-xs">←</a>
+  <span class="badge">{{ week_start.strftime('%d %b') }} – {{ week_end.strftime('%d %b %Y') }}</span>
+  <a href="/timetable/weekly?week={{ next_week }}&show={{ show }}" class="btn btn-ghost btn-xs">→</a>
+  <a href="/timetable/weekly?show={{ show }}" class="btn btn-ghost btn-xs">This Week</a>
+  {% elif view == 'monthly' %}
+  <a href="/timetable/monthly?month={{ prev_month }}&show={{ show }}" class="btn btn-ghost btn-xs">←</a>
+  <input type="month" value="{{ month_str }}" onchange="window.location='/timetable/monthly?month='+this.value+'&show={{ show }}'" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:4px 8px;font-size:.78rem;cursor:pointer;font-family:var(--font-b)">
+  <a href="/timetable/monthly?month={{ next_month }}&show={{ show }}" class="btn btn-ghost btn-xs">→</a>
+  <a href="/timetable/monthly?show={{ show }}" class="btn btn-ghost btn-xs">This Month</a>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+.lb { background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px;overflow:hidden;transition:border-color .2s }
+.lb.is-today { border-color:var(--accent2) }
+.lb.is-future { opacity:.8 }
+.lb-hdr { padding:12px 16px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap }
+.lb-body { padding:12px 16px }
+.att-row { display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border) }
+.att-row:last-child { border-bottom:none }
+.ab { padding:5px 12px;border-radius:20px;font-size:.72rem;font-weight:600;cursor:pointer;border:1px solid transparent;transition:all .15s;font-family:var(--font-b);background:var(--bg3);color:var(--text3) }
+.ab.ap { background:var(--green);color:#000 }
+.ab.aa { background:var(--red);color:#fff }
+.ab.ae { background:var(--yellow);color:#000 }
+.ab.ac { background:var(--grey);color:#fff }
+/* Weekly */
+.wg { display:grid;grid-template-columns:60px repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden }
+.wh { background:var(--bg3);padding:9px 4px;text-align:center;font-size:.7rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3) }
+.wh.today { background:var(--accent-glow);color:var(--accent) }
+.wt { background:var(--bg3);padding:8px 2px;text-align:center;font-family:var(--font-m);font-size:.68rem;color:var(--text3);display:flex;align-items:center;justify-content:center }
+.wc { background:var(--bg2);padding:4px;min-height:56px }
+.wc.today { background:rgba(76,110,245,.04) }
+.wc.past { background:var(--bg) }
+.wl { display:block;padding:4px 6px;border-radius:4px;font-size:.68rem;font-weight:500;text-decoration:none;margin-bottom:2px }
+/* Monthly */
+.cg { display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden }
+.cdh { background:var(--bg3);padding:7px 4px;text-align:center;font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3) }
+.cd { background:var(--bg2);min-height:80px;padding:5px;cursor:pointer }
+.cd:hover { background:var(--bg3) }
+.cd.other { background:var(--bg);opacity:.5 }
+.cd.today { background:var(--accent-glow) }
+.cn { font-size:.72rem;color:var(--text3);font-family:var(--font-m);margin-bottom:3px }
+.cn.tn { color:var(--accent);font-weight:700 }
+.cdot { display:block;padding:2px 5px;border-radius:3px;font-size:.62rem;font-weight:500;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none }
+/* empty */
+.empty { display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;color:var(--text3);text-align:center;background:var(--bg2);border-radius:var(--radius) }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ══ DAILY ══════════════════════════════════════════════════════════════════ #}
+{% if view == 'daily' %}
+{% if day_data %}
+{% for item in day_data %}
+{% set l = item.lesson %}
+{% set ds = item.display_status %}
+<div class="lb {% if item.is_today %}is-today{% elif item.is_future %}is-future{% endif %}">
+  <div class="lb-hdr">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="dot" style="background:{{ l.group.color }};width:11px;height:11px"></span>
+      <strong style="color:var(--text)">{{ l.group.name }}</strong>
+      {% if l.group.status == 'archived' %}<span class="pill pill-grey" style="font-size:.6rem">Archived</span>{% endif %}
+      {% if l.time %}<span style="font-family:var(--font-m);font-size:.82rem;color:var(--accent)">{{ l.time }}</span>{% endif %}
+      {% if l.topic %}<span style="color:var(--text3);font-size:.8rem">· {{ l.topic }}</span>{% endif %}
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      {% if ds=='Held' %}<span class="pill status-held">✓ Held</span>
+      {% elif ds=='Today' %}<span class="pill status-today">● Today</span>
+      {% elif ds=='Upcoming' %}<span class="pill status-upcoming">◌ Upcoming</span>
+      {% elif ds=='Cancelled' %}<span class="pill status-cancelled">✕ Cancelled</span>
+      {% elif ds=='Holiday' %}<span class="pill status-holiday">🏖 Holiday</span>
+      {% else %}<span class="pill" style="background:var(--bg4);color:var(--text3)">— Not held yet</span>{% endif %}
+
+      {% if not item.is_future %}
+      <select onchange="changeStatus({{ l.id }}, this.value, '{{ request.url }}')"
+              style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:5px;padding:4px 7px;font-size:.72rem;font-family:var(--font-b);cursor:pointer">
+        <option value="Held" {% if l.status=='Held' %}selected{% endif %}>Held</option>
+        <option value="Cancelled" {% if l.status=='Cancelled' %}selected{% endif %}>Cancelled</option>
+        <option value="Rescheduled" {% if l.status=='Rescheduled' %}selected{% endif %}>Rescheduled</option>
+        <option value="Holiday" {% if l.status=='Holiday' %}selected{% endif %}>Holiday</option>
+      </select>
+      {% endif %}
+      {% if (item.is_today or item.is_past) and l.status=='Held' and item.students %}
+      <button class="btn btn-green btn-xs" onclick="markAll({{ l.id }},this)">✓ All Present</button>
+      {% endif %}
+    </div>
+  </div>
+  {% if item.students and l.status == 'Held' %}
+  <div class="lb-body">
+    {% for s in item.students %}
+    {% set a = item.att_map.get(s.id) %}
+    {% set cur = a.status if a else ('Present' if (item.is_past or item.is_today) else '') %}
+    <div class="att-row" id="att-{{ l.id }}-{{ s.id }}">
+      <span style="font-weight:500;color:var(--text)">{{ s.name }}{% if s.level %} <span class="level-badge" style="font-size:.6rem">{{ s.level }}</span>{% endif %}</span>
+      <div style="display:flex;gap:5px">
+        {% for st,lbl,cls in [('Present','P','ap'),('Absent','A','aa'),('Excused','E','ae'),('Cancelled','—','ac')] %}
+        <button class="ab {% if cur==st %}{{ cls }}{% endif %}" onclick="setAtt({{ l.id }},{{ s.id }},'{{ st }}',this)">{{ lbl }}</button>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% elif l.status == 'Cancelled' %}
+  <div class="lb-body" style="color:var(--text3);font-size:.85rem">Lesson cancelled</div>
+  {% elif l.status == 'Holiday' %}
+  <div class="lb-body" style="color:var(--yellow);font-size:.85rem">🏖 Public holiday</div>
+  {% elif item.is_future %}
+  <div class="lb-body" style="color:var(--text3);font-size:.85rem">Scheduled · {{ item.students|length }} student{{ 's' if item.students|length!=1 else '' }} expected</div>
+  {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<div class="empty">
+  <div style="font-size:2.5rem;margin-bottom:12px">📅</div>
+  <div style="font-size:1rem;color:var(--text2);margin-bottom:6px">No classes on {{ view_date.strftime('%A, %d %B %Y') }}</div>
+  <div style="font-size:.82rem">Use the arrows or date picker above to navigate</div>
+</div>
+{% endif %}
+
+{# ══ WEEKLY ══════════════════════════════════════════════════════════════════ #}
+{% elif view == 'weekly' %}
+<div style="overflow-x:auto">
+  <div class="wg">
+    <div class="wh">Time</div>
+    {% for day in week_days %}
+    <div class="wh {% if day.is_today %}today{% endif %}">
+      <a href="/timetable/?d={{ day.date.isoformat() }}&show={{ show }}" style="color:inherit;text-decoration:none">
+        {{ day.name }}<br><span style="font-size:.75rem;font-weight:400">{{ day.date.strftime('%d %b') }}</span>
+      </a>
+    </div>
+    {% endfor %}
+    {% for slot in time_slots %}
+    <div class="wt">{{ slot }}</div>
+    {% for day in week_days %}
+    <div class="wc {% if day.is_today %}today{% elif day.is_past %}past{% endif %}">
+      {% for l in day.lessons_by_time.get(slot, []) %}
+      <a href="/timetable/?d={{ day.date.isoformat() }}&show={{ show }}" class="wl"
+         style="background:{{ l.group.color }}18;color:{{ l.group.color }};border:1px solid {{ l.group.color }}44">
+        {{ l.group.name }}<br>
+        <span style="font-size:.58rem;opacity:.8">
+          {% if l.date > today %}◌{% elif l.status=='Held' %}✓{% elif l.status=='Cancelled' %}✕{% else %}—{% endif %}
+          {{ l.status if l.date <= today else 'Upcoming' }}
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    {% endfor %}
+  </div>
+</div>
+
+{# ══ MONTHLY ══════════════════════════════════════════════════════════════════ #}
+{% elif view == 'monthly' %}
+{% if groups %}
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+  {% for g in groups %}
+  <span style="display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--text2)">
+    <span class="dot" style="background:{{ g.color }}{% if g.status=='archived' %};opacity:.5{% endif %}"></span>
+    {{ g.name }}{% if g.status=='archived' %} <span style="font-size:.6rem;color:var(--text3)">(archived)</span>{% endif %}
+  </span>
+  {% endfor %}
+</div>
+{% endif %}
+<div class="cg">
+  {% for dname in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+  <div class="cdh">{{ dname }}</div>
+  {% endfor %}
+  {% for week in weeks %}
+  {% for day in week %}
+  <div class="cd {% if not day.in_month %}other{% elif day.is_today %}today{% endif %}"
+       onclick="window.location='/timetable/?d={{ day.date.isoformat() }}&show={{ show }}'">
+    <div class="cn {% if day.is_today %}tn{% endif %}">{{ day.date.day }}</div>
+    {% if day.is_holiday %}<span style="font-size:.65rem;color:var(--yellow)">🏖</span>{% endif %}
+    {% for l in day.lessons %}
+    <span class="cdot" style="background:{{ l.group.color }}22;color:{{ l.group.color }}" title="{{ l.group.name }} {{ l.time }}">
+      {% if l.date > today %}◌{% elif l.status=='Held' %}✓{% elif l.status=='Cancelled' %}✕{% else %}—{% endif %}
+      {{ l.time or '' }} {{ l.group.name }}
+    </span>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+
+
+
+{% block scripts %}
+<script>
+const today = "{{ today.isoformat() }}";
+function setAtt(lid,sid,status,btn){
+  const row=document.getElementById(`att-${lid}-${sid}`);
+  if(!row)return;
+  row.querySelectorAll('.ab').forEach(b=>b.className='ab');
+  const cls=status==='Present'?'ap':status==='Absent'?'aa':status==='Excused'?'ae':'ac';
+  btn.classList.add(cls);
+  fetch('/timetable/attendance/quick',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({lesson_id:lid,student_id:sid,status})});
+}
+function markAll(lid,btn){
+  document.querySelectorAll(`[id^="att-${lid}-"]`).forEach(row=>{
+    row.querySelectorAll('.ab').forEach(b=>b.className='ab');
+    row.querySelector('.ab')?.classList.add('ap');
+  });
+  fetch(`/timetable/mark-all/${lid}`,{method:'POST'});
+  btn.textContent='✓ Done!';
+}
+function changeStatus(lid,status,redirectTo){
+  const f=document.createElement('form');
+  f.method='POST';f.action=`/timetable/lesson/${lid}/status`;
+  [['status',status],['redirect_to',redirectTo]].forEach(([n,v])=>{
+    const i=document.createElement('input');i.type='hidden';i.name=n;i.value=v;f.appendChild(i);
+  });
+  document.body.appendChild(f);f.submit();
+}
+</script>
+{% endblock %}

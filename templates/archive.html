@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Archive{% endblock %}
+{% block page_title %}Archive{% endblock %}
+
+{% block extra_styles %}
+<style>
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px}
+.tab-btn{padding:10px 20px;font-size:.82rem;font-weight:500;cursor:pointer;background:none;border:none;color:var(--text3);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b);white-space:nowrap;text-decoration:none}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.on{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-panel{display:none}.tab-panel.on{display:block}
+.arc-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;opacity:.85}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tab-bar">
+  <a class="tab-btn on" href="#" onclick="switchTab('groups',this);return false">
+    🗂 Groups <span class="pill pill-grey" style="margin-left:5px">{{ archived_groups|length }}</span>
+  </a>
+  <a class="tab-btn" href="#" onclick="switchTab('students',this);return false">
+    👤 Students <span class="pill pill-grey" style="margin-left:5px">{{ archived_students|length }}</span>
+  </a>
+</div>
+
+<!-- Archived Groups -->
+<div id="tab-groups" class="tab-panel on">
+  {% for g in archived_groups %}
+  <div class="arc-card">
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span class="dot" style="background:{{ g.color }};opacity:.6"></span>
+        <span style="font-weight:600;color:var(--text2)">{{ g.name }}</span>
+        <span class="pill pill-grey" style="font-size:.62rem">{{ g.group_type }}</span>
+      </div>
+      <div style="font-size:.75rem;color:var(--text3)">
+        Archived: {{ g.archived_date or '—' }}
+        &nbsp;·&nbsp; {{ g.schedule or 'No schedule' }}
+        &nbsp;·&nbsp; {{ "{:,.0f}".format(g.price_monthly|int) }} UZS/month
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <a href="/groups/{{ g.id }}" class="btn btn-ghost btn-sm">View History</a>
+      <form method="post" action="/archive/group/{{ g.id }}/restore" style="display:inline">
+        <button class="btn btn-green btn-sm" onclick="return confirm('Restore {{ g.name }}?')">↑ Restore</button>
+      </form>
+    </div>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:40px;color:var(--text3)">No archived groups</div>
+  {% endfor %}
+</div>
+
+<!-- Archived Students -->
+<div id="tab-students" class="tab-panel">
+  {% for s in archived_students %}
+  <div class="arc-card">
+    <div>
+      <div style="font-weight:600;color:var(--text2);margin-bottom:4px">
+        {{ s.name }}
+        {% if s.level %}<span class="level-badge" style="font-size:.62rem">{{ s.level }}</span>{% endif %}
+      </div>
+      <div style="font-size:.75rem;color:var(--text3)">
+        {% if s.group %}<span class="dot" style="background:{{ s.group.color }};margin-right:4px"></span>{{ s.group.name }} &nbsp;·&nbsp;{% endif %}
+        Left: {{ s.end_date or '—' }}
+        {% if s.stop_reason %}&nbsp;·&nbsp; {{ s.stop_reason }}{% endif %}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <a href="/students/{{ s.id }}" class="btn btn-ghost btn-sm">View</a>
+      <form method="post" action="/archive/student/{{ s.id }}/restore" style="display:inline">
+        <button class="btn btn-green btn-sm" onclick="return confirm('Restore {{ s.name }}?')">↑ Restore</button>
+      </form>
+    </div>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:40px;color:var(--text3)">No archived students</div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('tab-'+name).classList.add('on');
+}
+</script>
+{% endblock %}

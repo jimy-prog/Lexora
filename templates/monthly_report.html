@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monthly Report — {{ month_start.strftime('%B %Y') }}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#f8f9fa;color:#1a1a2e;font-size:13px}
+.page{max-width:900px;margin:0 auto;padding:24px}
+/* Header */
+.report-header{background:linear-gradient(135deg,#1a1a2e 0%,#2d3561 100%);color:#fff;border-radius:12px;padding:28px 32px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start}
+.report-title{font-family:'DM Serif Display',serif;font-size:1.6rem;margin-bottom:4px}
+.report-sub{font-size:.75rem;opacity:.6;letter-spacing:.1em;text-transform:uppercase}
+.report-meta{text-align:right;font-size:.78rem;opacity:.8}
+/* Summary bar */
+.summary-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.sum-box{background:#fff;border-radius:8px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.sum-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:4px}
+.sum-val{font-family:'DM Serif Display',serif;font-size:1.5rem;line-height:1}
+.green{color:#2f9e44}.blue{color:#1864ab}.orange{color:#e67700}.dark{color:#1a1a2e}
+/* Group section */
+.group-section{background:#fff;border-radius:10px;padding:20px 24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);page-break-inside:avoid}
+.group-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid}
+.group-name{font-family:'DM Serif Display',serif;font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.group-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.group-stats{display:flex;gap:16px;font-size:.78rem}
+.gstat{text-align:center}
+.gstat-val{font-weight:700;font-size:.95rem}
+.gstat-lbl{color:#888;font-size:.65rem;text-transform:uppercase;letter-spacing:.06em}
+/* Attendance table */
+.att-table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:.82rem}
+.att-table th{background:#f1f3f5;padding:6px 10px;text-align:left;font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;color:#666;border-bottom:1px solid #dee2e6}
+.att-table td{padding:7px 10px;border-bottom:1px solid #f1f3f5}
+.att-table tr:last-child td{border-bottom:none}
+.bar{height:5px;background:#e9ecef;border-radius:3px;overflow:hidden;margin-top:3px}
+.bar-fill{height:100%;border-radius:3px}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:.7rem;font-weight:600}
+.p-green{background:#ebfbee;color:#2f9e44}
+.p-red{background:#fff5f5;color:#e03131}
+.p-yellow{background:#fff9db;color:#e67700}
+.p-blue{background:#e7f5ff;color:#1864ab}
+/* Performance mini */
+.perf-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.perf-chip{display:flex;align-items:center;gap:4px;padding:3px 10px;background:#f8f9fa;border-radius:20px;font-size:.72rem;border:1px solid #dee2e6}
+/* Finance box */
+.finance-box{background:#f8f9fa;border-radius:8px;padding:12px 16px;margin-top:12px;font-size:.82rem}
+.finance-formula{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#666;margin-bottom:6px}
+.finance-total{font-size:1.1rem;font-weight:700;color:#2f9e44}
+/* Footer */
+.report-footer{text-align:center;font-size:.7rem;color:#aaa;margin-top:20px;padding-top:12px;border-top:1px solid #eee}
+/* Print button */
+.print-btn{position:fixed;bottom:20px;right:20px;background:#1a1a2e;color:#fff;border:none;padding:12px 22px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;cursor:pointer;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;align-items:center;gap:8px}
+.month-picker{position:fixed;bottom:20px;left:20px;display:flex;gap:8px;align-items:center}
+.month-picker input{padding:8px 12px;border-radius:8px;border:1px solid #dee2e6;font-family:'DM Sans',sans-serif;font-size:.85rem}
+.month-picker button{background:#1864ab;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-family:'DM Sans',sans-serif;cursor:pointer}
+@media print{
+  body{background:#fff;padding:0}
+  .page{padding:12px;max-width:100%}
+  .print-btn,.month-picker{display:none}
+  .group-section{box-shadow:none;border:1px solid #eee}
+  .report-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- Header -->
+<div class="report-header">
+  <div>
+    <div class="report-title">Monthly Report</div>
+    <div class="report-sub">{{ month_start.strftime('%B %Y') }}</div>
+    <div style="margin-top:12px;font-size:.82rem;opacity:.8">Language Vision English Centre</div>
+  </div>
+  <div class="report-meta">
+    Generated {{ generated }}<br>
+    <strong style="font-size:1.1rem">{{ report_data|length }} group{{ 's' if report_data|length!=1 else '' }}</strong>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="summary-bar">
+  <div class="sum-box">
+    <div class="sum-label">Total Income</div>
+    <div class="sum-val green">{{ "{:,.0f}".format(total_income) }}</div>
+    <div style="font-size:.7rem;color:#888;margin-top:2px">UZS</div>
+  </div>
+  <div class="sum-box">
+    <div class="sum-label">Groups Active</div>
+    <div class="sum-val blue">{{ report_data|length }}</div>
+  </div>
+  <div class="sum-box">
+    <div class="sum-label">Total Lessons</div>
+    <div class="sum-val dark">{{ report_data|sum(attribute='held') }}</div>
+  </div>
+  <div class="sum-box">
+    <div class="sum-label">Countable</div>
+    <div class="sum-val orange">{{ report_data|sum(attribute='total_countable') }}</div>
+  </div>
+</div>
+
+<!-- Per group -->
+{% for r in report_data %}
+<div class="group-section">
+  <div class="group-header" style="border-color:{{ r.group.color }}">
+    <div class="group-name">
+      <span class="group-dot" style="background:{{ r.group.color }}"></span>
+      {{ r.group.name }}
+      {% if r.group.status == 'archived' %}<span class="pill p-yellow">Archived</span>{% endif %}
+    </div>
+    <div class="group-stats">
+      <div class="gstat"><div class="gstat-val">{{ r.held }}</div><div class="gstat-lbl">Held</div></div>
+      <div class="gstat"><div class="gstat-val">{{ r.cancelled }}</div><div class="gstat-lbl">Cancelled</div></div>
+      <div class="gstat"><div class="gstat-val">{{ r.total_countable }}</div><div class="gstat-lbl">Countable</div></div>
+      <div class="gstat"><div class="gstat-val green">{{ "{:,.0f}".format(r.income) }}</div><div class="gstat-lbl">UZS</div></div>
+    </div>
+  </div>
+
+  <!-- Student attendance -->
+  {% if r.student_data %}
+  <table class="att-table">
+    <thead><tr><th>Student</th><th>Present</th><th>Absent</th><th>Excused</th><th>Total</th><th>Rate</th></tr></thead>
+    <tbody>
+      {% for sd in r.student_data %}
+      <tr>
+        <td style="font-weight:500">{{ sd.student.name }}</td>
+        <td><span class="pill p-green">{{ sd.present }}</span></td>
+        <td><span class="pill p-red">{{ sd.absent }}</span></td>
+        <td><span class="pill p-yellow">{{ sd.excused }}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:.75rem">{{ sd.total }}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="bar" style="width:50px"><div class="bar-fill" style="width:{{ sd.rate }}%;background:{% if sd.rate>=80 %}#2f9e44{% elif sd.rate>=60 %}#e67700{% else %}#e03131{% endif %}"></div></div>
+            <span style="font-size:.75rem;font-weight:600;color:{% if sd.rate>=80 %}#2f9e44{% elif sd.rate>=60 %}#e67700{% else %}#e03131{% endif %}">{{ sd.rate }}%</span>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <!-- Performance -->
+  {% if r.perf_data %}
+  <div style="margin-bottom:10px">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:6px">Performance (G=Grammar · A=Activity · V=Vocab)</div>
+    <div class="perf-row">
+      {% for pd in r.perf_data %}
+      <div class="perf-chip">
+        <strong>{{ pd.student.name.split()[0] }}</strong>
+        {% for wp in pd.weeks %}
+        W{{ wp.week_num }}:{% if wp.grammar==1 %}🔴{% elif wp.grammar==2 %}🟡{% elif wp.grammar==3 %}🟢{% else %}—{% endif %}{% if wp.activity==1 %}🔴{% elif wp.activity==2 %}🟡{% elif wp.activity==3 %}🟢{% else %}—{% endif %}{% if wp.vocabulary==1 %}🔴{% elif wp.vocabulary==2 %}🟡{% elif wp.vocabulary==3 %}🟢{% else %}—{% endif %}
+        {% endfor %}
+        {% if pd.avg %}<span style="font-weight:700;color:{% if pd.avg>=2.5 %}#2f9e44{% elif pd.avg>=1.8 %}#e67700{% else %}#e03131{% endif %}">{{ pd.avg }}</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Finance -->
+  <div class="finance-box">
+    <div class="finance-formula">
+      {{ r.finance_formula }}
+    </div>
+    <div class="finance-total">= {{ "{:,.0f}".format(r.income) }} UZS teacher income</div>
+  </div>
+</div>
+{% endfor %}
+
+{% if not report_data %}
+<div style="text-align:center;padding:48px;color:#888;background:#fff;border-radius:10px">
+  No lessons found for {{ month_start.strftime('%B %Y') }}
+</div>
+{% endif %}
+
+<div class="report-footer">
+  Language Vision English Centre · {{ month_start.strftime('%B %Y') }} · Prepared by teacher
+</div>
+
+</div><!-- /page -->
+
+<button class="print-btn" onclick="window.print()">🖨 Print / Save PDF</button>
+<div class="month-picker">
+  <input type="month" id="mp" value="{{ month_start.strftime('%Y-%m') }}">
+  <button onclick="window.location='/monthly-report/?month='+document.getElementById('mp').value">Load</button>
+</div>
+</body>
+</html>

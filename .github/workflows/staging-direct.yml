@@ -1,0 +1,49 @@
+name: Staging Deploy Direct
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-staging-direct:
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${{ secrets.SERVER_PORT }}" -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync project to staging server
+        run: |
+          rsync -az --delete \
+            --exclude ".git" \
+            --exclude "__pycache__" \
+            --exclude "*.pyc" \
+            --exclude ".DS_Store" \
+            --exclude "teacher_admin.db" \
+            --exclude "lexora.db" \
+            --exclude "backups" \
+            --exclude "uploads" \
+            ./ "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/"
+
+      - name: Write staging env and deploy directly by server IP
+        run: |
+          ssh -p "${{ secrets.SERVER_PORT }}" "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << EOF
+          set -eu
+          mkdir -p "${{ secrets.SERVER_PATH }}/cloudflare_deploy"
+          cat > "${{ secrets.SERVER_PATH }}/cloudflare_deploy/.env" << EOT
+          SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }}
+          DEFAULT_ADMIN_PASSWORD=${{ secrets.DEFAULT_ADMIN_PASSWORD }}
+          EOT
+          cd "${{ secrets.SERVER_PATH }}/cloudflare_deploy"
+          docker compose -f docker-compose.direct.yml up -d --build
+          EOF

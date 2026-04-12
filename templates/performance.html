@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block title %}Performance{% endblock %}
+{% block page_title %}Student Performance{% endblock %}
+{% block topbar_actions %}
+<div style="display:flex;gap:8px;align-items:center">
+  <select class="form-control" style="width:160px;padding:5px 10px" onchange="switchGroup(this.value)">
+    {% for g in groups %}<option value="{{ g.id }}" {% if sel_group and g.id==sel_group.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
+  </select>
+  <input class="form-control" type="month" value="{{ month_str }}" style="width:150px;padding:5px 10px" onchange="switchMonth(this.value)">
+</div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+.perf-wrap{overflow-x:auto}
+.pt{border-collapse:collapse;width:100%;font-size:.85rem;min-width:600px}
+.pt th,.pt td{border:1px solid var(--border);padding:0}
+.pth{background:var(--bg3);padding:9px 12px;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:left}
+.pwh{background:var(--accent-glow);padding:7px 4px;text-align:center;color:var(--accent);font-size:.68rem;font-weight:600;text-transform:uppercase}
+.psh{background:var(--bg4);padding:5px 3px;text-align:center;font-size:.62rem;color:var(--text3);text-transform:uppercase;font-weight:500}
+.pn{padding:9px 12px;font-weight:500;color:var(--text);white-space:nowrap;background:var(--bg2)}
+.ps{padding:4px 2px;text-align:center;background:var(--bg2)}
+.pa{padding:7px;text-align:center;font-family:var(--font-m);font-size:.78rem;font-weight:700;background:var(--bg3)}
+.sd{width:32px;height:32px;border-radius:50%;border:2px solid transparent;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;margin:0 auto;transition:all .15s;background:var(--bg3)}
+.sd:hover{transform:scale(1.18)}
+.sd.s1{background:var(--red-bg);border-color:var(--red)}
+.sd.s2{background:var(--yellow-bg);border-color:var(--yellow)}
+.sd.s3{background:var(--green-bg);border-color:var(--green)}
+/* Charts */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.chart-title{font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:12px}
+/* Heatmap */
+.heatmap{display:grid;gap:3px}
+.hm-row{display:flex;align-items:center;gap:3px}
+.hm-label{font-size:.7rem;color:var(--text3);width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.hm-cell{flex:1;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:600}
+/* Leaderboard */
+.lb-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.lb-row:last-child{border-bottom:none}
+.lb-rank{font-family:var(--font-d);font-size:1.2rem;width:30px;text-align:center;flex-shrink:0}
+.lb-bar{flex:1;height:8px;background:var(--bg4);border-radius:4px;overflow:hidden}
+.lb-fill{height:100%;border-radius:4px}
+</style>
+{% endblock %}
+
+{% block content %}
+{% if sel_group and data %}
+
+<!-- ── Charts ──────────────────────────────────────────────────────────── -->
+<div class="charts-grid mb-4">
+
+  <!-- Group comparison bar chart -->
+  <div class="chart-card">
+    <div class="chart-title">Group Comparison — {{ month_str }}</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:110px;padding-bottom:4px">
+      {% for row in data %}
+        {% set sc = [] %}
+        {% for wp in row.weeks.values() %}
+          {% for v in [wp.grammar,wp.activity,wp.vocabulary] if v %}{% set _=sc.append(v) %}{% endfor %}
+        {% endfor %}
+        {% set avg = (sc|sum/sc|length) if sc else 0 %}
+        {% set pct = (avg/3*100)|int %}
+        {% set col = 'var(--green)' if avg>=2.5 else 'var(--yellow)' if avg>=1.8 else 'var(--red)' %}
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <span style="font-size:.62rem;color:var(--text3)">{{ "%.1f"|format(avg) if avg else '—' }}</span>
+          <div style="width:100%;border-radius:3px 3px 0 0;min-height:3px;height:{{ pct }}%;background:{{ col }};opacity:.85;transition:height .4s"></div>
+          <span style="font-size:.6rem;color:var(--text3);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ row.student.name }}">{{ row.student.name.split()[0] }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Radar — group skill balance -->
+  <div class="chart-card">
+    <div class="chart-title">Skill Balance — {{ sel_group.name }}</div>
+    {% set gG=namespace(s=[]) %}{% set gA=namespace(s=[]) %}{% set gV=namespace(s=[]) %}
+    {% for row in data %}{% for wp in row.weeks.values() %}
+      {% if wp.grammar %}{% set _=gG.s.append(wp.grammar) %}{% endif %}
+      {% if wp.activity %}{% set _=gA.s.append(wp.activity) %}{% endif %}
+      {% if wp.vocabulary %}{% set _=gV.s.append(wp.vocabulary) %}{% endif %}
+    {% endfor %}{% endfor %}
+    {% set gAvg=(gG.s|sum/gG.s|length) if gG.s else 0 %}
+    {% set aAvg=(gA.s|sum/gA.s|length) if gA.s else 0 %}
+    {% set vAvg=(gV.s|sum/gV.s|length) if gV.s else 0 %}
+    <div style="display:flex;justify-content:center">
+      <svg viewBox="0 0 200 175" width="200" height="175">
+        {% for i in [1,2,3] %}{% set r=i*42 %}
+        <polygon points="100,{{ 90-r }} {{ 100+r*0.866|round(1) }},{{ 90+r*0.5|round(1) }} {{ 100-r*0.866|round(1) }},{{ 90+r*0.5|round(1) }}" fill="none" stroke="var(--border)" stroke-width="1"/>
+        {% endfor %}
+        <line x1="100" y1="90" x2="100" y2="48" stroke="var(--border)" stroke-width="1"/>
+        <line x1="100" y1="90" x2="136" y2="111" stroke="var(--border)" stroke-width="1"/>
+        <line x1="100" y1="90" x2="64" y2="111" stroke="var(--border)" stroke-width="1"/>
+        {% set gr=gAvg/3*126 %}{% set ar=aAvg/3*126 %}{% set vr=vAvg/3*126 %}
+        <polygon points="{{ 100 }},{{ 90-gr|round(1) }} {{ (100+ar*0.866)|round(1) }},{{ (90+ar*0.5)|round(1) }} {{ (100-vr*0.866)|round(1) }},{{ (90+vr*0.5)|round(1) }}" fill="rgba(76,110,245,.15)" stroke="var(--accent2)" stroke-width="2"/>
+        <text x="100" y="40" text-anchor="middle" fill="var(--text2)" font-size="10">Grammar</text>
+        <text x="145" y="118" text-anchor="start" fill="var(--text2)" font-size="10">Activity</text>
+        <text x="55" y="118" text-anchor="end" fill="var(--text2)" font-size="10">Vocab</text>
+        <text x="100" y="60" text-anchor="middle" fill="var(--accent)" font-size="9" font-weight="600">{{ "%.1f"|format(gAvg) }}</text>
+        <text x="132" y="107" text-anchor="start" fill="var(--accent)" font-size="9" font-weight="600">{{ "%.1f"|format(aAvg) }}</text>
+        <text x="68" y="107" text-anchor="end" fill="var(--accent)" font-size="9" font-weight="600">{{ "%.1f"|format(vAvg) }}</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Heatmap — weekly performance -->
+  <div class="chart-card">
+    <div class="chart-title">Weekly Heatmap</div>
+    <div style="display:flex;gap:4px;margin-bottom:6px;padding-left:84px">
+      {% for w in weeks %}<div style="flex:1;text-align:center;font-size:.65rem;color:var(--text3)">Wk {{ w }}</div>{% endfor %}
+    </div>
+    <div class="heatmap">
+      {% for row in data %}
+      <div class="hm-row">
+        <div class="hm-label" title="{{ row.student.name }}">{{ row.student.name.split()[0] }}</div>
+        {% for w in weeks %}
+        {% set wp = row.weeks.get(w) %}
+        {% set sc = [] %}
+        {% if wp %}
+          {% for v in [wp.grammar,wp.activity,wp.vocabulary] if v %}{% set _=sc.append(v) %}{% endfor %}
+        {% endif %}
+        {% set avg = (sc|sum/sc|length) if sc else 0 %}
+        <div class="hm-cell"
+          style="background:{% if avg>=2.5 %}rgba(74,222,128,.25){% elif avg>=1.8 %}rgba(251,191,36,.25){% elif avg>0 %}rgba(248,113,113,.25){% else %}var(--bg4){% endif %};color:{% if avg>=2.5 %}var(--green){% elif avg>=1.8 %}var(--yellow){% elif avg>0 %}var(--red){% else %}var(--text3){% endif %}">
+          {{ "%.1f"|format(avg) if avg else '—' }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Leaderboard -->
+  <div class="chart-card">
+    <div class="chart-title">🏆 Top Performers — {{ month_str }}</div>
+    {% set lb = [] %}
+    {% for row in data %}
+      {% set sc=[] %}
+      {% for wp in row.weeks.values() %}
+        {% for v in [wp.grammar,wp.activity,wp.vocabulary] if v %}{% set _=sc.append(v) %}{% endfor %}
+      {% endfor %}
+      {% if sc %}{% set _=lb.append((row.student, sc|sum/sc|length)) %}{% endif %}
+    {% endfor %}
+    {% set lb = lb|sort(attribute='1',reverse=True) %}
+    {% for student, avg in lb %}
+    {% set rank = loop.index %}
+    <div class="lb-row">
+      <div class="lb-rank">{% if rank==1 %}🥇{% elif rank==2 %}🥈{% elif rank==3 %}🥉{% else %}<span style="font-size:.8rem;color:var(--text3)">{{ rank }}</span>{% endif %}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.82rem;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ student.name }}</div>
+        <div class="lb-bar mt-2" style="margin-top:4px">
+          <div class="lb-fill" style="width:{{ (avg/3*100)|int }}%;background:{% if avg>=2.5 %}var(--green){% elif avg>=1.8 %}var(--yellow){% else %}var(--red){% endif %};opacity:.8"></div>
+        </div>
+      </div>
+      <span style="font-family:var(--font-m);font-size:.82rem;font-weight:600;color:{% if avg>=2.5 %}var(--green){% elif avg>=1.8 %}var(--yellow){% else %}var(--red){% endif %};flex-shrink:0;margin-left:8px">{{ "%.1f"|format(avg) }}</span>
+    </div>
+    {% else %}
+    <div style="text-align:center;color:var(--text3);padding:20px;font-size:.85rem">No data for this month</div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ── Rating Table ────────────────────────────────────────────────────── -->
+<div class="card mb-4">
+  <div class="card-header">
+    <span class="card-title"><span class="dot" style="background:{{ sel_group.color }};margin-right:6px"></span>{{ sel_group.name }} — {{ month_str }}</span>
+    <span style="font-size:.72rem;color:var(--text3)">Click to rate · saves instantly</span>
+  </div>
+  <div class="perf-wrap">
+    <table class="pt">
+      <thead>
+        <tr>
+          <th class="pth" rowspan="2">Student</th>
+          {% for w in weeks %}<th class="pwh" colspan="3">Week {{ w }}</th>{% endfor %}
+          <th class="pth" rowspan="2" style="text-align:center;padding:0 8px">Avg</th>
+        </tr>
+        <tr>{% for w in weeks %}<th class="psh">G</th><th class="psh">A</th><th class="psh">V</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for row in data %}
+        {% set s=row.student %}
+        <tr data-sid="{{ s.id }}">
+          <td class="pn">
+            <a href="/students/{{ s.id }}" style="color:var(--text);text-decoration:none">{{ s.name }}</a>
+            {% if s.level %}<span class="level-badge" style="font-size:.58rem;margin-left:4px">{{ s.level }}</span>{% endif %}
+          </td>
+          {% set tot=namespace(s=0,c=0) %}
+          {% for w in weeks %}{% set wp=row.weeks.get(w) %}
+          {% for field,fattr in [('grammar','grammar'),('activity','activity'),('vocabulary','vocabulary')] %}
+          {% set val=wp.grammar if fattr=='grammar' and wp else wp.activity if fattr=='activity' and wp else wp.vocabulary if fattr=='vocabulary' and wp else none %}
+          <td class="ps">
+            <div class="sd {% if val==1 %}s1{% elif val==2 %}s2{% elif val==3 %}s3{% endif %}"
+                 data-val="{{ val or 0 }}" data-sid="{{ s.id }}" data-week="{{ w }}" data-field="{{ field }}"
+                 onclick="cycleScore(this,'{{ month_str }}')">
+              {% if val==1 %}🔴{% elif val==2 %}🟡{% elif val==3 %}🟢{% else %}<span style="color:var(--text3);font-size:.62rem">—</span>{% endif %}
+            </div>
+          </td>
+          {% if val and val>0 %}{% set tot.s=tot.s+val %}{% set tot.c=tot.c+1 %}{% endif %}
+          {% endfor %}{% endfor %}
+          <td class="pa">
+            {% if tot.c>0 %}{% set avg=tot.s/tot.c %}
+            <span style="color:{% if avg>=2.5 %}var(--green){% elif avg>=1.8 %}var(--yellow){% else %}var(--red){% endif %}">{{ "%.1f"|format(avg) }}</span>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<div class="alert alert-info" style="font-size:.78rem"><strong>G</strong>=Grammar · <strong>A</strong>=Activity · <strong>V</strong>=Vocabulary · 🔴 Needs Work · 🟡 Revise · 🟢 Good</div>
+
+<!-- Line chart section -->
+{% if data %}
+<div class="card mt-4">
+  <div class="card-header"><span class="card-title">Individual Score Trends (All Time)</span></div>
+  <div class="card-body">
+    <canvas id="trendChart" height="80"></canvas>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="card"><div class="card-body" style="text-align:center;padding:40px;color:var(--text3)">Select a group above to view performance.</div></div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+const emojis={0:'<span style="color:var(--text3);font-size:.62rem">—</span>',1:'🔴',2:'🟡',3:'🟢'};
+const cls={0:'',1:'s1',2:'s2',3:'s3'};
+function cycleScore(dot,month){
+  const cur=parseInt(dot.dataset.val)||0,next=(cur+1)%4;
+  dot.dataset.val=next; dot.innerHTML=emojis[next];
+  dot.className='sd '+cls[next];
+  fetch('/performance/quick-save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({student_id:parseInt(dot.dataset.sid),month,week:parseInt(dot.dataset.week),field:dot.dataset.field,value:next||null})});
+  updateAvg(dot);
+}
+function updateAvg(dot){
+  const row=dot.closest('tr');
+  let s=0,c=0;
+  row.querySelectorAll('.sd').forEach(d=>{const v=parseInt(d.dataset.val)||0;if(v>0){s+=v;c++;}});
+  const cell=row.querySelector('.pa');
+  if(!cell)return;
+  if(!c){cell.innerHTML='—';return;}
+  const avg=s/c,col=avg>=2.5?'var(--green)':avg>=1.8?'var(--yellow)':'var(--red)';
+  cell.innerHTML=`<span style="color:${col}">${avg.toFixed(1)}</span>`;
+}
+function switchGroup(gid){const m=document.querySelector('input[type=month]').value;window.location.href=`/performance/?group_id=${gid}&month=${m}`;}
+function switchMonth(m){const url=new URL(window.location.href);url.searchParams.set('month',m);window.location.href=url.toString();}
+
+// Trend line chart
+{% if data %}
+const trendData = {{ data | map(attribute='trend') | list | tojson }};
+const trendNames = {{ data | map(attribute='student') | map(attribute='name') | list | tojson }};
+const colors = ['#4c6ef5','#40c057','#f03e3e','#e67700','#ae3ec9','#7048e8','#1098ad','#f59f00'];
+
+if(trendData && document.getElementById('trendChart')) {
+  const allLabels = [...new Set(trendData.flat().map(p => `${p.month} W${p.week}`))].sort();
+  const datasets = trendData.map((trend, i) => ({
+    label: trendNames[i],
+    data: allLabels.map(lbl => {
+      const pt = trend.find(p => `${p.month} W${p.week}` === lbl);
+      return pt ? pt.avg : null;
+    }),
+    borderColor: colors[i % colors.length],
+    backgroundColor: colors[i % colors.length] + '22',
+    tension: 0.3, spanGaps: true, pointRadius: 4,
+    borderWidth: 2, fill: false
+  }));
+
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: { labels: allLabels, datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#9aa0b8', font: { size: 11 } } } },
+      scales: {
+        y: { min: 0, max: 3, ticks: { color: '#9aa0b8', stepSize: 1, callback: v => ['','🔴','🟡','🟢'][v]||v }, grid: { color: '#252a38' } },
+        x: { ticks: { color: '#9aa0b8', font: { size: 10 }, maxRotation: 45 }, grid: { color: '#252a38' } }
+      }
+    }
+  });
+}
+{% endif %}
+</script>
+{% endblock %}

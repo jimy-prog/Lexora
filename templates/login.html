@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Login — Lexora</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#0d0f14;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#13161d;border:1px solid #252a38;border-radius:16px;padding:40px 36px;width:100%;max-width:380px}
+.logo{font-family:'DM Serif Display',serif;font-size:1.8rem;color:#e8eaf0;text-align:center;margin-bottom:6px}
+.logo em{color:#7c9ef8;font-style:italic}
+.sub{text-align:center;font-size:.78rem;color:#555e7a;letter-spacing:.1em;text-transform:uppercase;margin-bottom:32px}
+.form-label{display:block;font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#555e7a;margin-bottom:6px}
+.form-control{width:100%;background:#1a1e28;border:1px solid #252a38;border-radius:8px;padding:12px 14px;font-family:'DM Sans',sans-serif;font-size:1rem;color:#e8eaf0;outline:none;transition:border-color .15s;-webkit-appearance:none}
+.form-control:focus{border-color:#4c6ef5}
+.form-group{margin-bottom:18px}
+.btn{width:100%;background:#4c6ef5;color:#fff;border:none;border-radius:8px;padding:13px;font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:600;cursor:pointer;transition:background .15s;margin-top:6px}
+.btn:hover{background:#3d5ce3}
+.btn:active{transform:scale(.98)}
+.error{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);color:#f87171;padding:10px 14px;border-radius:8px;font-size:.82rem;margin-bottom:16px;text-align:center}
+.hint{text-align:center;font-size:.72rem;color:#555e7a;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Lexora</div>
+  <div class="sub">English Learning Platform</div>
+  {% if error %}
+  <div class="error">{{ error }}</div>
+  {% endif %}
+  <form method="post" action="/login">
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input class="form-control" type="password" name="password" autofocus autocomplete="current-password" placeholder="Enter your password">
+    </div>
+    <button class="btn" type="submit">Sign In</button>
+  </form>
+  <div class="hint">Secure access to your Lexora workspace</div>
+</div>
+</body>
+</html>
