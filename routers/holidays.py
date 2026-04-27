@@ -4,7 +4,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy import Column, Integer, String, Date, Boolean, Text, DateTime
 from sqlalchemy.orm import Session
 from datetime import datetime, date
-from database import get_db, Base, engine
+from database import get_db, Base
 
 router = APIRouter(prefix="/holidays")
 templates = Jinja2Templates(directory="templates")
@@ -21,7 +21,7 @@ class Holiday(Base):
     notes       = Column(Text, default="")
     created_at  = Column(DateTime, default=datetime.utcnow)
 
-Base.metadata.create_all(bind=engine)
+
 
 UZ_HOLIDAYS_2025_2026 = [
     # 2025

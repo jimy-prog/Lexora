@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .results-bg {
+        background: radial-gradient(circle at 50% -20%, var(--bg3) 0%, var(--bg) 50%);
+        min-height: calc(100vh - 80px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .results-card {
+        background: var(--bg);
+        border-radius: 32px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--border);
+        padding: 60px 40px;
+        max-width: 600px;
+        width: 100%;
+        text-align: center;
+        position: relative;
+        z-index: 10;
+        animation: slideUpFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        opacity: 0;
+        transform: translateY(40px);
+    }
+    
+    .trophy-icon {
+        font-size: 5rem;
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 24px;
+        display: inline-block;
+        animation: scalePop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards;
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    
+    .title-anim {
+        animation: fadeIn 0.8s ease forwards 0.5s;
+        opacity: 0;
+    }
+    
+    .scores-container {
+        display: flex;
+        justify-content: center;
+        gap: 60px;
+        margin: 40px 0;
+        padding: 30px;
+        background: var(--bg2);
+        border-radius: 24px;
+        border: 1px solid var(--border);
+        animation: slideUpFade 0.8s ease forwards 0.7s;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    
+    .score-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .score-label {
+        font-size: 0.85rem;
+        color: var(--text2);
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+    
+    .score-val {
+        font-size: 4rem;
+        font-weight: 800;
+        line-height: 1;
+        background: linear-gradient(135deg, var(--accent) 0%, #4f46e5 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .band-val {
+        font-size: 4rem;
+        font-weight: 800;
+        line-height: 1;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .btn-anim {
+        animation: fadeIn 0.8s ease forwards 1s;
+        opacity: 0;
+        padding: 16px 40px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 100px;
+        background: var(--accent);
+        color: white;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4);
+    }
+    
+    .btn-anim:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 25px -5px rgba(79, 70, 229, 0.5);
+    }
+    
+    @keyframes slideUpFade {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes scalePop {
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+    
+    @keyframes fadeIn {
+        to {
+            opacity: 1;
+        }
+    }
+    
+    /* Confetti pieces */
+    .confetti {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background-color: #fbbf24;
+        animation: fall linear forwards;
+        z-index: 1;
+    }
+    @keyframes fall {
+        to {
+            transform: translateY(100vh) rotate(720deg);
+        }
+    }
+</style>
+
+<div class="results-bg">
+    <div class="results-card" id="card">
+        <i class="fa-solid fa-trophy trophy-icon"></i>
+        
+        <div class="title-anim">
+            <h1 style="font-size: 2.5rem; color: var(--text); margin-bottom: 12px; font-weight:800; letter-spacing:-1px;">Exam Completed!</h1>
+            <p style="color: var(--text2); font-size: 1.2rem;">{{ attempt.exam.title }}</p>
+        </div>
+        
+        <div class="scores-container">
+            <div class="score-block">
+                <div class="score-label">Raw Score</div>
+                <div class="score-val">{{ attempt.total_score }}<span style="font-size: 1.5rem; color: var(--text2); background:none; -webkit-text-fill-color:var(--text2);">/40</span></div>
+            </div>
+            <div style="width: 2px; background: var(--border);"></div>
+            <div class="score-block">
+                <div class="score-label">Overall Band</div>
+                <div class="band-val">{{ attempt.band_score }}</div>
+            </div>
+        </div>
+        
+        <a href="/mock/" class="btn-anim">Return to Dashboard</a>
+    </div>
+</div>
+
+<script>
+    // Confetti generator
+    function createConfetti() {
+        const colors = ['#ef4444', '#3b82f6', '#10b981', '#fbbf24', '#8b5cf6'];
+        for (let i = 0; i < 60; i++) {
+            setTimeout(() => {
+                const confetti = document.createElement('div');
+                confetti.classList.add('confetti');
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-10px';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                document.body.appendChild(confetti);
+                
+                // Cleanup
+                setTimeout(() => confetti.remove(), 5000);
+            }, i * 40);
+        }
+    }
+    
+    // Trigger confetti on load
+    window.addEventListener('load', createConfetti);
+</script>
+{% endblock %}

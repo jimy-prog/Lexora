@@ -13,7 +13,7 @@ import io
 import re
 from urllib.parse import quote, urlparse, parse_qs
 from urllib.request import urlopen, Request as UrlRequest
-from database import get_db, Base, Group, Student, engine, Settings
+from database import get_db, Base, Group, Student, Settings
 from student_history import log_student_event
 
 router = APIRouter(prefix="/waitlist")
@@ -39,7 +39,7 @@ class WaitlistEntry(Base):
     created_at         = Column(DateTime, default=datetime.utcnow)
     desired_group      = relationship("Group")
 
-Base.metadata.create_all(bind=engine)
+
 
 STATUS_LABELS = {
     "new":       ("New Enquiry",   "pill-orange"),

@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: lexora-platform
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.10.12"
+      - key: RENDER
+        value: "true"
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1

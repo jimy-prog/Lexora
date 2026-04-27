@@ -4,11 +4,17 @@
 
 {% block extra_styles %}
 <style>
-.stab-bar{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:28px;overflow-x:auto}
-.stab{display:inline-block;padding:12px 20px;font-size:.82rem;font-weight:500;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;text-decoration:none;transition:all .15s;font-family:var(--font-b);white-space:nowrap}
-.stab:hover{color:var(--text)}
-.stab.on{color:var(--accent);border-bottom-color:var(--accent)}
-.tp{display:none}.tp.on{display:block}
+.settings-container { display:flex; flex-direction: row; gap: 32px; align-items: flex-start; }
+.settings-nav { width: 240px; flex-shrink: 0; padding: 0px;}
+.settings-nav-header { font-size: .65rem; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; padding: 0 10px; }
+.nav-st { display:flex; align-items:center; gap: 10px; padding: 10px 14px; color: var(--text2); text-decoration: none; border-radius: 12px; font-size: .85rem; font-weight: 500; transition: all .2s cubic-bezier(0.16, 1, 0.3, 1); margin-bottom: 4px; }
+.nav-st:hover { background: var(--bg3); color: var(--text); }
+.nav-st.active { background: var(--accent); color: #fff; font-weight: 600; box-shadow: 0 4px 12px var(--accent-glow); }
+.settings-content { flex: 1; min-width: 0; }
+.tp { display: none; margin-bottom: 0px; }
+.tp.on { display: block; animation: fade-in 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes fade-in { 0% { opacity: 0; transform: translateY(6px); } 100% { opacity: 1; transform: translateY(0); } }
+@media(max-width: 768px) { .settings-container{ flex-direction: column; gap: 20px; } .settings-nav{ width: 100%; display: flex; flex-wrap: wrap; gap: 4px; padding: 0; } .nav-st{ padding: 8px 12px; margin-bottom: 0;} .settings-nav-header{ width: 100%; } }
 .prof-photo{width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid var(--accent)}
 .prof-nophoto{width:90px;height:90px;border-radius:50%;background:var(--bg4);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2rem;color:var(--text3)}
 .swatch{width:36px;height:36px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all .15s;position:relative;flex-shrink:0}
@@ -22,14 +28,18 @@
 
 {% block content %}
 
-<!-- Tab bar -->
-<div class="stab-bar">
-  <a class="stab {% if tab=='profile' or not tab %}on{% endif %}" href="/profile/?tab=profile">👤 Profile</a>
-  <a class="stab {% if tab=='appearance' %}on{% endif %}" href="/profile/?tab=appearance">🎨 Appearance</a>
-  <a class="stab {% if tab=='finance' %}on{% endif %}" href="/profile/?tab=finance">💰 Finance Rates</a>
-  <a class="stab {% if tab=='security' %}on{% endif %}" href="/profile/?tab=security">🔐 Security</a>
-  <a class="stab {% if tab=='system' %}on{% endif %}" href="/profile/?tab=system">🔧 System</a>
-</div>
+<!-- Split Layout -->
+<div class="settings-container">
+  <div class="settings-nav">
+    <div class="settings-nav-header">Preferences</div>
+    <a class="nav-st {% if tab=='profile' or not tab %}active{% endif %}" href="/profile/?tab=profile"><span class="icon">👤</span> General Profile</a>
+    <a class="nav-st {% if tab=='appearance' %}active{% endif %}" href="/profile/?tab=appearance"><span class="icon">🎨</span> Appearance</a>
+    <a class="nav-st {% if tab=='finance' %}active{% endif %}" href="/profile/?tab=finance"><span class="icon">💰</span> Billing & Rates</a>
+    <a class="nav-st {% if tab=='security' %}active{% endif %}" href="/profile/?tab=security"><span class="icon">🔐</span> Security</a>
+    <a class="nav-st {% if tab=='system' %}active{% endif %}" href="/profile/?tab=system"><span class="icon">🔧</span> System Admin</a>
+  </div>
+  
+  <div class="settings-content">
 
 <!-- ── PROFILE ─────────────────────────────────────────────────────────── -->
 <div class="tp {% if tab=='profile' or not tab %}on{% endif %}">
@@ -104,6 +114,7 @@
     <div class="card-body" style="display:flex;gap:12px">
       <button class="btn btn-ghost" onclick="setTheme('dark')">🌙 Dark Mode</button>
       <button class="btn btn-ghost" onclick="setTheme('light')">☀ Light Mode</button>
+      <span style="font-size:.75rem;color:var(--text3);margin-left:8px">Default matches the Lexora website (light).</span>
     </div>
   </div>
   <div class="card">
@@ -112,10 +123,11 @@
       <div style="font-size:.78rem;color:var(--text2);margin-bottom:12px">Choose your accent color. Saved automatically in your browser.</div>
       <div style="display:flex;gap:12px;flex-wrap:wrap" id="swatches">
         {% for key,color,label in [
-          ('indigo','#4c6ef5','Indigo (default)'),
+          ('lexora','#7b61ff','Lexora (default)'),
+          ('indigo','#4c6ef5','Indigo'),
           ('teal','#1098ad','Teal'),
           ('forest','#2f9e44','Forest Green'),
-          ('purple','#7048e8','Purple'),
+          ('violet','#7048e8','Violet'),
           ('rose','#c2255c','Rose'),
           ('navy','#1864ab','Navy'),
           ('slate','#495057','Slate'),
@@ -159,25 +171,97 @@
 
 <!-- ── SECURITY ────────────────────────────────────────────────────────── -->
 <div class="tp {% if tab=='security' %}on{% endif %}">
-  <div class="card" style="max-width:460px">
-    <div class="card-header"><span class="card-title">Change Password</span></div>
-    <div class="card-body">
-      {% if request.query_params.get('success')=='password_changed' %}
-      <div class="alert alert-success mb-4">✓ Password changed successfully</div>
-      {% endif %}
-      {% if request.query_params.get('error')=='wrong_password' %}
-      <div style="background:var(--red-bg);border:1px solid rgba(248,113,113,.2);color:var(--red);padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:.82rem">✕ Current password is incorrect</div>
-      {% endif %}
-      <form method="post" action="/settings/change-password">
-        <div class="form-group"><label class="form-label">Current Password</label><input class="form-control" type="password" name="current_pw" required></div>
-        <div class="form-group"><label class="form-label">New Password</label><input class="form-control" type="password" name="new_pw" required minlength="4" placeholder="Minimum 4 characters"></div>
-        <button type="submit" class="btn btn-primary">Update Password</button>
-      </form>
-      <div style="margin-top:14px;padding:10px 14px;background:var(--bg3);border-radius:6px;font-size:.78rem;color:var(--text3)">
-        For security, change the initial admin password immediately after first login.
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Your Password</span></div>
+      <div class="card-body">
+        {% if request.query_params.get('success')=='password_changed' %}
+        <div class="alert alert-success mb-4">✓ Password changed successfully</div>
+        {% endif %}
+        {% if request.query_params.get('error')=='wrong_password' %}
+        <div style="background:var(--red-bg);border:1px solid rgba(248,113,113,.2);color:var(--red);padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:.82rem">✕ Current password is incorrect</div>
+        {% endif %}
+        <form method="post" action="/settings/change-password">
+          <div class="form-group"><label class="form-label">Current Password</label><input class="form-control" type="password" name="current_pw" required></div>
+          <div class="form-group"><label class="form-label">New Password</label><input class="form-control" type="password" name="new_pw" required minlength="4" placeholder="Minimum 4 characters"></div>
+          <button type="submit" class="btn btn-primary">Update Password</button>
+        </form>
+        <div style="margin-top:14px;padding:10px 14px;background:var(--bg3);border-radius:6px;font-size:.78rem;color:var(--text3)">
+          Your account is now personal. Other users can have their own passwords too.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Current Account</span></div>
+      <div class="card-body">
+        <div class="form-group"><label class="form-label">Username</label><input class="form-control" value="{{ current_user.username if current_user else '' }}" disabled></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-control" value="{{ current_user.email if current_user else '' }}" disabled></div>
+        <div class="form-group"><label class="form-label">Role</label><input class="form-control" value="{{ current_user.role if current_user else '' }}" disabled></div>
       </div>
     </div>
   </div>
+
+  {% if current_user and current_user.role == 'owner' %}
+  <div class="card mt-6">
+    <div class="card-header"><span class="card-title">Owner Account Management</span></div>
+    <div class="card-body">
+      {% if request.query_params.get('success')=='user_created' %}
+      <div class="alert alert-success mb-4">✓ New user created successfully</div>
+      {% endif %}
+      {% if request.query_params.get('success')=='user_updated' %}
+      <div class="alert alert-success mb-4">✓ User status updated</div>
+      {% endif %}
+      {% if request.query_params.get('error')=='user_exists' %}
+      <div style="background:var(--red-bg);border:1px solid rgba(248,113,113,.2);color:var(--red);padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:.82rem">✕ A user with this username or email already exists</div>
+      {% endif %}
+      <div class="table-wrap mb-6">
+        <table>
+          <thead>
+            <tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+            <tr>
+              <td class="td-primary">{{ user.full_name or user.username }}<div style="font-size:.72rem;color:var(--text3)">@{{ user.username }}</div></td>
+              <td>{{ user.email }}</td>
+              <td><span class="pill {% if user.role == 'owner' %}pill-orange{% else %}pill-blue{% endif %}">{{ user.role }}</span></td>
+              <td><span class="pill {% if user.is_active %}pill-green{% else %}pill-grey{% endif %}">{{ 'Active' if user.is_active else 'Inactive' }}</span></td>
+              <td>
+                {% if user.id != current_user.id %}
+                <form method="post" action="/settings/users/{{ user.id }}/toggle" style="display:inline">
+                  <button class="btn btn-ghost btn-xs">{{ 'Disable' if user.is_active else 'Enable' }}</button>
+                </form>
+                {% else %}
+                <span style="font-size:.75rem;color:var(--text3)">Current owner</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <form method="post" action="/settings/users/create">
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Full Name</label><input class="form-control" name="full_name" placeholder="Teacher or manager name"></div>
+          <div class="form-group"><label class="form-label">Role</label>
+            <select class="form-control" name="role">
+              <option value="admin">Admin</option>
+              <option value="owner">Owner</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Username</label><input class="form-control" name="username" required placeholder="teacher1"></div>
+          <div class="form-group"><label class="form-label">Email</label><input class="form-control" type="email" name="email" required placeholder="teacher@example.com"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Temporary Password</label><input class="form-control" type="password" name="password" required minlength="4" placeholder="Create a starting password"></div>
+        <button type="submit" class="btn btn-primary">Create User</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 <!-- ── SYSTEM ──────────────────────────────────────────────────────────── -->
@@ -222,13 +306,17 @@
 {% block scripts %}
 <script>
 function setTheme(t) {
-  document.body.classList.toggle('light', t==='light');
-  localStorage.setItem('theme', t);
-  document.getElementById('themeBtn').textContent = t==='light' ? '🌙 Dark Mode' : '☀ Light Mode';
+  const dark = t === 'dark';
+  document.body.classList.toggle('dark', dark);
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+  const b = document.getElementById('themeBtn');
+  if (b) b.textContent = dark ? '☀ Light Mode' : '🌙 Dark Mode';
 }
 const PAL = {
+  lexora:{a:'#7b61ff',a2:'#6b51ef'},
   indigo:{a:'#4c6ef5',a2:'#3d5ce3'}, teal:{a:'#1098ad',a2:'#0c8599'},
-  forest:{a:'#2f9e44',a2:'#2b8a3e'}, purple:{a:'#7048e8',a2:'#5f3dc4'},
+  forest:{a:'#2f9e44',a2:'#2b8a3e'},   violet:{a:'#7048e8',a2:'#5f3dc4'},
+  purple:{a:'#7048e8',a2:'#5f3dc4'},
   rose:{a:'#c2255c',a2:'#a61e4d'},   navy:{a:'#1864ab',a2:'#1971c2'},
   slate:{a:'#495057',a2:'#343a40'},  cyan:{a:'#0c8599',a2:'#0b7285'}
 };
@@ -237,7 +325,7 @@ function setPalette(key) {
   const r = document.documentElement;
   r.style.setProperty('--accent', PAL[key].a);
   r.style.setProperty('--accent2', PAL[key].a2);
-  r.style.setProperty('--accent-glow', PAL[key].a + '18');
+  r.style.setProperty('--accent-glow', PAL[key].a + '22');
   localStorage.setItem('palette', key);
   document.querySelectorAll('.swatch').forEach(s => s.classList.remove('on'));
   document.getElementById('sw-'+key)?.classList.add('on');

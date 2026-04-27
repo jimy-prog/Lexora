@@ -1,12 +1,36 @@
+from fastapi import Request, HTTPException
 from sqlalchemy import create_engine, Column, Integer, String, Float, Date, Boolean, Text, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime
-from config import DATABASE_URL, DATABASE_FILE
+from datetime import datetime, timedelta
+import os
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from master_database import SessionMaster, AuthSession as MasterAuthSession
+
 Base = declarative_base()
+
+tenant_engines = {}
+
+from config import DATA_DIR
+
+def get_tenant_engine(db_filename: str):
+    if db_filename not in tenant_engines:
+        tenants_dir = os.path.join(DATA_DIR, "database_tenants")
+        os.makedirs(tenants_dir, exist_ok=True)
+        db_filepath = os.path.join(tenants_dir, db_filename)
+        is_new = not os.path.exists(db_filepath)
+        db_path = f"sqlite:///{db_filepath}"
+        engine = create_engine(db_path, connect_args={"check_same_thread": False})
+        Base.metadata.create_all(bind=engine)
+        if is_new:
+            SessionTenant = sessionmaker(bind=engine)
+            db = SessionTenant()
+            try:
+                _seed_settings(db)
+            finally:
+                db.close()
+        tenant_engines[db_filename] = engine
+    return tenant_engines[db_filename]
 
 class Group(Base):
     __tablename__ = "groups"
@@ -153,61 +177,54 @@ class Settings(Base):
     label = Column(String, default="")
     category = Column(String, default="general")
 
-def get_db():
-    db = SessionLocal()
+def get_db(request: Request = None):
+    token = None
+    if request:
+        token = request.cookies.get("lexora_session")
+        if not token and "Authorization" in request.headers:
+            auth_header = request.headers["Authorization"]
+            if auth_header.startswith("Bearer "):
+                token = auth_header.split(" ")[1]
+        elif not token and request.query_params.get("token"):
+            token = request.query_params.get("token")
+            
+    if not token:
+        # Fallback for local scripts or webhooks that bypass auth? 
+        # For now, require auth for DB access, except if explicitly forced otherwise.
+        raise HTTPException(status_code=401, detail="No active session to identify tenant")
+
+    master_db = SessionMaster()
+    db_filename = None
+    try:
+        session_obj = master_db.query(MasterAuthSession).filter_by(token=token).first()
+        if not session_obj or not session_obj.user or not session_obj.user.tenant:
+            raise HTTPException(status_code=401, detail="Invalid session or empty tenant")
+        db_filename = session_obj.user.tenant.db_filename
+    finally:
+        master_db.close()
+
+    engine = get_tenant_engine(db_filename)
+    SessionTenant = sessionmaker(bind=engine)
+    db = SessionTenant()
     try:
         yield db
     finally:
         db.close()
 
-def migrate_db():
-    import sqlite3
-    if DATABASE_FILE is None:
-        return
-    conn = sqlite3.connect(str(DATABASE_FILE))
-    cur = conn.cursor()
-    for table, col, coldef in [
-        ("students","archived","INTEGER DEFAULT 0"),
-        ("students","level","TEXT DEFAULT ''"),
-        ("students","progress_notes","TEXT DEFAULT ''"),
-        ("students","strengths","TEXT DEFAULT ''"),
-        ("students","weaknesses","TEXT DEFAULT ''"),
-        ("students","end_date","TEXT"),
-        ("students","stop_reason","TEXT DEFAULT ''"),
-        ("students","banned","INTEGER DEFAULT 0"),
-        ("students","banned_reason","TEXT DEFAULT ''"),
-        ("students","banned_date","TEXT"),
-        ("lessons","time","TEXT DEFAULT ''"),
-        ("lessons","homework","TEXT DEFAULT ''"),
-        ("lessons","auto_generated","INTEGER DEFAULT 0"),
-        ("groups","group_type","TEXT DEFAULT 'group'"),
-        ("groups","status","TEXT DEFAULT 'active'"),
-        ("groups","archived_date","TEXT"),
-        ("groups","mode","TEXT DEFAULT 'in-person'"),
-        ("groups","finance_mode","TEXT DEFAULT 'standard'"),
-        ("groups","epl_override","REAL DEFAULT 0"),
-        ("groups","company_name","TEXT DEFAULT ''"),
-        ("groups","rate_type","TEXT DEFAULT 'per_lesson'"),
-        ("groups","rate_amount","REAL DEFAULT 0"),
-        ("groups","lesson_duration","INTEGER DEFAULT 60"),
-        ("groups","zoom_link","TEXT DEFAULT ''"),
-    ]:
-        try: cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coldef}")
-        except: pass
-    try:
-        cur.execute("UPDATE students SET group_id = NULL, active = 0 WHERE banned = 1")
-    except:
-        pass
-    conn.commit(); conn.close()
+def migrate_db(db=None):
+    pass
 
-def init_db():
+def init_tenant_db(engine):
     Base.metadata.create_all(bind=engine)
-    migrate_db()
-    _seed_settings()
-    _seed_data()
+    SessionTenant = sessionmaker(bind=engine)
+    db = SessionTenant()
+    try:
+        migrate_db(db)
+        _seed_settings(db)
+    finally:
+        db.close()
 
-def _seed_settings():
-    db = SessionLocal()
+def _seed_settings(db):
     defaults = [
         Settings(key="teacher_pct",           value="40",    label="Teacher % (default)",          category="finance"),
         Settings(key="finance_mode_default",  value="standard", label="Finance Mode (default: standard/custom)", category="finance"),
@@ -223,11 +240,11 @@ def _seed_settings():
         if s.key not in existing_keys:
             db.add(s)
     db.commit()
-    db.close()
+    db.commit()
 
-def _seed_data():
+def _seed_data(db):
     from datetime import date as dt
-    db = SessionLocal()
+
     if db.query(Group).count() > 0:
         db.close(); return
 

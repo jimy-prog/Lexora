@@ -4,7 +4,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy import Column, Integer, String, Boolean, Date, Text, ForeignKey, DateTime
 from sqlalchemy.orm import Session, relationship
 from datetime import date, datetime
-from database import get_db, Base, Group, Student, Lesson, engine
+from database import get_db, Base, Group, Student, Lesson
 
 router = APIRouter(prefix="/homework")
 templates = Jinja2Templates(directory="templates")
@@ -35,7 +35,7 @@ class HomeworkSubmission(Base):
     student     = relationship("Student")
 
 # Create tables
-Base.metadata.create_all(bind=engine)
+
 
 def _enrich(hw, today):
     subs = hw.submissions

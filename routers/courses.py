@@ -5,7 +5,7 @@ from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateT
 from sqlalchemy.orm import Session, relationship
 from datetime import datetime
 import os, shutil
-from database import get_db, Base, Group, engine
+from database import get_db, Base, Group
 
 router = APIRouter(prefix="/courses")
 templates = Jinja2Templates(directory="templates")
@@ -69,7 +69,7 @@ class GroupCourseProgress(Base):
     notes                = Column(Text, default="")
     created_at           = Column(DateTime, default=datetime.utcnow)
 
-Base.metadata.create_all(bind=engine)
+
 
 # ── Seed helper ───────────────────────────────────────────────────────────────
 def seed_courses(db: Session):

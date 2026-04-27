@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+{% block title %}Build Exam: {{ exam.title }}{% endblock %}
+
+{% block content %}
+<style>
+.builder-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+.builder-header {
+    padding: 16px 24px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.builder-body {
+    padding: 24px;
+}
+.question-item {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.question-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.q-badge {
+    background: var(--accent-glow);
+    color: var(--accent);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+.input-clean {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    font-family: var(--font-b);
+    transition: all 0.2s;
+}
+.input-clean:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+    outline: none;
+}
+.form-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text2);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+</style>
+
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:32px;">
+    <div>
+        <div style="font-size:0.85rem; color:var(--text2); margin-bottom:8px;">
+            <a href="/mock/manage" style="color:var(--accent); text-decoration:none; font-weight:600;"><i class="fa-solid fa-arrow-left"></i> Back to Manage Mocks</a>
+        </div>
+        <h1 style="font-family:var(--font-d); font-size:2.2rem; font-weight:800; color:var(--text); letter-spacing:-0.03em;">{{ exam.title }}</h1>
+        <p style="color:var(--text2); font-size: 1rem; margin-top:4px;">Draft mode. Students cannot see this test until published.</p>
+    </div>
+    
+    <div style="display:flex; gap:12px;">
+        <button onclick="document.getElementById('bulkAnswersModal').style.display='flex'" class="btn btn-ghost" style="border-radius:12px; border:1px solid var(--border);">
+            <i class="fa-solid fa-paste"></i> Bulk Paste Answers
+        </button>
+        <button onclick="document.getElementById('addSectionModal').style.display='flex'" class="btn btn-ghost border" style="border-radius:12px;">
+            <i class="fa-solid fa-folder-plus"></i> Add Section
+        </button>
+        <form action="/mock/{{ exam.id }}/publish" method="POST" style="margin:0;">
+            <button type="submit" class="btn btn-green" style="border-radius:12px;">
+                <i class="fa-solid fa-share-nodes"></i> Publish Exam
+            </button>
+        </form>
+    </div>
+</div>
+
+<div style="display:flex; gap:24px; align-items:flex-start;">
+    
+    <!-- LEFT SIDE: Editor -->
+    <div style="flex:1; display:flex; flex-direction:column; gap:0;">
+        
+        <!-- General Settings Editor -->
+        <div class="builder-card">
+            <div class="builder-header">
+                <h3 style="font-size:1.1rem; font-weight:700; color:var(--text);"><i class="fa-solid fa-gear"></i> Settings & Assets</h3>
+            </div>
+            <div class="builder-body">
+                <form action="/mock/{{ exam.id }}/update-settings" method="POST" style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
+                    <div style="flex: 1 1 100%;">
+                        <label class="form-label">Exam Title</label>
+                        <input type="text" name="title" value="{{ exam.title }}" class="input-clean">
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="form-label">Test Scope</label>
+                        <select name="test_scope" class="input-clean">
+                            <option value="Full Test" {% if exam.test_scope == "Full Test" %}selected{% endif %}>Full Test</option>
+                            <option value="Reading Section" {% if exam.test_scope == "Reading Section" %}selected{% endif %}>Reading Section</option>
+                            <option value="Listening Section" {% if exam.test_scope == "Listening Section" %}selected{% endif %}>Listening Section</option>
+                            <option value="Writing Section" {% if exam.test_scope == "Writing Section" %}selected{% endif %}>Writing Section</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="form-label">Test Mode</label>
+                        <select name="test_mode" class="input-clean">
+                            <option value="Exam Mode" {% if exam.test_mode == "Exam Mode" %}selected{% endif %}>Exam Mode</option>
+                            <option value="Free Mode" {% if exam.test_mode == "Free Mode" %}selected{% endif %}>Free Mode</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1 1 100%; text-align:right;">
+                        <button type="submit" class="btn btn-primary" style="padding:10px 24px; border-radius:10px;">Save Settings</button>
+                    </div>
+                </form>
+
+                <hr style="border:none; border-top:1px solid var(--border); margin:24px 0;">
+
+                <div style="display:flex; gap:24px;">
+                    <!-- Image Upload -->
+                    <div style="flex:1;">
+                        <label class="form-label"><i class="fa-solid fa-images"></i> Upload Images</label>
+                        <form action="/mock/{{ exam.id }}/upload-image" method="POST" enctype="multipart/form-data" style="display:flex; gap:8px;">
+                            <input type="file" name="image_file" accept="image/*" required class="input-clean" style="padding:8px;">
+                            <button type="submit" class="btn btn-ghost border">Upload</button>
+                        </form>
+                        {% if request.query_params.get("uploaded_img") %}
+                        <div style="margin-top:12px; padding:12px; background:#dcfce7; border:1px solid #86efac; border-radius:10px;">
+                            <span style="font-size:0.8rem; color:#166534; font-weight:700;">HTML Copied to clipboard!</span>
+                            <input type="text" value='<img src="{{ request.query_params.get("uploaded_img") }}" style="max-width:100%; border-radius:8px;">' class="input-clean" style="margin-top:8px; padding:8px; border-color:#86efac;" onclick="this.select(); document.execCommand('copy');">
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Audio Upload -->
+                    {% if "Listening" in exam.test_scope %}
+                    <div style="flex:1;">
+                        <label class="form-label"><i class="fa-solid fa-music"></i> Upload Audio</label>
+                        {% if exam.audio_url %}
+                            <div style="padding:12px; background:#dcfce7; border:1px solid #86efac; border-radius:10px; color:#166534; font-size:0.9rem; font-weight:600; display:flex; align-items:center; gap:8px;">
+                                <i class="fa-solid fa-check-circle"></i> Audio Track Linked
+                            </div>
+                        {% else %}
+                            <form action="/mock/{{ exam.id }}/upload-audio" method="POST" enctype="multipart/form-data" style="display:flex; gap:8px;">
+                                <input type="file" name="audio_file" accept="audio/mp3,audio/mpeg" required class="input-clean" style="padding:8px;">
+                                <button type="submit" class="btn btn-ghost border">Upload MP3</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI Builder Tool -->
+        <div class="builder-card" style="border-color:#c7d2fe; box-shadow:0 8px 30px rgba(79, 70, 229, 0.1);">
+            <div class="builder-header" style="background:linear-gradient(90deg, #eef2ff, #fff); border-bottom-color:#e0e7ff;">
+                <h3 style="font-size:1.1rem; color:#4f46e5; font-weight:700;"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Extractor (PDF Ingestion)</h3>
+            </div>
+            <div class="builder-body">
+                <form id="uploadForm" enctype="multipart/form-data" style="display:flex; gap:12px;">
+                    <input type="file" name="pdf_doc" id="pdfFileInput" accept="application/pdf" class="input-clean" style="border-color:#a5b4fc;" required>
+                    <button type="submit" id="extractBtn" class="btn btn-primary" style="background:#4f46e5; border-color:#4f46e5; padding:0 32px;">Extract Passages & Questions</button>
+                </form>
+                
+                <div id="aiOverlay" style="display:none; margin-top:24px; padding:24px; background:#fafafa; border-radius:12px; border:1px dashed #c7d2fe; text-align:center;">
+                    <div style="font-size:2rem; color:#4f46e5; margin-bottom:12px;"><i class="fa-solid fa-brain fa-fade"></i></div>
+                    <div style="font-weight:700; color:#3730a3; margin-bottom:16px; font-size:1.1rem;" id="aiMessage">Scanning Document...</div>
+                    <div style="height:8px; width:100%; background:#e0e7ff; border-radius:10px; overflow:hidden; margin-bottom:8px;">
+                        <div id="aiProgress" style="height:100%; width:0%; background:#4f46e5; transition:width 0.5s ease; border-radius:10px;"></div>
+                    </div>
+                    <div style="font-size:0.85rem; color:#6b7280; font-weight:700;" id="aiPercent">0%</div>
+                </div>
+            </div>
+            <script>
+            document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const fileInput = document.getElementById('pdfFileInput');
+                if(!fileInput.files[0]) return;
+                
+                this.style.display = 'none';
+                document.getElementById('aiOverlay').style.display = 'block';
+                
+                const pBar = document.getElementById('aiProgress');
+                const pText = document.getElementById('aiPercent');
+                const pMsg = document.getElementById('aiMessage');
+                const formData = new FormData();
+                formData.append('pdf_doc', fileInput.files[0]);
+                
+                try {
+                    const response = await fetch("/mock/{{ exam.id }}/upload-pdf", { method: "POST", body: formData });
+                    if (!response.ok) throw new Error("Failed to start background extraction");
+                    
+                    const pollInterval = setInterval(async () => {
+                        try {
+                            const statRes = await fetch("/mock/{{ exam.id }}/upload-status");
+                            const stat = await statRes.json();
+                            if (stat.status !== "idle") {
+                                pBar.style.width = stat.progress + '%';
+                                pText.innerText = stat.progress + '%';
+                                pMsg.innerText = stat.message;
+                            }
+                            if (stat.status === "completed") {
+                                clearInterval(pollInterval);
+                                setTimeout(() => { window.location.reload(); }, 1000);
+                            } else if (stat.status === "error") {
+                                clearInterval(pollInterval);
+                                pBar.style.background = "#ef4444";
+                                pMsg.style.color = "#ef4444";
+                            }
+                        } catch (e) { console.error("Polling error:", e); }
+                    }, 1000);
+                } catch(err) {
+                    pMsg.innerText = "Error: " + err.message; pMsg.style.color = "#ef4444"; pBar.style.background = "#ef4444";
+                }
+            });
+            </script>
+        </div>
+
+        <!-- Question Editor (The Meat) -->
+        <form action="/mock/{{ exam.id }}/save-answers" method="POST" id="questionsForm">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h2 style="font-size:1.4rem; font-weight:800; color:var(--text);"><i class="fa-solid fa-list-check"></i> Examination Content</h2>
+                <button type="submit" class="btn btn-primary" style="padding:10px 24px; border-radius:10px; box-shadow:0 4px 14px rgba(123, 97, 255, 0.4);"><i class="fa-solid fa-floppy-disk"></i> Save All Answers</button>
+            </div>
+
+            {% if exam.sections %}
+                {% for section in exam.sections %}
+                <div class="builder-card">
+                    <div class="builder-header">
+                        <div>
+                            <h3 style="font-size:1.15rem; font-weight:700; color:var(--text);">{{ section.section_type }}</h3>
+                            <span style="font-size:0.8rem; color:var(--text2); font-weight:600;"><i class="fa-regular fa-clock"></i> {{ section.time_limit_minutes }} Min</span>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" onclick="openQuestionModal({{ section.id }})" class="btn btn-sm btn-ghost border" style="background:#fff;"><i class="fa-solid fa-plus"></i> Add Question</button>
+                            <button type="button" onclick="if(confirm('Delete entire section?')) { const f = document.createElement('form'); f.method='POST'; f.action='/mock/{{ exam.id }}/delete-section/{{ section.id }}'; document.body.appendChild(f); f.submit(); }" class="btn btn-sm btn-ghost border" style="background:#fff; color:#ef4444; border-color:#fca5a5;"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="builder-body" style="padding:16px; background:#f8fafc;">
+                        {% for block in section.blocks %}
+                            {% for q in block.questions %}
+                            <div class="question-item">
+                                <div class="question-header">
+                                    <div>
+                                        <strong style="font-size:1.05rem;">Question {{ q.question_number }}</strong>
+                                        <span class="q-badge" style="margin-left:8px;">{{ q.q_type }}</span>
+                                    </div>
+                                    <button type="button" onclick="if(confirm('Delete question?')) { const f = document.createElement('form'); f.method='POST'; f.action='/mock/{{ exam.id }}/delete-question/{{ q.id }}'; document.body.appendChild(f); f.submit(); }" class="btn btn-xs" style="background:transparent; border:none; color:#ef4444; font-size:1rem; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+                                </div>
+                                <div style="font-size:0.95rem; color:var(--text); line-height:1.5; padding:12px; background:#fff; border:1px solid #e2e8f0; border-radius:8px;">
+                                    {{ q.prompt | safe }}
+                                </div>
+                                
+                                <div>
+                                    <label class="form-label" style="color:var(--accent);">Exact Answer Key</label>
+                                    <input type="text" name="answer_{{ q.id }}" value="{{ q.correct_answer_text }}" class="input-clean" placeholder="Enter correct answer (e.g. FALSE, 1994, B)" style="border-color:#cbd5e1; font-weight:600; color:#0f172a;">
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% endfor %}
+                        {% if not section.blocks or not section.blocks[0].questions %}
+                            <div style="text-align:center; padding:32px; color:var(--text2); font-size:0.9rem;">No questions in this section.</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align:center; padding:60px 20px; background:#fff; border-radius:24px; border:2px dashed var(--border);">
+                    <i class="fa-solid fa-box-open" style="font-size:3rem; color:var(--text2); margin-bottom:16px;"></i>
+                    <h3 style="font-size:1.2rem; font-weight:700; color:var(--text); margin-bottom:8px;">No Sections Found</h3>
+                    <p style="color:var(--text2); font-size:0.95rem; margin-bottom:24px;">Use the AI Extractor or add a section manually to start building.</p>
+                </div>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- RIGHT SIDE: Live Preview -->
+    <div style="flex:1; position:sticky; top:32px; height:calc(100vh - 64px);">
+        <div class="builder-card" style="height:100%; display:flex; flex-direction:column; margin-bottom:0; box-shadow:0 24px 64px rgba(0,0,0,0.08);">
+            <div class="builder-header" style="background:#1e293b; color:#fff; border-bottom:none;">
+                <h3 style="font-size:1rem; font-weight:700; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-mobile-screen"></i> Student Simulator</h3>
+                <a href="/mock/{{ exam.id }}/start" target="_blank" class="btn btn-xs" style="background:rgba(255,255,255,0.1); color:#fff; border:none;">Open Fullscreen</a>
+            </div>
+            <div style="flex:1; background:#f1f5f9; position:relative; overflow:hidden;">
+                <!-- We simulate a zoomed out view -->
+                <iframe id="previewIframe" src="/mock/{{ exam.id }}/start" style="width:125%; height:125%; border:none; transform: scale(0.8); transform-origin: top left; position:absolute; top:0; left:0;"></iframe>
+                <div style="position:absolute; top:0; left:0; right:0; bottom:0; background:transparent; z-index:10; pointer-events:none;"></div>
+            </div>
+            <div style="padding:12px 24px; background:#fff; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.8rem; color:var(--text2); font-weight:600;"><i class="fa-solid fa-rotate"></i> Auto-refreshes on save</span>
+                <button type="button" onclick="document.getElementById('previewIframe').src = document.getElementById('previewIframe').src" class="btn btn-xs btn-ghost border">Refresh Preview</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals (Add Section, Add Question, Bulk Answers) -->
+<div id="addSectionModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; width:500px; border-radius:24px; padding:32px; box-shadow:0 32px 80px rgba(0,0,0,0.2);">
+        <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:24px;">Add New Section</h3>
+        <form action="/mock/{{ exam.id }}/add-section" method="POST">
+            <div style="margin-bottom:16px;">
+                <label class="form-label">Section Title</label>
+                <input type="text" name="section_type" required class="input-clean" placeholder="e.g. Reading Passage 1">
+            </div>
+            <div style="margin-bottom:16px;">
+                <label class="form-label">Time Limit (Min)</label>
+                <input type="number" name="time_limit_minutes" value="20" required class="input-clean">
+            </div>
+            <div style="margin-bottom:24px;">
+                <label class="form-label">Passage HTML</label>
+                <textarea name="passage_text" rows="4" class="input-clean" placeholder="<p>Enter text here...</p>"></textarea>
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button type="button" onclick="document.getElementById('addSectionModal').style.display='none'" class="btn btn-ghost input-clean" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn btn-primary input-clean" style="flex:1; background:var(--text); color:#fff; border:none;">Create Section</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="addQuestionModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; width:500px; border-radius:24px; padding:32px; box-shadow:0 32px 80px rgba(0,0,0,0.2);">
+        <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:24px;">Add Manual Question</h3>
+        <form action="/mock/{{ exam.id }}/add-question" method="POST">
+            <input type="hidden" name="section_id" id="targetSectionId" value="">
+            <div style="margin-bottom:16px;">
+                <label class="form-label">Question Type</label>
+                <select name="q_type" required class="input-clean">
+                    <option value="GAP_FILL">Gap Fill / Blank</option>
+                    <option value="MCQ">Multiple Choice</option>
+                    <option value="TFNG">True / False / Not Given</option>
+                    <option value="MATCHING">Matching</option>
+                </select>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label class="form-label">Prompt / Text</label>
+                <textarea name="prompt" rows="3" required class="input-clean" placeholder="Type the question here..."></textarea>
+            </div>
+            <div style="margin-bottom:24px;">
+                <label class="form-label">Correct Answer</label>
+                <input type="text" name="correct_answer_text" class="input-clean" placeholder="e.g. TRUE">
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button type="button" onclick="document.getElementById('addQuestionModal').style.display='none'" class="btn btn-ghost input-clean" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn btn-primary input-clean" style="flex:1; background:var(--accent); color:#fff; border:none;">Save Question</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="bulkAnswersModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; width:600px; border-radius:24px; padding:32px; box-shadow:0 32px 80px rgba(0,0,0,0.2);">
+        <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:16px;"><i class="fa-solid fa-paste"></i> Bulk Import Answers</h3>
+        <p style="font-size:0.9rem; color:var(--text2); margin-bottom:24px; line-height:1.5;">
+            Paste your answers from a PDF/Word file below. Use standard numbering like <strong>1. FALSE</strong> or <strong>2) NOT GIVEN</strong>.
+        </p>
+        <form action="/mock/{{ exam.id }}/bulk-answers" method="POST">
+            <div style="margin-bottom:24px;">
+                <textarea name="bulk_text" rows="12" class="input-clean" placeholder="1. TRUE&#10;2. FALSE&#10;3. NOT GIVEN&#10;4. C&#10;5. A" required style="font-family:monospace; font-size:1rem;"></textarea>
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button type="button" onclick="document.getElementById('bulkAnswersModal').style.display='none'" class="btn btn-ghost input-clean" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn btn-primary input-clean" style="flex:1; background:var(--accent); color:#fff; border:none; box-shadow:0 4px 14px rgba(123,97,255,0.4);">Parse & Save Answers</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openQuestionModal(sectionId) {
+    document.getElementById("targetSectionId").value = sectionId;
+    document.getElementById("addQuestionModal").style.display = "flex";
+}
+</script>
+{% endblock %}

@@ -13,7 +13,6 @@ lexora.db
 backups/
 
 uploads/
-static/
 
 .pytest_cache/
 .mypy_cache/

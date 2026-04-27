@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Create Account — Lexora</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background-color:#f6f7fb;
+  background-image:radial-gradient(circle, rgba(123, 97, 255, 0.07) 1px, transparent 1px);
+  background-size:24px 24px;
+}
+.card{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:24px;
+  padding:44px 40px;
+  width:100%;
+  max-width:500px;
+  box-shadow:0 25px 50px -12px rgba(17, 24, 39, 0.1);
+}
+.logo{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:2rem;
+  font-weight:700;
+  color:#101114;
+  text-align:center;
+  margin-bottom:6px;
+  letter-spacing:-0.03em;
+}
+.logo span{color:#7b61ff}
+.sub{
+  text-align:center;
+  font-size:.75rem;
+  color:#64748b;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  margin-bottom:32px;
+  font-weight:600;
+}
+.form-label{
+  display:block;
+  font-size:.7rem;
+  font-weight:600;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:#64748b;
+  margin-bottom:8px;
+}
+.form-control, select{
+  width:100%;
+  background:#f8fafc;
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+  padding:14px 16px;
+  font-family:'Inter',sans-serif;
+  font-size:1rem;
+  color:#0f172a;
+  outline:none;
+  transition:all .2s;
+}
+.form-control:focus, select:focus{
+  border-color:#7b61ff;
+  background:#fff;
+  box-shadow:0 0 0 4px rgba(123, 97, 255, 0.15);
+}
+.form-group{margin-bottom:24px}
+.btn{
+  width:100%;
+  background:#7b61ff;
+  color:#fff;
+  border:none;
+  border-radius:12px;
+  padding:16px;
+  font-family:'Inter',sans-serif;
+  font-size:1.05rem;
+  font-weight:600;
+  cursor:pointer;
+  transition:all .2s;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.btn:hover{background:#6b51ef; transform:translateY(-1px);}
+.btn:active{transform:scale(.99)}
+.btn-google {
+  background:#fff;
+  color:#334155;
+  border:1px solid #e2e8f0;
+  margin-top:16px;
+}
+.btn-google:hover {
+  background:#f8fafc;
+}
+.error{
+  background:#fef2f2;
+  border:1px solid #fecaca;
+  color:#ef4444;
+  padding:14px;
+  border-radius:12px;
+  font-size:.85rem;
+  margin-bottom:24px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.step { display: none; }
+.step.active { display: block; }
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin: 24px 0;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e2e8f0;
+}
+.divider:not(:empty)::before { margin-right: 16px; }
+.divider:not(:empty)::after { margin-left: 16px; }
+.login-link {
+  text-align:center;
+  margin-top:24px;
+  font-size:.85rem;
+  color:#64748b;
+}
+.login-link a {
+  color:#7b61ff;
+  text-decoration:none;
+  font-weight:600;
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Lex<span>ora</span></div>
+  <div class="sub">Create Your Account</div>
+  
+  {% if error %}
+  <div class="error"><i class="fa-solid fa-circle-exclamation"></i> {{ error }}</div>
+  {% endif %}
+
+  <!-- Step 1: Email Request -->
+  <div id="step-1" class="step {% if not step or step == '1' %}active{% endif %}">
+    <form method="post" action="/register/send-otp">
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input class="form-control" type="email" name="email" required placeholder="you@example.com" value="{{ email | default('') }}">
+      </div>
+      <button class="btn" type="submit">Continue with Email</button>
+    </form>
+    
+    <div class="divider">Or</div>
+    
+    <a href="/auth/google" style="text-decoration:none;">
+      <button class="btn btn-google" type="button">
+        <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" style="width:20px;height:20px;">
+        Sign up with Google
+      </button>
+    </a>
+  </div>
+
+  <!-- Step 2: Questionnaire & OTP -->
+  <div id="step-2" class="step {% if step == '2' %}active{% endif %}">
+    <form method="post" action="/register/verify">
+      <input type="hidden" name="email" value="{{ email | default('') }}">
+      
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:12px; border-radius:12px; font-size:0.85rem; margin-bottom:24px; display:flex; gap:8px; align-items:center;">
+        <i class="fa-solid fa-envelope-circle-check"></i>
+        We've sent a 6-digit code to <strong>{{ email }}</strong>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Verification Code</label>
+        <input class="form-control" type="text" name="otp" required placeholder="123456" style="letter-spacing:4px; font-size:1.2rem; text-align:center;">
+      </div>
+      
+      <div class="divider">Profile Details</div>
+
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input class="form-control" type="text" name="full_name" required placeholder="John Doe">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-control" type="password" name="password" required placeholder="Create a strong password">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">I am a...</label>
+        <select name="account_type" required>
+          <option value="student">Student learning English</option>
+          <option value="teacher">Teacher/Tutor</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">What is your primary study focus?</label>
+        <select name="study_focus" required>
+          <option value="ielts_academic">IELTS Academic</option>
+          <option value="ielts_general">IELTS General Training</option>
+          <option value="general_english">General English</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <button class="btn" type="submit">Complete Registration</button>
+    </form>
+  </div>
+  
+  <div class="login-link">
+    Already have an account? <a href="/login">Sign in</a>
+  </div>
+</div>
+</body>
+</html>

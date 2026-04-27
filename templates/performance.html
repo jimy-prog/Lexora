@@ -255,7 +255,7 @@ function switchMonth(m){const url=new URL(window.location.href);url.searchParams
 {% if data %}
 const trendData = {{ data | map(attribute='trend') | list | tojson }};
 const trendNames = {{ data | map(attribute='student') | map(attribute='name') | list | tojson }};
-const colors = ['#4c6ef5','#40c057','#f03e3e','#e67700','#ae3ec9','#7048e8','#1098ad','#f59f00'];
+const colors = ['#7b61ff','#40c057','#f03e3e','#e67700','#ae3ec9','#7048e8','#1098ad','#f59f00'];
 
 if(trendData && document.getElementById('trendChart')) {
   const allLabels = [...new Set(trendData.flat().map(p => `${p.month} W${p.week}`))].sort();

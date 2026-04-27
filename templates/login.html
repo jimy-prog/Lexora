@@ -4,28 +4,129 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Login — Lexora</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',sans-serif;background:#0d0f14;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.card{background:#13161d;border:1px solid #252a38;border-radius:16px;padding:40px 36px;width:100%;max-width:380px}
-.logo{font-family:'DM Serif Display',serif;font-size:1.8rem;color:#e8eaf0;text-align:center;margin-bottom:6px}
-.logo em{color:#7c9ef8;font-style:italic}
-.sub{text-align:center;font-size:.78rem;color:#555e7a;letter-spacing:.1em;text-transform:uppercase;margin-bottom:32px}
-.form-label{display:block;font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#555e7a;margin-bottom:6px}
-.form-control{width:100%;background:#1a1e28;border:1px solid #252a38;border-radius:8px;padding:12px 14px;font-family:'DM Sans',sans-serif;font-size:1rem;color:#e8eaf0;outline:none;transition:border-color .15s;-webkit-appearance:none}
-.form-control:focus{border-color:#4c6ef5}
-.form-group{margin-bottom:18px}
-.btn{width:100%;background:#4c6ef5;color:#fff;border:none;border-radius:8px;padding:13px;font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:600;cursor:pointer;transition:background .15s;margin-top:6px}
-.btn:hover{background:#3d5ce3}
-.btn:active{transform:scale(.98)}
-.error{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);color:#f87171;padding:10px 14px;border-radius:8px;font-size:.82rem;margin-bottom:16px;text-align:center}
-.hint{text-align:center;font-size:.72rem;color:#555e7a;margin-top:16px}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background-color:#f6f7fb;
+  background-image:radial-gradient(circle, rgba(123, 97, 255, 0.07) 1px, transparent 1px);
+  background-size:24px 24px;
+  -webkit-font-smoothing:antialiased;
+}
+.card{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:20px;
+  padding:44px 40px;
+  width:100%;
+  max-width:400px;
+  box-shadow:0 18px 50px rgba(17, 24, 39, 0.1);
+}
+.logo{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:2rem;
+  font-weight:600;
+  color:#101114;
+  text-align:center;
+  margin-bottom:6px;
+  letter-spacing:-0.03em;
+}
+.logo span{color:#7b61ff}
+.sub{
+  text-align:center;
+  font-size:.72rem;
+  color:#6b6f7a;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  margin-bottom:28px;
+  font-weight:500;
+}
+.form-label{
+  display:block;
+  font-size:.68rem;
+  font-weight:600;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:#6b6f7a;
+  margin-bottom:8px;
+}
+.form-control{
+  width:100%;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:13px 16px;
+  font-family:'Inter',sans-serif;
+  font-size:1rem;
+  color:#101114;
+  outline:none;
+  transition:border-color .15s, box-shadow .15s;
+  -webkit-appearance:none;
+}
+.form-control:focus{
+  border-color:#7b61ff;
+  box-shadow:0 0 0 3px rgba(123, 97, 255, 0.2);
+}
+.form-group{margin-bottom:20px}
+.btn{
+  width:100%;
+  background:#7b61ff;
+  color:#fff;
+  border:none;
+  border-radius:999px;
+  padding:14px;
+  font-family:'Inter',sans-serif;
+  font-size:.95rem;
+  font-weight:600;
+  cursor:pointer;
+  transition:background .15s, transform .1s;
+  margin-top:8px;
+}
+.btn:hover{background:#6b51ef}
+.btn:active{transform:scale(.99)}
+.error{
+  background:rgba(220, 38, 38, 0.08);
+  border:1px solid rgba(220, 38, 38, 0.25);
+  color:#b91c1c;
+  padding:12px 14px;
+  border-radius:12px;
+  font-size:.82rem;
+  margin-bottom:18px;
+  text-align:center;
+}
+.hint{
+  text-align:center;
+  font-size:.75rem;
+  color:#6b6f7a;
+  margin-top:20px;
+  line-height:1.5;
+}
+.back{
+  display:block;
+  text-align:center;
+  margin-top:18px;
+  font-size:.8rem;
+  color:#7b61ff;
+  text-decoration:none;
+  font-weight:500;
+}
+.back:hover{text-decoration:underline}
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-thumb{background:rgba(123,97,255,.35);border-radius:4px}
 </style>
 </head>
 <body>
 <div class="card">
-  <div class="logo">Lexora</div>
+  <div class="logo">Lex<span>ora</span></div>
   <div class="sub">English Learning Platform</div>
   {% if error %}
   <div class="error">{{ error }}</div>
@@ -33,12 +134,17 @@ body{font-family:'DM Sans',sans-serif;background:#0d0f14;min-height:100vh;displa
   <form method="post" action="/login">
     <input type="hidden" name="next" value="{{ next }}">
     <div class="form-group">
+      <label class="form-label">Username or Email</label>
+      <input class="form-control" type="text" name="identifier" autofocus autocomplete="username" placeholder="owner or owner@lexora.local">
+    </div>
+    <div class="form-group">
       <label class="form-label">Password</label>
-      <input class="form-control" type="password" name="password" autofocus autocomplete="current-password" placeholder="Enter your password">
+      <input class="form-control" type="password" name="password" autocomplete="current-password" placeholder="Enter your password">
     </div>
     <button class="btn" type="submit">Sign In</button>
   </form>
-  <div class="hint">Secure access to your Lexora workspace</div>
+  <div class="hint">Sign in with your Lexora account</div>
+  <a class="back" href="/static/landing/index.html">← Back to website</a>
 </div>
 </body>
 </html>

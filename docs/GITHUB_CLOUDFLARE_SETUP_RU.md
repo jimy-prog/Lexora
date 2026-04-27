@@ -122,7 +122,7 @@ ssh-keygen -t ed25519 -C "lexora-deploy"
 В Cloudflare сделай:
 
 1. Зайди в Zero Trust
-2. Открой `Networks` -> `Tunnels`
+2. Открой `Networks` → `Connectors` (туннель создаётся как коннектор; пункта «Tunnels» в меню может не быть)
 3. Создай новый tunnel
 4. Выбери Docker
 5. Получи `Tunnel Token`

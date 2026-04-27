@@ -3,9 +3,23 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from database import get_db, Settings, Group
+from master_database import SessionMaster, User
+from auth import check_user_password, set_password, hash_pw
 
 router = APIRouter(prefix="/settings")
 templates = Jinja2Templates(directory="templates")
+
+def _current_user(request: Request):
+    user = getattr(request.state, "current_user", None)
+    if user and getattr(user, "id", None):
+        mdb = SessionMaster()
+        try:
+            u = mdb.query(User).filter(User.id == user.id).first()
+            if u: mdb.expunge(u)
+            return u
+        finally:
+            mdb.close()
+    return None
 
 @router.get("/")
 def settings_page(request: Request, db: Session = Depends(get_db)):
@@ -80,9 +94,47 @@ def restore_group(gid: int, db: Session = Depends(get_db)):
 @router.post("/change-password")
 async def change_password(request: Request,
                           current_pw: str = Form(...),
-                          new_pw: str = Form(...)):
-    from auth import check_password, set_password
-    if not check_password(current_pw):
+                          new_pw: str = Form(...),
+                          db: Session = Depends(get_db)):
+    user = _current_user(request)
+    if not user or not check_user_password(user, current_pw):
         return RedirectResponse("/profile/?tab=security&error=wrong_password", status_code=302)
-    set_password(new_pw)
+    set_password(new_pw, user=user)
     return RedirectResponse("/profile/?tab=security&success=password_changed", status_code=302)
+
+@router.post("/users/create")
+async def create_user(request: Request,
+                      username: str = Form(...),
+                      email: str = Form(...),
+                      full_name: str = Form(""),
+                      role: str = Form("admin"),
+                      password: str = Form(...),
+                      db: Session = Depends(get_db)):
+    actor = _current_user(request, db)
+    if not actor or actor.role != "owner":
+        return RedirectResponse("/profile/?tab=security&error=owner_only", status_code=302)
+    username = username.strip().lower()
+    email = email.strip().lower()
+    if db.query(User).filter((User.username == username) | (User.email == email)).first():
+        return RedirectResponse("/profile/?tab=security&error=user_exists", status_code=302)
+    db.add(User(
+        username=username,
+        email=email,
+        full_name=full_name.strip(),
+        role=role if role in {"owner", "admin"} else "admin",
+        password_hash=hash_pw(password),
+        is_active=True,
+    ))
+    db.commit()
+    return RedirectResponse("/profile/?tab=security&success=user_created", status_code=302)
+
+@router.post("/users/{uid}/toggle")
+async def toggle_user(request: Request, uid: int, db: Session = Depends(get_db)):
+    actor = _current_user(request, db)
+    if not actor or actor.role != "owner":
+        return RedirectResponse("/profile/?tab=security&error=owner_only", status_code=302)
+    user = db.query(User).filter(User.id == uid).first()
+    if user and user.id != actor.id:
+        user.is_active = not user.is_active
+        db.commit()
+    return RedirectResponse("/profile/?tab=security&success=user_updated", status_code=302)

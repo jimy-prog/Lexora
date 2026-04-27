@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from datetime import date, timedelta
 from database import get_db, Group, Student, Lesson, Attendance, Notification, Payment
 from scheduler import generate_month_lessons, check_unmarked_lessons
+from auth import get_current_user
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -13,8 +14,12 @@ def _nm(d):
     if d.month == 12: return date(d.year+1,1,1)
     return date(d.year, d.month+1, 1)
 
-@router.get("/")
+@router.get("/dashboard")
 def dashboard(request: Request, show_marked: int = 0, db: Session = Depends(get_db)):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse("/login")
+        
     today = date.today()
     ms = today.replace(day=1)
     me = _nm(ms)
@@ -119,7 +124,7 @@ def dashboard(request: Request, show_marked: int = 0, db: Session = Depends(get_
     ).order_by(Lesson.date, Lesson.time).all()
 
     return templates.TemplateResponse("dashboard.html", {
-        "request": request, "today": today,
+        "request": request, "user": user, "today": today,
         "total_students": total_students, "total_groups": len(active_groups),
         "held_count": held_count, "lessons_expected": lessons_expected, "lessons_pct": lessons_pct,
         "countable": countable, "income": round(income),
@@ -149,10 +154,10 @@ def mark_all_present(lesson_id: int, db: Session = Depends(get_db)):
 def dismiss(nid: int, db: Session = Depends(get_db)):
     n = db.query(Notification).get(nid)
     if n: n.read = True; db.commit()
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/dashboard", status_code=303)
 
 @router.post("/notifications/dismiss-all")
 def dismiss_all(db: Session = Depends(get_db)):
     db.query(Notification).filter(Notification.read==False).update({"read":True})
     db.commit()
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/dashboard", status_code=303)

@@ -4,26 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Monthly Report — {{ month_start.strftime('%B %Y') }}</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',sans-serif;background:#f8f9fa;color:#1a1a2e;font-size:13px}
+body{font-family:'Inter',sans-serif;background:#f6f7fb;color:#101114;font-size:13px}
 .page{max-width:900px;margin:0 auto;padding:24px}
 /* Header */
-.report-header{background:linear-gradient(135deg,#1a1a2e 0%,#2d3561 100%);color:#fff;border-radius:12px;padding:28px 32px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start}
-.report-title{font-family:'DM Serif Display',serif;font-size:1.6rem;margin-bottom:4px}
+.report-header{background:linear-gradient(135deg,#101114 0%,#4c3ae0 55%,#7b61ff 100%);color:#fff;border-radius:16px;padding:28px 32px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start;box-shadow:0 18px 50px rgba(17,24,39,.12)}
+.report-title{font-family:'Space Grotesk',sans-serif;font-size:1.65rem;font-weight:600;margin-bottom:4px;letter-spacing:-.02em}
 .report-sub{font-size:.75rem;opacity:.6;letter-spacing:.1em;text-transform:uppercase}
 .report-meta{text-align:right;font-size:.78rem;opacity:.8}
 /* Summary bar */
 .summary-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-.sum-box{background:#fff;border-radius:8px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.sum-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:4px}
-.sum-val{font-family:'DM Serif Display',serif;font-size:1.5rem;line-height:1}
-.green{color:#2f9e44}.blue{color:#1864ab}.orange{color:#e67700}.dark{color:#1a1a2e}
+.sum-box{background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 12px 40px rgba(17,24,39,.08);border:1px solid #e5e7eb}
+.sum-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:#6b6f7a;margin-bottom:4px}
+.sum-val{font-family:'Space Grotesk',sans-serif;font-size:1.5rem;line-height:1;font-weight:600}
+.green{color:#15803d}.blue{color:#7b61ff}.orange{color:#ea580c}.dark{color:#101114}
 /* Group section */
-.group-section{background:#fff;border-radius:10px;padding:20px 24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);page-break-inside:avoid}
-.group-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid}
-.group-name{font-family:'DM Serif Display',serif;font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.group-section{background:#fff;border-radius:14px;padding:20px 24px;margin-bottom:16px;box-shadow:0 12px 40px rgba(17,24,39,.08);border:1px solid #e5e7eb;page-break-inside:avoid}
+.group-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #e5e7eb}
+.group-name{font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:600;display:flex;align-items:center;gap:8px}
 .group-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .group-stats{display:flex;gap:16px;font-size:.78rem}
 .gstat{text-align:center}
@@ -51,10 +51,10 @@ body{font-family:'DM Sans',sans-serif;background:#f8f9fa;color:#1a1a2e;font-size
 /* Footer */
 .report-footer{text-align:center;font-size:.7rem;color:#aaa;margin-top:20px;padding-top:12px;border-top:1px solid #eee}
 /* Print button */
-.print-btn{position:fixed;bottom:20px;right:20px;background:#1a1a2e;color:#fff;border:none;padding:12px 22px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;cursor:pointer;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;align-items:center;gap:8px}
+.print-btn{position:fixed;bottom:20px;right:20px;background:#7b61ff;color:#fff;border:none;padding:12px 22px;border-radius:999px;font-family:'Inter',sans-serif;font-size:.88rem;cursor:pointer;font-weight:600;box-shadow:0 12px 40px rgba(123,97,255,.35);display:flex;align-items:center;gap:8px}
 .month-picker{position:fixed;bottom:20px;left:20px;display:flex;gap:8px;align-items:center}
-.month-picker input{padding:8px 12px;border-radius:8px;border:1px solid #dee2e6;font-family:'DM Sans',sans-serif;font-size:.85rem}
-.month-picker button{background:#1864ab;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-family:'DM Sans',sans-serif;cursor:pointer}
+.month-picker input{padding:8px 12px;border-radius:10px;border:1px solid #e5e7eb;font-family:'Inter',sans-serif;font-size:.85rem}
+.month-picker button{background:#7b61ff;color:#fff;border:none;padding:8px 16px;border-radius:999px;font-family:'Inter',sans-serif;font-weight:600;cursor:pointer}
 @media print{
   body{background:#fff;padding:0}
   .page{padding:12px;max-width:100%}
