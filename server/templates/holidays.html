@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Holidays{% endblock %}
+{% block page_title %}Uzbekistan Holidays{% endblock %}
+{% block topbar_actions %}
+<button class="btn btn-primary btn-sm" onclick="openModal('addHoliday')">+ Add Holiday</button>
+{% endblock %}
+
+{% block content %}
+<div class="alert alert-info mb-4" style="font-size:.82rem">
+  Toggle <strong>Lesson Held</strong> on any holiday if you taught that day — it will count for finance and show normally in reports.
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="card-title">{{ holidays|length }} Holidays (2025–2026)</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Holiday</th><th>Lesson Held?</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for h in holidays %}
+        <tr>
+          <td class="mono" style="font-size:.82rem">{{ h.date }}</td>
+          <td style="font-weight:500;color:var(--text)">
+            {{ h.name }}
+            {% if h.name_ru %}<span style="color:var(--text3);font-size:.78rem;margin-left:6px">· {{ h.name_ru }}</span>{% endif %}
+          </td>
+          <td>
+            <form method="post" action="/holidays/{{ h.id }}/toggle-lesson" style="display:inline">
+              <button class="btn btn-xs {% if h.lesson_held %}btn-green{% else %}btn-ghost{% endif %}">
+                {% if h.lesson_held %}✓ Lesson Held{% else %}No Lesson{% endif %}
+              </button>
+            </form>
+          </td>
+          <td>
+            <form method="post" action="/holidays/{{ h.id }}/delete" style="display:inline">
+              <button class="btn btn-danger btn-xs" onclick="return confirm('Delete this holiday?')">✕</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Holiday Modal -->
+<div class="modal-overlay" id="addHoliday" onclick="if(event.target===this)closeModal('addHoliday')">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Add Holiday</span><button class="modal-close" onclick="closeModal('addHoliday')">✕</button></div>
+    <div class="modal-body">
+      <form method="post" action="/holidays/add">
+        <div class="form-group"><label class="form-label">Date</label><input class="form-control" type="date" name="date_str" required></div>
+        <div class="form-group"><label class="form-label">Name</label><input class="form-control" name="name" required placeholder="e.g. Navruz"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('addHoliday')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="padding: 24px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <div>
+            <h1 style="font-size:1.8rem; font-weight:700; color:var(--text); letter-spacing:-0.03em;">My Exam History</h1>
+            <p style="color:var(--text2); font-size:0.9rem; margin-top:4px;">A complete record of your past mock exams and scores.</p>
+        </div>
+    </div>
+
+    {% if attempts %}
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:20px;">
+        {% for attempt in attempts %}
+        <div class="card hover-scale" style="padding:24px; position:relative; overflow:hidden; border:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                <div style="flex:1;">
+                    <h3 style="font-size:1.1rem; font-weight:600; color:var(--text); margin-bottom:8px;">{{ attempt.exam.title }}</h3>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <span style="font-size:.7rem; font-weight:700; text-transform:uppercase; color:#fff; background:var(--accent); padding:4px 8px; border-radius:6px;">{{ attempt.exam.test_scope }}</span>
+                        <span style="font-size:.7rem; font-weight:700; text-transform:uppercase; color:#fff; background:#10b981; padding:4px 8px; border-radius:6px;">{{ attempt.exam.test_mode }}</span>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:0.75rem; color:var(--text2); text-transform:uppercase; font-weight:700; letter-spacing:0.5px;">Band</div>
+                    <div style="font-size:2rem; font-weight:800; color:var(--accent); line-height:1;">{{ attempt.band_score }}</div>
+                </div>
+            </div>
+            
+            <div style="border-top:1px solid var(--border); margin-top:16px; padding-top:16px; display:flex; justify-content:space-between; align-items:center; font-size:0.85rem;">
+                <div style="color:var(--text2);">
+                    <i class="fa-regular fa-calendar" style="margin-right:6px;"></i> {{ attempt.completed_at.strftime('%b %d, %Y') }}
+                </div>
+                <div style="font-weight:600; color:var(--text);">
+                    Score: {{ attempt.total_score }}/40
+                </div>
+            </div>
+            
+            <!-- Read-only overlay action -->
+            <a href="/mock/results/{{ attempt.id }}" style="position:absolute; inset:0; z-index:10;"></a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center; padding:80px 20px; background:var(--bg); border-radius:24px; border:1px solid var(--border);">
+        <i class="fa-solid fa-clock-rotate-left" style="font-size:4rem; color:var(--border); margin-bottom:20px;"></i>
+        <h3 style="font-size:1.2rem; font-weight:600; color:var(--text); margin-bottom:8px;">No Exam History Yet</h3>
+        <p style="color:var(--text2); font-size:.9rem; max-width:400px; margin:0 auto 24px auto;">You haven't completed any mock exams yet. Take a test to see your progress here.</p>
+        <a href="/mock/" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:8px;"><i class="fa-solid fa-play"></i> Browse Mock Tests</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

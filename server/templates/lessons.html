@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Lessons{% endblock %}
+{% block page_title %}Lessons{% endblock %}
+{% block topbar_actions %}
+<button class="btn btn-primary btn-sm" onclick="openModal('addLesson')">+ Add Lesson</button>
+{% endblock %}
+
+{% block content %}
+<div class="grid-2 mb-6">
+  <!-- This week -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">This Week</span>
+      <span style="font-size:0.78rem;color:var(--text3)">{{ week_start }} — {{ week_end }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Group</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          {% for l in lessons %}
+          <tr>
+            <td class="mono">{{ l.date }}</td>
+            <td class="td-primary">
+              <span class="dot" style="background:{{ l.group.color }};margin-right:6px"></span>
+              {{ l.group.name }}
+            </td>
+            <td>
+              {% if l.status == 'Held' %}<span class="pill pill-green">● Held</span>
+              {% elif l.status == 'Cancelled' %}<span class="pill pill-red">✕ Cancelled</span>
+              {% else %}<span class="pill pill-yellow">↻ Rescheduled</span>{% endif %}
+            </td>
+            <td>
+              <div style="display:flex;gap:5px">
+                <a href="/lessons/{{ l.id }}" class="btn btn-ghost btn-sm">Attendance</a>
+                <form method="post" action="/lessons/{{ l.id }}/delete" style="display:inline">
+                  <button class="btn btn-danger btn-sm" type="submit" onclick="return confirm('Delete?')">✕</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+          {% if not lessons %}
+          <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text3)">No lessons this week yet</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Upcoming -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Upcoming</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Group</th><th>Topic</th></tr></thead>
+        <tbody>
+          {% for l in upcoming %}
+          <tr>
+            <td class="mono">{{ l.date }}</td>
+            <td>
+              <span class="dot" style="background:{{ l.group.color }};margin-right:6px"></span>
+              {{ l.group.name }}
+            </td>
+            <td style="color:var(--text3);font-size:0.82rem">{{ l.topic or '—' }}</td>
+          </tr>
+          {% endfor %}
+          {% if not upcoming %}
+          <tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text3)">No upcoming lessons</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add Lesson Modal -->
+<div class="modal-overlay" id="addLesson" onclick="if(event.target===this)closeModal('addLesson')">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add Lesson</span>
+      <button class="modal-close" onclick="closeModal('addLesson')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form method="post" action="/lessons/add">
+        <div class="form-group">
+          <label class="form-label">Group *</label>
+          <select class="form-control" name="group_id" required>
+            {% for g in groups %}
+            <option value="{{ g.id }}">{{ g.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date *</label>
+          <input class="form-control" name="date_str" type="date" value="{{ today }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-control" name="status">
+            <option value="Held">Held</option>
+            <option value="Cancelled">Cancelled</option>
+            <option value="Rescheduled">Rescheduled</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Topic (optional)</label>
+          <input class="form-control" name="topic" placeholder="e.g. Past Perfect, IELTS Writing Task 2">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea class="form-control" name="notes" rows="2"></textarea>
+        </div>
+        <div class="alert alert-info" style="font-size:0.8rem">
+          💡 Held lessons will auto-create attendance records (all students marked Present — edit after if needed)
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('addLesson')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Lesson</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

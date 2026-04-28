@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Report — {{ date_label }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#f6f7fb;color:#101114;font-size:11px;padding:16px}
+.page{max-width:1100px;margin:0 auto}
+.hdr{background:linear-gradient(135deg,#101114 0%,#4c3ae0 55%,#7b61ff 100%);color:#fff;border-radius:14px;padding:18px 24px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 12px 40px rgba(17,24,39,.1)}
+.hdr-title{font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:600;letter-spacing:-.02em}
+.hdr-sub{font-size:.68rem;opacity:.6;letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
+.hdr-right{text-align:right;font-size:.75rem;opacity:.8}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.sbox{background:#fff;border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(17,24,39,.06);border:1px solid #e5e7eb}
+.sbox-val{font-family:'Space Grotesk',sans-serif;font-size:1.3rem;line-height:1;font-weight:600}
+.sbox-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-top:2px}
+.green{color:#15803d}.blue{color:#7b61ff}.orange{color:#ea580c}.dark{color:#101114}
+.gb{background:#fff;border-radius:12px;padding:14px 18px;margin-bottom:10px;box-shadow:0 8px 24px rgba(17,24,39,.06);border:1px solid #e5e7eb;page-break-inside:avoid}
+.gb-hdr{display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;margin-bottom:10px;border-bottom:2px solid #e5e7eb}
+.gb-name{font-family:'Space Grotesk',sans-serif;font-size:.95rem;font-weight:600;display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.gb-stats{display:flex;gap:12px}
+.gst{text-align:center}
+.gst-v{font-weight:700;font-size:.85rem}
+.gst-l{font-size:.58rem;text-transform:uppercase;letter-spacing:.05em;color:#888}
+/* Attendance grid */
+.att-grid{width:100%;border-collapse:collapse;font-size:.75rem;margin-bottom:8px}
+.att-grid th{background:#f1f3f5;padding:5px 4px;text-align:center;font-size:.62rem;color:#666;border:1px solid #dee2e6;font-weight:500;white-space:nowrap}
+.att-grid th.name-col{text-align:left;padding:5px 8px;min-width:80px}
+.att-grid th.holiday-col{background:#fff9db;color:#e67700}
+.att-grid th.holiday-col span{text-decoration:line-through}
+.att-grid td{padding:5px 4px;text-align:center;border:1px solid #f0f0f0;font-size:.9rem}
+.att-grid td.name-cell{text-align:left;padding:5px 8px;font-weight:500;background:#f8f9fa;font-size:.8rem}
+/* Finance line */
+.fin-line{display:flex;justify-content:space-between;align-items:center;background:#f0fdf4;border-radius:6px;padding:8px 12px;margin-top:8px;border:1px solid #bbf7d0}
+.fin-rate{font-size:.78rem;color:#555;font-family:'JetBrains Mono',monospace}
+.fin-total{font-size:1rem;font-weight:700;color:#2f9e44}
+/* Page break */
+.page-break{page-break-before:always;margin-top:20px}
+/* Performance charts */
+.perf-section{background:#fff;border-radius:8px;padding:14px 18px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.perf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:10px}
+.perf-card{background:#f8f9fa;border-radius:8px;padding:12px;border:1px solid #eee}
+.perf-name{font-weight:600;font-size:.82rem;margin-bottom:8px;color:#101114}
+/* Bar chart for skills */
+.skill-bar{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.skill-lbl{font-size:.65rem;color:#666;width:55px;flex-shrink:0}
+.skill-track{flex:1;height:8px;background:#e9ecef;border-radius:4px;overflow:hidden}
+.skill-fill{height:100%;border-radius:4px}
+.skill-val{font-size:.65rem;font-weight:600;width:22px;text-align:right;flex-shrink:0}
+/* Avg badge */
+.avg-badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.72rem;font-weight:700;margin-top:6px}
+/* Footer */
+.footer{text-align:center;font-size:.62rem;color:#aaa;margin-top:12px;padding-top:8px;border-top:1px solid #eee}
+.print-btn{position:fixed;bottom:20px;right:20px;background:#7b61ff;color:#fff;border:none;padding:10px 20px;border-radius:999px;font-family:'Inter',sans-serif;font-size:.82rem;cursor:pointer;font-weight:600;box-shadow:0 12px 40px rgba(123,97,255,.3)}
+.pill{display:inline-block;padding:1px 7px;border-radius:8px;font-size:.65rem;font-weight:600}
+.py{background:#fff9db;color:#e67700}
+@media print{
+  .print-btn{display:none}
+  body{background:#fff;padding:6px}
+  .hdr{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .gb,.perf-section{box-shadow:none;border:1px solid #eee}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- Header -->
+<div class="hdr">
+  <div>
+    <div class="hdr-title">{{ date_label }}</div>
+    <div class="hdr-sub">Language Vision ·
+      {% if show=='all' %}All Groups{% elif show=='active' %}Active Groups{% else %}Archived Groups{% endif %}
+      · {{ view|capitalize }} Report
+    </div>
+  </div>
+  <div class="hdr-right">Generated {{ generated }}<br><strong>{{ group_data|length }} group{{ 's' if group_data|length!=1 else '' }}</strong></div>
+</div>
+
+<!-- Summary -->
+<div class="summary">
+  <div class="sbox"><div class="sbox-val green">{{ "{:,.0f}".format(total_income) }}</div><div class="sbox-lbl">UZS Income</div></div>
+  <div class="sbox"><div class="sbox-val blue">{{ group_data|length }}</div><div class="sbox-lbl">Groups</div></div>
+  <div class="sbox"><div class="sbox-val dark">{{ group_data|sum(attribute='held') }}</div><div class="sbox-lbl">Lessons Held</div></div>
+  <div class="sbox"><div class="sbox-val orange">{{ group_data|sum(attribute='total_countable') }}</div><div class="sbox-lbl">Countable</div></div>
+</div>
+
+<!-- ═══ PAGE 1: ATTENDANCE ══════════════════════════════════════════════ -->
+{% for r in group_data %}
+<div class="gb">
+  <div class="gb-hdr" style="border-color:{{ r.group.color }}">
+    <div class="gb-name">
+      <span class="dot" style="background:{{ r.group.color }}"></span>
+      {{ r.group.name }}
+      {% if r.group.status=='archived' %}<span class="pill py">Archived</span>{% endif %}
+    </div>
+    <div class="gb-stats">
+      <div class="gst"><div class="gst-v">{{ r.held }}</div><div class="gst-l">Held</div></div>
+      <div class="gst"><div class="gst-v">{{ r.cancelled }}</div><div class="gst-l">Cancelled</div></div>
+      <div class="gst"><div class="gst-v green">{{ "{:,.0f}".format(r.income) }}</div><div class="gst-l">UZS</div></div>
+    </div>
+  </div>
+
+  <!-- Attendance grid -->
+  {% if r.lesson_dates and r.student_att %}
+  <div style="overflow-x:auto">
+    <table class="att-grid">
+      <thead>
+        <tr>
+          <th class="name-col">Student</th>
+          {% for ld in r.lesson_dates %}
+          <th class="{% if ld.is_holiday and not ld.lesson_held %}holiday-col{% endif %}">
+            {% if ld.is_holiday and not ld.lesson_held %}
+              <span>{{ ld.date.strftime('%d.%m') }}</span> 🏖
+            {% else %}
+              {{ ld.date.strftime('%d.%m') }}
+            {% endif %}
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for srow in r.student_att %}
+        <tr>
+          <td class="name-cell">{{ srow.name }}</td>
+          {% for ld in r.lesson_dates %}
+          <td>
+            {# Check if student was active on this date #}
+            {% set student_started = srow.start_date is none or srow.start_date <= ld.date %}
+            {% set student_active  = srow.end_date is none or srow.end_date >= ld.date %}
+            {% if not student_started or not student_active %}
+              <span style="color:#ccc">—</span>
+            {% elif ld.is_holiday and not ld.lesson_held %}
+              <span style="color:#e67700">🏖</span>
+            {% else %}
+              {% set status = srow.att.get(ld.date) %}
+              {% if status == 'Present' %}✅
+              {% elif status == 'Absent' %}❌
+              {% elif status == 'Excused' %}🟡
+              {% elif status == 'Cancelled' %}<span style="color:#aaa">✕</span>
+              {% elif ld.lesson.status == 'Cancelled' %}<span style="color:#aaa">✕</span>
+              {% elif ld.lesson.date > generated %}<span style="color:#bbb" title="Future lesson">·</span>
+              {% else %}<span style="color:#ccc">—</span>{% endif %}
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- Finance line -->
+  <div class="fin-line">
+    <div class="fin-rate">
+      {% if r.group.group_type == 'individual' %}
+        {{ "{:,.0f}".format(r.epl) }} UZS per lesson (individual) × {{ r.total_countable }} lessons
+      {% else %}
+        25,000 UZS per lesson per student × {{ r.total_countable }} student-lessons
+      {% endif %}
+    </div>
+    <div class="fin-total">= {{ "{:,.0f}".format(r.income) }} UZS</div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- ═══ PAGE 2: PERFORMANCE ════════════════════════════════════════════ -->
+{% set has_perf = group_data | selectattr('perf_rows') | list %}
+{% if has_perf %}
+<div class="page-break">
+  <div class="hdr" style="margin-bottom:12px">
+    <div>
+      <div class="hdr-title">Performance — {{ date_label }}</div>
+      <div class="hdr-sub">Grammar · Activity · Vocabulary · Score: 1=Needs Work · 2=Revision · 3=Good</div>
+    </div>
+    <div class="hdr-right">Generated {{ generated }}</div>
+  </div>
+
+  {% for r in group_data if r.perf_rows %}
+  <div class="perf-section">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid {{ r.group.color }}">
+      <span class="dot" style="background:{{ r.group.color }}"></span>
+      <strong style="font-size:.9rem">{{ r.group.name }}</strong>
+    </div>
+    <div class="perf-grid">
+      {% for p in r.perf_rows %}
+      {% set g_pct = (p.g_avg / 3 * 100)|int %}
+      {% set a_pct = (p.a_avg / 3 * 100)|int %}
+      {% set v_pct = (p.v_avg / 3 * 100)|int %}
+      {% set avg_col = '#2f9e44' if p.avg and p.avg>=2.5 else '#e67700' if p.avg and p.avg>=1.8 else '#e03131' if p.avg else '#aaa' %}
+      <div class="perf-card">
+        <div class="perf-name">{{ p.name }}</div>
+        <!-- Grammar bar -->
+        <div class="skill-bar">
+          <span class="skill-lbl">Grammar</span>
+          <div class="skill-track"><div class="skill-fill" style="width:{{ g_pct }}%;background:{% if p.g_avg>=2.5 %}#2f9e44{% elif p.g_avg>=1.8 %}#e67700{% else %}#e03131{% endif %}"></div></div>
+          <span class="skill-val" style="color:{% if p.g_avg>=2.5 %}#2f9e44{% elif p.g_avg>=1.8 %}#e67700{% else %}#e03131{% endif %}">{{ p.g_avg }}</span>
+        </div>
+        <!-- Activity bar -->
+        <div class="skill-bar">
+          <span class="skill-lbl">Activity</span>
+          <div class="skill-track"><div class="skill-fill" style="width:{{ a_pct }}%;background:{% if p.a_avg>=2.5 %}#2f9e44{% elif p.a_avg>=1.8 %}#e67700{% else %}#e03131{% endif %}"></div></div>
+          <span class="skill-val" style="color:{% if p.a_avg>=2.5 %}#2f9e44{% elif p.a_avg>=1.8 %}#e67700{% else %}#e03131{% endif %}">{{ p.a_avg }}</span>
+        </div>
+        <!-- Vocabulary bar -->
+        <div class="skill-bar">
+          <span class="skill-lbl">Vocabulary</span>
+          <div class="skill-track"><div class="skill-fill" style="width:{{ v_pct }}%;background:{% if p.v_avg>=2.5 %}#2f9e44{% elif p.v_avg>=1.8 %}#e67700{% else %}#e03131{% endif %}"></div></div>
+          <span class="skill-val" style="color:{% if p.v_avg>=2.5 %}#2f9e44{% elif p.v_avg>=1.8 %}#e67700{% else %}#e03131{% endif %}">{{ p.v_avg }}</span>
+        </div>
+        <!-- Overall average -->
+        <div>
+          <span class="avg-badge" style="background:{{ avg_col }}18;color:{{ avg_col }};border:1px solid {{ avg_col }}44">
+            Overall {{ p.avg if p.avg else '—' }} / 3
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not group_data %}
+<div style="text-align:center;padding:40px;color:#888;background:#fff;border-radius:8px">No lessons found for this period</div>
+{% endif %}
+
+<div class="footer">Language Vision · {{ date_label }} · {{ show|capitalize }} groups · Generated {{ generated }}</div>
+</div>
+<button class="print-btn" onclick="window.print()">🖨 Print / Save PDF</button>
+</body>
+</html>

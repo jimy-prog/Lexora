@@ -1,0 +1,35 @@
+services:
+  lexora-app:
+    build:
+      context: ..
+      dockerfile: cloudflare_deploy/Dockerfile
+    container_name: lexora-app
+    restart: unless-stopped
+    environment:
+      APP_NAME: Lexora
+      APP_TAGLINE: English Learning Platform
+      SESSION_SECRET_KEY: ${SESSION_SECRET_KEY}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+      SESSION_COOKIE_NAME: lexora_session
+      DATABASE_URL: sqlite:////app/data/lexora.db
+    volumes:
+      - lexora_data:/app/data
+      - lexora_uploads:/app/uploads
+      - lexora_backups:/app/backups
+    expose:
+      - "8000"
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: lexora-cloudflared
+    restart: unless-stopped
+    depends_on:
+      - lexora-app
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+
+volumes:
+  lexora_data:
+  lexora_uploads:
+  lexora_backups:

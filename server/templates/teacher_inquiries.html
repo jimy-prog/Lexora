@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Writing Inquiries - Lexora{% endblock %}
+{% block page_title %}Writing Inquiries{% endblock %}
+
+{% block content %}
+<div style="max-width: 1000px; margin: 0 auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
+        <div>
+            <h2 style="font-family:var(--font-d); font-size:1.8rem; font-weight:700; color:var(--text); letter-spacing:-0.02em;">Pending Evaluations</h2>
+            <p style="color:var(--text2); margin-top:4px;">Students are waiting for your feedback on their IELTS writing tasks.</p>
+        </div>
+        <div class="pill pill-blue">
+            <i class="fa-solid fa-inbox"></i> {{ inquiries|length }} Inquiries
+        </div>
+    </div>
+
+    {% if inquiries %}
+    <div style="display:grid; gap:20px;">
+        {% for inq in inquiries %}
+        <div class="card" style="padding:0;">
+            <div style="padding:20px 24px; display:flex; justify-content:space-between; align-items:center; background:var(--bg3); border-bottom:1px solid var(--border);">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:40px; height:40px; background:var(--accent); color:#fff; border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:700;">
+                        {{ inq.attempt.student.full_name[0] if inq.attempt.student.full_name else "S" }}
+                    </div>
+                    <div>
+                        <div style="font-weight:700; color:var(--text);">{{ inq.attempt.student.full_name or "Student" }}</div>
+                        <div style="font-size:0.75rem; color:var(--text2);">Submitted {{ inq.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                    </div>
+                </div>
+                <div>
+                    {% if inq.status == 'pending' %}
+                    <span class="pill pill-orange">Pending Review</span>
+                    {% else %}
+                    <span class="pill pill-green">Graded: {{ inq.score }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div style="padding:24px;">
+                <div style="background:var(--bg); padding:20px; border-radius:12px; border:1px solid var(--border); margin-bottom:24px;">
+                    <h4 style="font-size:0.75rem; font-weight:700; color:var(--text2); text-transform:uppercase; margin-bottom:12px; letter-spacing:0.05em;">Student's Response</h4>
+                    <div style="font-family:var(--font-b); line-height:1.7; color:var(--text); font-size:1.05rem; white-space:pre-wrap;">{{ inq.attempt.answers[0].answer_text if inq.attempt.answers else "No content found." }}</div>
+                </div>
+
+                {% if inq.status == 'pending' %}
+                <form action="/mock/inquiries/{{ inq.id }}/grade" method="POST">
+                    <div class="grid-2" style="margin-bottom:20px;">
+                        <div>
+                            <label class="form-label">Estimated Band Score</label>
+                            <input type="number" step="0.5" min="0" max="9" name="score" required class="form-control" placeholder="e.g. 7.5">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Feedback & Suggestions</label>
+                        <textarea name="feedback_text" rows="5" required class="form-control" placeholder="Provide detailed feedback on Grammar, Vocabulary, Coherence..."></textarea>
+                    </div>
+                    <div style="text-align:right;">
+                        <button type="submit" class="btn btn-primary" style="padding:12px 32px;">Submit Evaluation</button>
+                    </div>
+                </form>
+                {% else %}
+                <div style="padding:20px; background:var(--green-bg); border-radius:12px; border:1px solid rgba(22, 163, 74, 0.2);">
+                    <h4 style="font-weight:700; color:var(--green); margin-bottom:8px;">Your Feedback (Score: {{ inq.score }})</h4>
+                    <p style="color:var(--text); line-height:1.6;">{{ inq.feedback_text }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center; padding:80px 20px; background:var(--bg2); border-radius:24px; border:2px dashed var(--border);">
+        <div style="font-size:3.5rem; color:var(--text3); margin-bottom:20px;"><i class="fa-solid fa-envelope-open-text"></i></div>
+        <h3 style="font-size:1.4rem; font-weight:700; color:var(--text);">No inquiries yet</h3>
+        <p style="color:var(--text2); margin-top:8px;">When students submit writing tasks for your review, they will appear here.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

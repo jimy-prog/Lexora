@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Attendance{% endblock %}
+{% block page_title %}Attendance Matrix{% endblock %}
+{% block topbar_actions %}
+<form method="get" action="/attendance/" style="display:flex;gap:8px;align-items:center">
+  <input class="form-control" name="month" type="month" value="{{ month_str }}" style="width:160px;padding:5px 10px">
+  <button class="btn btn-ghost btn-sm" type="submit">Load</button>
+</form>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+.att-grid { overflow-x: auto; }
+.att-table { border-collapse: collapse; font-size: 0.8rem; min-width: 100%; }
+.att-table th, .att-table td { border: 1px solid var(--border); padding: 7px 10px; white-space: nowrap; }
+.att-table thead th { background: var(--bg3); color: var(--text3); font-size: 0.68rem; letter-spacing: .07em; text-transform: uppercase; }
+.att-table .student-col { position: sticky; left: 0; background: var(--bg2); z-index: 10; font-weight: 500; color: var(--text); min-width: 150px; }
+.att-table thead .student-col { background: var(--bg3); }
+.cell-present  { background: rgba(74,222,128,0.15); color: var(--green); text-align:center; cursor:pointer; font-weight:600; }
+.cell-absent   { background: rgba(248,113,113,0.15); color: var(--red);   text-align:center; cursor:pointer; font-weight:600; }
+.cell-excused  { background: rgba(251,191,36,0.15);  color: var(--yellow);text-align:center; cursor:pointer; font-weight:600; }
+.cell-none     { background: var(--bg3); color: var(--text3); text-align:center; cursor:default; }
+.cell-cancelled{ background: rgba(107,114,128,0.1);  color: var(--grey);  text-align:center; font-size:0.7rem; }
+.att-cell:hover { filter: brightness(1.3); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-6">
+  <div class="card-header">
+    <span class="card-title">{{ month_start.strftime('%B %Y') }} — Attendance Matrix</span>
+    <div style="display:flex;gap:8px;font-size:0.78rem">
+      <span class="pill pill-green">P = Present</span>
+      <span class="pill pill-red">A = Absent</span>
+      <span class="pill pill-yellow">E = Excused</span>
+      <span class="pill pill-grey">— = Cancelled</span>
+    </div>
+  </div>
+  <div class="att-grid">
+    <table class="att-table">
+      <thead>
+        <tr>
+          <th class="student-col">Student / Group</th>
+          {% for l in lessons %}
+          <th style="text-align:center;min-width:56px">
+            {{ l.date.strftime('%d') }}<br>
+            <span style="font-size:0.62rem;color:var(--text3)">{{ l.date.strftime('%a') }}</span><br>
+            {% if l.status == 'Held' %}<span style="color:var(--green);font-size:0.65rem">●</span>
+            {% elif l.status == 'Cancelled' %}<span style="color:var(--red);font-size:0.65rem">✕</span>
+            {% else %}<span style="color:var(--yellow);font-size:0.65rem">↻</span>{% endif %}
+            <br><span style="font-size:0.6rem;color:var(--text3)">{{ l.group.name[:4] }}</span>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for grp in groups %}
+          {% set grp_students = students | selectattr('group_id', 'equalto', grp.id) | list %}
+          {% if grp_students %}
+          <tr>
+            <td class="student-col" colspan="{{ lessons|length + 1 }}"
+                style="background:var(--bg4);color:var(--text3);font-size:0.7rem;letter-spacing:.1em;text-transform:uppercase;padding:5px 10px">
+              <span class="dot" style="background:{{ grp.color }}"></span> {{ grp.name }}
+            </td>
+          </tr>
+          {% for s in grp_students %}
+          <tr>
+            <td class="student-col">{{ s.name }}</td>
+            {% for l in lessons %}
+              {% if l.group_id == s.group_id %}
+                {% set status = matrix.get((s.id, l.id)) %}
+                {% if l.status != 'Held' %}
+                  <td class="cell-cancelled att-cell">—</td>
+                {% elif status == 'Present' %}
+                  <td class="cell-present att-cell" onclick="cycleStatus(this, {{ l.id }}, {{ s.id }})" data-status="Present">P</td>
+                {% elif status == 'Absent' %}
+                  <td class="cell-absent att-cell" onclick="cycleStatus(this, {{ l.id }}, {{ s.id }})" data-status="Absent">A</td>
+                {% elif status == 'Excused' %}
+                  <td class="cell-excused att-cell" onclick="cycleStatus(this, {{ l.id }}, {{ s.id }})" data-status="Excused">E</td>
+                {% else %}
+                  <td class="cell-none att-cell" onclick="cycleStatus(this, {{ l.id }}, {{ s.id }})" data-status="">·</td>
+                {% endif %}
+              {% else %}
+                <td class="cell-none" style="background:var(--bg)"></td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  💡 Click any cell to cycle: Present → Absent → Excused → Present. Changes save instantly.
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const cycle = ['Present','Absent','Excused','Cancelled'];
+const classes = {'Present':'cell-present','Absent':'cell-absent','Excused':'cell-excused','':'cell-none'};
+const labels  = {'Present':'P','Absent':'A','Excused':'E','':'·'};
+
+function cycleStatus(cell, lessonId, studentId) {
+  const cur = cell.dataset.status;
+  const idx = cycle.indexOf(cur);
+  const next = cycle[(idx + 1) % cycle.length];
+  
+  // Optimistic UI update
+  cell.className = 'att-cell ' + classes[next];
+  cell.textContent = labels[next];
+  cell.dataset.status = next;
+
+  fetch('/attendance/update', {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded'},
+    body: `lesson_id=${lessonId}&student_id=${studentId}&status=${next}`
+  }).catch(() => { cell.style.outline = '2px solid red'; });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block extra_styles %}
+<style>
+.settings-container { display:flex; flex-direction: row; gap: 32px; align-items: flex-start; }
+.settings-nav { width: 240px; flex-shrink: 0; padding: 0px;}
+.settings-nav-header { font-size: .65rem; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; padding: 0 10px; }
+.nav-st { display:flex; align-items:center; gap: 10px; padding: 10px 14px; color: var(--text2); text-decoration: none; border-radius: 12px; font-size: .85rem; font-weight: 500; transition: all .2s cubic-bezier(0.16, 1, 0.3, 1); margin-bottom: 4px; }
+.nav-st:hover { background: var(--bg3); color: var(--text); }
+.nav-st.active { background: var(--accent); color: #fff; font-weight: 600; box-shadow: 0 4px 12px var(--accent-glow); }
+.settings-content { flex: 1; min-width: 0; }
+.tp { display: none; margin-bottom: 0px; }
+.tp.on { display: block; animation: fade-in 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes fade-in { 0% { opacity: 0; transform: translateY(6px); } 100% { opacity: 1; transform: translateY(0); } }
+@media(max-width: 768px) { .settings-container{ flex-direction: column; gap: 20px; } .settings-nav{ width: 100%; display: flex; flex-wrap: wrap; gap: 4px; padding: 0; } .nav-st{ padding: 8px 12px; margin-bottom: 0;} .settings-nav-header{ width: 100%; } }
+.prof-photo{width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid var(--accent)}
+.prof-nophoto{width:90px;height:90px;border-radius:50%;background:var(--bg4);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2rem;color:var(--text3)}
+.swatch{width:36px;height:36px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all .15s;position:relative;flex-shrink:0}
+.swatch:hover{transform:scale(1.12)}.swatch.on{border-color:var(--text)}
+.swatch.on::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.72rem;color:#fff;font-weight:700}
+.sys-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px}
+.sys-card-title{font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
+.sys-card-desc{font-size:.82rem;color:var(--text2);margin-bottom:14px;line-height:1.5}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Split Layout -->
+<div class="settings-container">
+  <div class="settings-nav">
+    <div class="settings-nav-header">Preferences</div>
+    <a class="nav-st {% if tab=='profile' or not tab %}active{% endif %}" href="/profile/?tab=profile"><span class="icon">👤</span> General Profile</a>
+    <a class="nav-st {% if tab=='appearance' %}active{% endif %}" href="/profile/?tab=appearance"><span class="icon">🎨</span> Appearance</a>
+    <a class="nav-st {% if tab=='finance' %}active{% endif %}" href="/profile/?tab=finance"><span class="icon">💰</span> Billing & Rates</a>
+    <a class="nav-st {% if tab=='security' %}active{% endif %}" href="/profile/?tab=security"><span class="icon">🔐</span> Security</a>
+    <a class="nav-st {% if tab=='system' %}active{% endif %}" href="/profile/?tab=system"><span class="icon">🔧</span> System Admin</a>
+  </div>
+  
+  <div class="settings-content">
+
+<!-- ── PROFILE ─────────────────────────────────────────────────────────── -->
+<div class="tp {% if tab=='profile' or not tab %}on{% endif %}">
+  {% if request.query_params.get('saved') %}
+  <div class="alert alert-success mb-6">✓ Profile saved successfully</div>
+  {% endif %}
+
+  <div class="grid-2 mb-6">
+    <!-- Photo card -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Profile Photo</span></div>
+      <div class="card-body" style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:24px">
+        {% if profile.photo_path %}
+          <img src="{{ profile.photo_path }}" class="prof-photo" alt="Profile photo">
+        {% else %}
+          <div class="prof-nophoto">👤</div>
+        {% endif %}
+        <form method="post" action="/profile/upload-photo" enctype="multipart/form-data">
+          <label style="cursor:pointer">
+            <span class="btn btn-ghost btn-sm">📷 Upload Photo</span>
+            <input type="file" name="photo" accept="image/*" style="display:none" onchange="this.form.submit()">
+          </label>
+        </form>
+        <div style="font-size:.72rem;color:var(--text3);text-align:center">JPG or PNG · Shown on reports</div>
+      </div>
+    </div>
+
+    <!-- Info card -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Personal Info</span></div>
+      <div class="card-body">
+        <form method="post" action="/profile/update">
+          <div class="grid-2">
+            <div class="form-group"><label class="form-label">Full Name</label><input class="form-control" name="name" value="{{ profile.full_name or '' }}"></div>
+            <div class="form-group"><label class="form-label">Title</label><input class="form-control" name="title" value="{{ profile.title or '' }}"></div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group"><label class="form-label">Phone</label><input class="form-control" name="phone" value="{{ profile.phone or '' }}" placeholder="+998..."></div>
+            <div class="form-group"><label class="form-label">Email</label><input class="form-control" name="email" value="{{ profile.email or '' }}" type="email" disabled></div>
+          </div>
+          <div class="form-group"><label class="form-label">School / Studio Name</label><input class="form-control" name="school_name" value="{{ profile.school_name or '' }}"></div>
+          <input type="hidden" name="bio" value="{{ profile.bio }}">
+          <input type="hidden" name="bank_details" value="{{ profile.bank_details }}">
+          <div style="display:flex;justify-content:flex-end"><button type="submit" class="btn btn-primary">Save</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bio & bank -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Bio & Bank Details</span></div>
+    <div class="card-body">
+      <form method="post" action="/profile/update">
+        <input type="hidden" name="name" value="{{ profile.full_name or '' }}">
+        <input type="hidden" name="title" value="{{ profile.title or '' }}">
+        <input type="hidden" name="phone" value="{{ profile.phone or '' }}">
+        <input type="hidden" name="school_name" value="{{ profile.school_name or '' }}">
+        <div class="form-group"><label class="form-label">Bio / About</label><textarea class="form-control" name="bio" rows="3" placeholder="Short description shown on reports...">{{ profile.bio or '' }}</textarea></div>
+        <div class="form-group"><label class="form-label">Bank Details (for invoices)</label><textarea class="form-control" name="bank_details" rows="3" placeholder="Bank name, card number, account...">{{ profile.bank_details or '' }}</textarea></div>
+        <div style="display:flex;justify-content:flex-end"><button type="submit" class="btn btn-primary">Save</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── APPEARANCE ──────────────────────────────────────────────────────── -->
+<div class="tp {% if tab=='appearance' %}on{% endif %}">
+  <div class="card mb-6">
+    <div class="card-header"><span class="card-title">Light / Dark Mode</span></div>
+    <div class="card-body" style="display:flex;gap:12px">
+      <button class="btn btn-ghost" onclick="setTheme('dark')">🌙 Dark Mode</button>
+      <button class="btn btn-ghost" onclick="setTheme('light')">☀ Light Mode</button>
+      <span style="font-size:.75rem;color:var(--text3);margin-left:8px">Default matches the Lexora website (light).</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Accent Color</span></div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:var(--text2);margin-bottom:12px">Choose your accent color. Saved automatically in your browser.</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap" id="swatches">
+        {% for key,color,label in [
+          ('lexora','#7b61ff','Lexora (default)'),
+          ('indigo','#4c6ef5','Indigo'),
+          ('teal','#1098ad','Teal'),
+          ('forest','#2f9e44','Forest Green'),
+          ('violet','#7048e8','Violet'),
+          ('rose','#c2255c','Rose'),
+          ('navy','#1864ab','Navy'),
+          ('slate','#495057','Slate'),
+          ('cyan','#0c8599','Cyan')
+        ] %}
+        <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+          <div class="swatch" id="sw-{{ key }}" style="background:{{ color }}"
+               title="{{ label }}" onclick="setPalette('{{ key }}')"></div>
+          <span style="font-size:.6rem;color:var(--text3)">{{ label.split('(')[0].strip() }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FINANCE RATES ───────────────────────────────────────────────────── -->
+<div class="tp {% if tab=='finance' %}on{% endif %}">
+  <div class="card mb-6">
+    <div class="card-header"><span class="card-title">Global Finance Settings</span></div>
+    <div class="card-body">
+      <form method="post" action="/settings/update">
+        <div class="grid-3">
+          {% for s in settings.values() %}
+          <div class="form-group">
+            <label class="form-label">{{ s.label }}</label>
+            <input class="form-control" name="{{ s.key }}" value="{{ s.value }}" type="number">
+          </div>
+          {% endfor %}
+        </div>
+        <div style="display:flex;justify-content:flex-end"><button type="submit" class="btn btn-primary">Save</button></div>
+      </form>
+    </div>
+  </div>
+  <div class="alert alert-info" style="font-size:.82rem">
+    💡 To change price, schedule or mode for a specific group — go to
+    <a href="/groups/" style="color:var(--accent);font-weight:600">Groups</a>
+    and click the <strong>⚙ Edit</strong> button on any group card.
+  </div>
+</div>
+
+<!-- ── SECURITY ────────────────────────────────────────────────────────── -->
+<div class="tp {% if tab=='security' %}on{% endif %}">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Your Password</span></div>
+      <div class="card-body">
+        {% if request.query_params.get('success')=='password_changed' %}
+        <div class="alert alert-success mb-4">✓ Password changed successfully</div>
+        {% endif %}
+        {% if request.query_params.get('error')=='wrong_password' %}
+        <div style="background:var(--red-bg);border:1px solid rgba(248,113,113,.2);color:var(--red);padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:.82rem">✕ Current password is incorrect</div>
+        {% endif %}
+        <form method="post" action="/settings/change-password">
+          <div class="form-group"><label class="form-label">Current Password</label><input class="form-control" type="password" name="current_pw" required></div>
+          <div class="form-group"><label class="form-label">New Password</label><input class="form-control" type="password" name="new_pw" required minlength="4" placeholder="Minimum 4 characters"></div>
+          <button type="submit" class="btn btn-primary">Update Password</button>
+        </form>
+        <div style="margin-top:14px;padding:10px 14px;background:var(--bg3);border-radius:6px;font-size:.78rem;color:var(--text3)">
+          Your account is now personal. Other users can have their own passwords too.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Current Account</span></div>
+      <div class="card-body">
+        <div class="form-group"><label class="form-label">Username</label><input class="form-control" value="{{ current_user.username if current_user else '' }}" disabled></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-control" value="{{ current_user.email if current_user else '' }}" disabled></div>
+        <div class="form-group"><label class="form-label">Role</label><input class="form-control" value="{{ current_user.role if current_user else '' }}" disabled></div>
+      </div>
+    </div>
+  </div>
+
+  {% if current_user and current_user.role == 'owner' %}
+  <div class="card mt-6">
+    <div class="card-header"><span class="card-title">Owner Account Management</span></div>
+    <div class="card-body">
+      {% if request.query_params.get('success')=='user_created' %}
+      <div class="alert alert-success mb-4">✓ New user created successfully</div>
+      {% endif %}
+      {% if request.query_params.get('success')=='user_updated' %}
+      <div class="alert alert-success mb-4">✓ User status updated</div>
+      {% endif %}
+      {% if request.query_params.get('error')=='user_exists' %}
+      <div style="background:var(--red-bg);border:1px solid rgba(248,113,113,.2);color:var(--red);padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:.82rem">✕ A user with this username or email already exists</div>
+      {% endif %}
+      <div class="table-wrap mb-6">
+        <table>
+          <thead>
+            <tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+            <tr>
+              <td class="td-primary">{{ user.full_name or user.username }}<div style="font-size:.72rem;color:var(--text3)">@{{ user.username }}</div></td>
+              <td>{{ user.email }}</td>
+              <td><span class="pill {% if user.role == 'owner' %}pill-orange{% else %}pill-blue{% endif %}">{{ user.role }}</span></td>
+              <td><span class="pill {% if user.is_active %}pill-green{% else %}pill-grey{% endif %}">{{ 'Active' if user.is_active else 'Inactive' }}</span></td>
+              <td>
+                {% if user.id != current_user.id %}
+                <form method="post" action="/settings/users/{{ user.id }}/toggle" style="display:inline">
+                  <button class="btn btn-ghost btn-xs">{{ 'Disable' if user.is_active else 'Enable' }}</button>
+                </form>
+                {% else %}
+                <span style="font-size:.75rem;color:var(--text3)">Current owner</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <form method="post" action="/settings/users/create">
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Full Name</label><input class="form-control" name="full_name" placeholder="Teacher or manager name"></div>
+          <div class="form-group"><label class="form-label">Role</label>
+            <select class="form-control" name="role">
+              <option value="admin">Admin</option>
+              <option value="owner">Owner</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Username</label><input class="form-control" name="username" required placeholder="teacher1"></div>
+          <div class="form-group"><label class="form-label">Email</label><input class="form-control" type="email" name="email" required placeholder="teacher@example.com"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Temporary Password</label><input class="form-control" type="password" name="password" required minlength="4" placeholder="Create a starting password"></div>
+        <button type="submit" class="btn btn-primary">Create User</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── SYSTEM ──────────────────────────────────────────────────────────── -->
+<div class="tp {% if tab=='system' %}on{% endif %}">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+    <div class="sys-card">
+      <div class="sys-card-title">📦 Backup Database</div>
+      <div class="sys-card-desc">Download a full backup of all your data — students, lessons, attendance, finance.</div>
+      <a href="/backup/download" class="btn btn-primary btn-sm">↓ Download Backup</a>
+    </div>
+    <div class="sys-card">
+      <div class="sys-card-title">📊 Export to Excel</div>
+      <div class="sys-card-desc">Export this month's data to Excel. Also available from Timetable → Export Report.</div>
+      <a href="/reports/export/monthly" class="btn btn-ghost btn-sm">↓ Export This Month</a>
+    </div>
+    <div class="sys-card">
+      <div class="sys-card-title">🗄 Archive</div>
+      <div class="sys-card-desc">View all archived groups and students. Restore any of them back to active.</div>
+      <a href="/archive/" class="btn btn-ghost btn-sm">View Archive →</a>
+    </div>
+    <div class="sys-card" id="waitlist-import">
+      <div class="sys-card-title">📥 Waitlist Import (Google Sheet)</div>
+      <div class="sys-card-desc">Set once here. Then use one-click import on Waitlist page.</div>
+      <form method="post" action="/settings/update" style="display:grid;gap:8px">
+        <input class="form-control" name="waitlist_sheet_id" value="{{ settings.get('waitlist_sheet_id').value if settings.get('waitlist_sheet_id') else '1pdQkS1LT6QfzXTZv0a4gOHdOzi5Ttd5oqExlu6XuBI0' }}" placeholder="Google Sheet ID">
+        <input class="form-control" name="waitlist_sheet_name" value="{{ settings.get('waitlist_sheet_name').value if settings.get('waitlist_sheet_name') else 'Form_Responses' }}" placeholder="Sheet tab name">
+        <input class="form-control" name="waitlist_sheet_gid" value="{{ settings.get('waitlist_sheet_gid').value if settings.get('waitlist_sheet_gid') else '573437932' }}" placeholder="Sheet GID">
+        <input class="form-control" name="waitlist_sheet_csv_url" value="{{ settings.get('waitlist_sheet_csv_url').value if settings.get('waitlist_sheet_csv_url') else '' }}" placeholder="Optional: Published CSV URL">
+        <button class="btn btn-primary btn-sm" type="submit">Save Import Settings</button>
+      </form>
+    </div>
+<div class="sys-card">
+      <div class="sys-card-title">🗓 Uzbekistan Holidays</div>
+      <div class="sys-card-desc">Manage public holidays. Toggle any holiday if you taught that day — it will count for finance.</div>
+      <a href="/holidays/" class="btn btn-ghost btn-sm">Manage Holidays →</a>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function setTheme(t) {
+  const dark = t === 'dark';
+  document.body.classList.toggle('dark', dark);
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+  const b = document.getElementById('themeBtn');
+  if (b) b.textContent = dark ? '☀ Light Mode' : '🌙 Dark Mode';
+}
+const PAL = {
+  lexora:{a:'#7b61ff',a2:'#6b51ef'},
+  indigo:{a:'#4c6ef5',a2:'#3d5ce3'}, teal:{a:'#1098ad',a2:'#0c8599'},
+  forest:{a:'#2f9e44',a2:'#2b8a3e'},   violet:{a:'#7048e8',a2:'#5f3dc4'},
+  purple:{a:'#7048e8',a2:'#5f3dc4'},
+  rose:{a:'#c2255c',a2:'#a61e4d'},   navy:{a:'#1864ab',a2:'#1971c2'},
+  slate:{a:'#495057',a2:'#343a40'},  cyan:{a:'#0c8599',a2:'#0b7285'}
+};
+function setPalette(key) {
+  if (!PAL[key]) return;
+  const r = document.documentElement;
+  r.style.setProperty('--accent', PAL[key].a);
+  r.style.setProperty('--accent2', PAL[key].a2);
+  r.style.setProperty('--accent-glow', PAL[key].a + '22');
+  localStorage.setItem('palette', key);
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('on'));
+  document.getElementById('sw-'+key)?.classList.add('on');
+}
+// Mark active swatch
+const sp = localStorage.getItem('palette');
+if (sp) document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('sw-'+sp)?.classList.add('on');
+});
+</script>
+{% endblock %}

@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Online Teaching{% endblock %}
+{% block page_title %}Online Teaching{% endblock %}
+{% block topbar_actions %}
+<span class="badge">{{ month_str }}</span>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+.online-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:16px;transition:border-color .2s}
+.online-card:hover{border-color:var(--border2)}
+.online-card-header{padding:14px 18px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.online-card-body{padding:16px 18px}
+.rate-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:600}
+.mode-online{background:rgba(16,152,173,.15);color:#1098ad;border:1px solid rgba(16,152,173,.25)}
+.mode-inperson{background:var(--bg4);color:var(--text3);border:1px solid var(--border)}
+.company-tag{background:var(--accent-glow);color:var(--accent);border:1px solid rgba(76,110,245,.2);padding:2px 10px;border-radius:12px;font-size:.72rem;font-weight:500}
+.stat-mini{text-align:center;padding:10px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)}
+.stat-mini-val{font-family:var(--font-d);font-size:1.3rem;line-height:1}
+.stat-mini-lbl{font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-top:2px}
+.empty-online{text-align:center;padding:48px;color:var(--text3);background:var(--bg2);border-radius:var(--radius);border:1px dashed var(--border)}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Summary -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">
+  <div class="stat-mini">
+    <div class="stat-mini-val" style="color:var(--accent)">{{ group_data|length }}</div>
+    <div class="stat-mini-lbl">Online Groups</div>
+  </div>
+  <div class="stat-mini">
+    <div class="stat-mini-val">{{ group_data|sum(attribute='student_count') }}</div>
+    <div class="stat-mini-lbl">Online Students</div>
+  </div>
+  <div class="stat-mini">
+    <div class="stat-mini-val" style="color:var(--green)">{{ "{:,.0f}".format(total_income) }}</div>
+    <div class="stat-mini-lbl">UZS This Month</div>
+  </div>
+</div>
+
+<!-- Today's online lessons -->
+{% if todays_online %}
+<div class="card mb-6">
+  <div class="card-header"><span class="card-title">📹 Today's Online Lessons</span></div>
+  <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+    {% for l in todays_online %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="dot" style="background:{{ l.group.color }};width:10px;height:10px"></span>
+        <strong>{{ l.group.name }}</strong>
+        {% if l.time %}<span style="font-family:var(--font-m);color:var(--accent);font-size:.85rem">{{ l.time }}</span>{% endif %}
+        {% if l.group.company_name %}<span class="company-tag">{{ l.group.company_name }}</span>{% endif %}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        {% if l.group.zoom_link %}
+        <a href="{{ l.group.zoom_link }}" target="_blank" class="btn btn-primary btn-sm">📹 Join</a>
+        <button onclick="navigator.clipboard.writeText('{{ l.group.zoom_link }}');this.textContent='✓ Copied!';setTimeout(()=>this.textContent='Copy Link',2000)" class="btn btn-ghost btn-sm">Copy Link</button>
+        {% endif %}
+        <a href="/timetable/?d={{ today.isoformat() }}" class="btn btn-ghost btn-sm">Mark Attendance →</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Online groups -->
+{% if group_data %}
+{% for r in group_data %}
+<div class="online-card">
+  <div class="online-card-header">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="dot" style="background:{{ r.group.color }};width:11px;height:11px"></span>
+      <strong style="color:var(--text);font-size:.95rem">{{ r.group.name }}</strong>
+      <span class="rate-badge mode-online">🌐 Online</span>
+      {% if r.group.company_name %}<span class="company-tag">{{ r.group.company_name }}</span>{% endif %}
+      {% if r.rate_type == 'per_lesson' %}
+      <span class="rate-badge" style="background:var(--green-bg);color:var(--green);border-color:rgba(74,222,128,.2)">
+        {{ "{:,.0f}".format(r.rate_amount|int) }} UZS/lesson
+      </span>
+      {% elif r.rate_type == 'per_hour' %}
+      <span class="rate-badge" style="background:var(--yellow-bg);color:var(--yellow);border-color:rgba(251,191,36,.2)">
+        {{ "{:,.0f}".format(r.rate_amount|int) }} UZS/hr · {{ r.duration }}min lessons
+      </span>
+      {% endif %}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="money" style="font-size:1rem">{{ "{:,.0f}".format(r.income) }} UZS</span>
+      <button class="btn btn-ghost btn-sm" onclick="toggleSettings('settings-{{ r.group.id }}')">⚙ Settings</button>
+    </div>
+  </div>
+
+  <!-- Settings panel (collapsed) -->
+  <div id="settings-{{ r.group.id }}" style="display:none;padding:14px 18px;background:var(--bg4);border-bottom:1px solid var(--border)">
+    <form method="post" action="/online/group/{{ r.group.id }}/settings">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:10px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Mode</label>
+          <select class="form-control" name="mode">
+            <option value="online" {% if r.group.mode=='online' %}selected{% endif %}>🌐 Online</option>
+            <option value="in-person" {% if r.group.mode!='online' %}selected{% endif %}>🏫 In-person</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Company Name</label>
+          <input class="form-control" name="company_name" value="{{ r.group.company_name or '' }}" placeholder="e.g. iTalki">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Rate Type</label>
+          <select class="form-control" name="rate_type">
+            <option value="per_lesson" {% if r.rate_type=='per_lesson' %}selected{% endif %}>Per Lesson</option>
+            <option value="per_hour" {% if r.rate_type=='per_hour' %}selected{% endif %}>Per Hour</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Rate Amount (UZS)</label>
+          <input class="form-control" name="rate_amount" type="number" value="{{ r.rate_amount|int }}" step="1000">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Lesson Duration (min)</label>
+          <input class="form-control" name="lesson_duration" type="number" value="{{ r.duration }}" step="15">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Zoom/Meet Link</label>
+          <input class="form-control" name="zoom_link" value="{{ r.group.zoom_link or '' }}" placeholder="https://zoom.us/j/...">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSettings('settings-{{ r.group.id }}')">Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="online-card-body">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+      <div class="stat-mini"><div class="stat-mini-val">{{ r.student_count }}</div><div class="stat-mini-lbl">Students</div></div>
+      <div class="stat-mini"><div class="stat-mini-val">{{ r.held }}</div><div class="stat-mini-lbl">Lessons Held</div></div>
+      <div class="stat-mini"><div class="stat-mini-val" style="color:var(--green)">{{ "{:,.0f}".format(r.income) }}</div><div class="stat-mini-lbl">UZS Earned</div></div>
+      <div class="stat-mini">
+        <div class="stat-mini-val" style="font-size:.9rem">
+          {% if r.rate_type=='per_lesson' %}{{ "{:,.0f}".format(r.rate_amount|int) }}/lesson
+          {% else %}{{ "{:,.0f}".format(r.rate_amount|int) }}/hr{% endif %}
+        </div>
+        <div class="stat-mini-lbl">Your Rate</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a href="/groups/{{ r.group.id }}" class="btn btn-ghost btn-sm">View Group →</a>
+      <a href="/timetable/" class="btn btn-ghost btn-sm">Timetable →</a>
+      {% if r.group.zoom_link %}
+      <a href="{{ r.group.zoom_link }}" target="_blank" class="btn btn-primary btn-sm">📹 Open Meeting Link</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="empty-online">
+  <div style="font-size:2.5rem;margin-bottom:12px">🌐</div>
+  <div style="font-size:1rem;color:var(--text2);margin-bottom:8px">No online groups yet</div>
+  <div style="font-size:.82rem;margin-bottom:16px">Go to <a href="/settings/" style="color:var(--accent)">Settings</a> → select a group → set mode to Online</div>
+</div>
+{% endif %}
+
+<!-- Mark existing group as online -->
+<div class="card mt-6">
+  <div class="card-header"><span class="card-title">Set Group as Online</span></div>
+  <div class="card-body">
+    <form method="post" id="quickSetForm" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div class="form-group" style="margin:0;flex:1;min-width:160px">
+        <label class="form-label">Group</label>
+        <select class="form-control" name="group_id" id="quickGroup" onchange="updateQuickForm()">
+          {% set all_groups = [] %}
+          {% for r in group_data %}{# already shown above #}{% endfor %}
+          <option value="">Select group...</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Rate Type</label>
+        <select class="form-control" name="rate_type">
+          <option value="per_lesson">Per Lesson</option>
+          <option value="per_hour">Per Hour</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Rate (UZS)</label>
+        <input class="form-control" name="rate_amount" type="number" placeholder="e.g. 80000" step="1000" style="width:130px">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Company</label>
+        <input class="form-control" name="company_name" placeholder="Optional">
+      </div>
+      <input type="hidden" name="mode" value="online">
+      <input type="hidden" name="lesson_duration" value="60">
+      <input type="hidden" name="zoom_link" value="">
+    </form>
+    <div style="margin-top:10px;font-size:.8rem;color:var(--text3)">
+      Or go to <a href="/settings/" style="color:var(--accent)">Settings → Finance tab</a> to configure any group as online.
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleSettings(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

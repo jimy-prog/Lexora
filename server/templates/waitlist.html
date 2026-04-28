@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Waitlist{% endblock %}
+{% block page_title %}Waitlist{% endblock %}
+{% block topbar_actions %}
+<div style="display:flex;gap:8px;align-items:center">
+  <form method="post" action="/waitlist/import-google-sheet" style="display:inline">
+    <button class="btn btn-ghost btn-sm" type="submit">⇅ Import Sheet</button>
+  </form>
+  <a href="/profile/?tab=system#waitlist-import" class="btn btn-ghost btn-sm">Import Settings</a>
+  <button class="btn btn-primary btn-sm" onclick="openModal('addEntry')">+ New Enquiry</button>
+</div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+.pipe-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.pipe-col{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+.pipe-title{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
+.pipe-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;margin-bottom:7px;font-size:.8rem}
+.pipe-name{font-weight:600;color:var(--text);margin-bottom:3px}
+.pipe-meta{color:var(--text3);font-size:.72rem}
+.mode-online{color:#1098ad;font-size:.68rem;font-weight:600}
+.mode-inperson{color:var(--text3);font-size:.68rem}
+</style>
+{% endblock %}
+
+{% block content %}
+{% if request.query_params.get('import_ok') == '1' %}
+<div class="alert alert-success mb-4">Imported {{ request.query_params.get('imported') or '0' }} new enquiries from Google Sheet.</div>
+{% elif request.query_params.get('import_err') == 'sheet_id_required' %}
+<div class="alert mb-4" style="background:var(--red-bg);border:1px solid rgba(248,113,113,.25);color:var(--red)">Google Sheet ID is required.</div>
+{% elif request.query_params.get('import_err') == 'sheet_unavailable' %}
+<div class="alert mb-4" style="background:var(--red-bg);border:1px solid rgba(248,113,113,.25);color:var(--red)">Could not read the sheet. Check Sheet ID, tab name, and sharing access.</div>
+{% if last_import_error %}<div class="alert mb-4" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:.78rem">Technical detail: {{ last_import_error }}</div>{% endif %}
+{% endif %}
+{% if request.query_params.get('err') == 'banned_phone' %}
+<div class="alert mb-4" style="background:var(--red-bg);border:1px solid rgba(248,113,113,.25);color:var(--red)">
+  This phone number belongs to a banned student, so enrollment is blocked.
+</div>
+{% endif %}
+<!-- Pipeline -->
+<div class="pipe-grid">
+  {% for sk,(label,pill) in status_labels.items() %}
+  <div class="pipe-col">
+    <div class="pipe-title">{{ label }}</div>
+    {% for e in entries if e.status==sk %}
+    <div class="pipe-card">
+      <div class="pipe-name">{{ e.name }}</div>
+      <div class="pipe-meta">
+        {% if e.phone %}📞 {{ e.phone }}<br>{% endif %}
+        {% if e.desired_group %}<span class="dot" style="background:{{ e.desired_group.color }};margin-right:3px"></span>{{ e.desired_group.name }}<br>{% endif %}
+        <span class="{% if e.mode=='online' %}mode-online{% else %}mode-inperson{% endif %}">
+          {% if e.mode=='online' %}🌐 Online{% else %}🏫 In-person{% endif %}
+        </span>
+        {% if e.trial_date %} · Trial: {{ e.trial_date }}{% if e.trial_done %} ✓{% endif %}{% endif %}
+      </div>
+      <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">
+        {% set statuses=['new','contacted','trial','enrolled'] %}
+        {% set idx=statuses.index(sk) %}
+        {% if idx < 3 %}
+        <form method="post" action="/waitlist/{{ e.id }}/status" style="display:inline">
+          <input type="hidden" name="status" value="{{ statuses[idx+1] }}">
+          <button class="btn btn-ghost btn-xs">→ {{ status_labels[statuses[idx+1]][0] }}</button>
+        </form>
+        {% endif %}
+        <button class="btn btn-primary btn-xs" onclick="openEnroll({{ e.id }},'{{ e.name }}')">Enroll</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Full table -->
+<div class="card">
+  <div class="card-header"><span class="card-title">All Enquiries ({{ entries|length }})</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Phone</th><th>Parent</th><th>Mode</th><th>Wants Group</th><th>Schedule</th><th>Goal</th><th>How Found</th><th>Trial</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td class="td-primary">{{ e.name }}</td>
+          <td class="mono" style="font-size:.8rem">{{ e.phone or '—' }}</td>
+          <td class="mono" style="font-size:.8rem">{{ e.parent_phone or '—' }}</td>
+          <td>
+            {% if e.mode=='online' %}<span class="pill" style="background:rgba(16,152,173,.15);color:#1098ad;border:1px solid rgba(16,152,173,.2)">🌐 Online</span>
+            {% else %}<span class="pill pill-grey">🏫 In-person</span>{% endif %}
+          </td>
+          <td>{% if e.desired_group %}<span class="dot" style="background:{{ e.desired_group.color }};margin-right:5px"></span>{{ e.desired_group.name }}{% else %}—{% endif %}</td>
+          <td style="font-size:.8rem;color:var(--text2)">{{ e.preferred_schedule or '—' }}</td>
+          <td style="font-size:.8rem;color:var(--text2);max-width:220px">{{ e.learning_goal or '—' }}</td>
+          <td style="font-size:.8rem;color:var(--text3)">{{ e.how_found or '—' }}</td>
+          <td style="font-size:.8rem">
+            {% if e.trial_date %}
+            {{ e.trial_date }}
+            {% if e.trial_done %}<span class="pill pill-green" style="font-size:.6rem">Done ✓</span>
+            {% else %}
+            <form method="post" action="/waitlist/{{ e.id }}/trial-done" style="display:inline">
+              <button class="btn btn-ghost btn-xs">Mark Done</button>
+            </form>
+            {% endif %}
+            {% else %}
+            <form method="post" action="/waitlist/{{ e.id }}/trial" style="display:inline;display:flex;gap:4px;align-items:center">
+              <input type="date" name="trial_date" class="form-control" style="width:130px;padding:3px 6px;font-size:.72rem">
+              <button class="btn btn-ghost btn-xs">Set</button>
+            </form>
+            {% endif %}
+          </td>
+          <td><span class="pill {{ status_labels[e.status][1] }}">{{ status_labels[e.status][0] }}</span></td>
+          <td>
+            <div style="display:flex;gap:5px">
+              {% if e.phone %}
+              <button class="btn btn-ghost btn-xs" type="button" onclick="callWaitlist('{{ e.id }}','{{ (e.phone or '')|replace("'", "") }}')">Call</button>
+              {% endif %}
+              <button class="btn btn-green btn-xs" onclick="openEnroll({{ e.id }},'{{ e.name }}')">Enroll →</button>
+              <form method="post" action="/waitlist/{{ e.id }}/delete" style="display:inline">
+                <button class="btn btn-danger btn-xs" onclick="return confirm('Remove?')">✕</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not entries %}<tr><td colspan="11" style="text-align:center;padding:28px;color:var(--text3)">No enquiries yet</td></tr>{% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal-overlay" id="addEntry" onclick="if(event.target===this)closeModal('addEntry')">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">New Enquiry</span><button class="modal-close" onclick="closeModal('addEntry')">✕</button></div>
+    <div class="modal-body">
+      <form method="post" action="/waitlist/add">
+        <div class="form-group"><label class="form-label">Full Name *</label><input class="form-control" name="name" required></div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Phone</label><input class="form-control" name="phone" placeholder="+998..."></div>
+          <div class="form-group"><label class="form-label">Parent Phone</label><input class="form-control" name="parent_phone"></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Mode</label>
+            <select class="form-control" name="mode">
+              <option value="in-person">🏫 In-person</option>
+              <option value="online">🌐 Online</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Wants Group</label>
+            <select class="form-control" name="desired_group_id">
+              <option value="">— Not sure —</option>
+              {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Preferred Schedule</label><input class="form-control" name="preferred_schedule" placeholder="Mon/Wed/Fri 18:00"></div>
+          <div class="form-group">
+            <label class="form-label">How Found</label>
+            <select class="form-control" name="how_found">
+              <option value="">—</option>
+              {% for h in how_found_options %}<option>{{ h }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Goal / Notes</label><textarea class="form-control" name="learning_goal" rows="2" placeholder="IELTS target, level, etc."></textarea></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('addEntry')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Enroll Modal -->
+<div class="modal-overlay" id="enrollModal" onclick="if(event.target===this)closeModal('enrollModal')">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Enroll Student</span><button class="modal-close" onclick="closeModal('enrollModal')">✕</button></div>
+    <div class="modal-body">
+      <form id="enrollForm" method="post">
+        <div class="form-group"><div id="enrollName" style="font-weight:600;padding:6px 0;color:var(--text)"></div></div>
+        <div class="form-group">
+          <label class="form-label">Assign to Group *</label>
+          <select class="form-control" name="group_id" required>
+            {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Level</label>
+          <select class="form-control" name="level">
+            {% for lv in ['','A1','A2','B1','B2','C1'] %}<option value="{{ lv }}">{{ lv or 'Not assessed' }}</option>{% endfor %}
+          </select>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('enrollModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">✓ Enroll</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% block scripts %}
+<script>
+function openEnroll(eid, name) {
+  document.getElementById('enrollName').textContent = name;
+  document.getElementById('enrollForm').action = `/waitlist/${eid}/enroll`;
+  openModal('enrollModal');
+}
+function callWaitlist(eid, phone) {
+  fetch(`/waitlist/${eid}/log-call`, { method: 'POST' }).catch(() => {});
+  window.location.href = `tel:${phone}`;
+}
+</script>
+{% endblock %}
+{% endblock %}

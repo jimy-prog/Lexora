@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 20% 97%;
+    --foreground: 220 15% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 8%;
+    --primary: 252 100% 68%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 20% 97%;
+    --secondary-foreground: 220 15% 8%;
+    --muted: 240 10% 94%;
+    --muted-foreground: 220 8% 46%;
+    --accent: 252 100% 68%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 252 100% 68%;
+    --radius: 1.125rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .font-display {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  
+  .font-body {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+/* Dot grid background pattern */
+.dot-grid {
+  background-image: radial-gradient(circle, rgba(123, 97, 255, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Card shadow */
+.card-shadow {
+  box-shadow: 0 18px 50px rgba(17, 24, 39, 0.10);
+}
+
+/* Orbit ring animation */
+@keyframes slow-rotate {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.orbit-rotate {
+  animation: slow-rotate 60s linear infinite;
+}
+
+/* Float animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-float {
+  animation: float 3.5s ease-in-out infinite;
+}
+
+/* Pulse subtle animation */
+@keyframes pulse-subtle {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 4s ease-in-out infinite;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(123, 97, 255, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(123, 97, 255, 0.5);
+}

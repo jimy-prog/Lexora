@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Mock Tests | Lexora{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:32px;">
+    <div>
+        <h1 style="font-family:var(--font-d); font-size:2rem; font-weight:800; color:var(--text); letter-spacing:-0.03em;">Mock Tests</h1>
+        <p style="color:var(--text2); font-size: .95rem; margin-top:4px;">Practice your English skills with official test formats.</p>
+    </div>
+    <div style="display:flex; gap:12px;">
+        <a href="/mock/history" class="btn btn-ghost" style="border-radius:12px; border:1px solid var(--border);">
+            <i class="fa-solid fa-clock-rotate-left"></i> My History
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div style="display:flex; gap:16px; margin-bottom:24px;">
+    <div style="flex:1; position:relative;">
+        <i class="fa-solid fa-search" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text2);"></i>
+        <input type="text" placeholder="Search for tests..." style="width:100%; box-sizing:border-box; padding:14px 16px 14px 44px; border-radius:14px; border:1px solid var(--border); background:var(--bg2); color:var(--text); font-family:var(--font-b); font-size:0.95rem;">
+    </div>
+    <select style="padding:14px 20px; border-radius:14px; border:1px solid var(--border); background:var(--bg2); color:var(--text); font-family:var(--font-b); min-width:150px; outline:none;">
+        <option value="">All Types</option>
+        <option value="IELTS">IELTS</option>
+        <option value="SAT">SAT</option>
+    </select>
+    <select style="padding:14px 20px; border-radius:14px; border:1px solid var(--border); background:var(--bg2); color:var(--text); font-family:var(--font-b); min-width:180px; outline:none;">
+        <option value="">All Scopes</option>
+        <option value="Full Test">Full Test</option>
+        <option value="Reading Section">Reading Section</option>
+        <option value="Listening Section">Listening Section</option>
+    </select>
+</div>
+
+<!-- Exam Grid -->
+<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:20px;">
+    {% for exam in exams %}
+    <div class="card hover-scale" style="padding:24px; border-radius:20px; border:1px solid var(--border); background:var(--bg); position:relative; overflow:hidden;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+                <span style="font-size:.7rem; font-weight:700; text-transform:uppercase; color:var(--accent); background:var(--accent-glow); padding:4px 8px; border-radius:6px;">{{ exam.exam_type }}</span>
+                <span style="font-size:.7rem; font-weight:700; text-transform:uppercase; color:#fff; background:var(--accent); padding:4px 8px; border-radius:6px; margin-left:4px;">{{ exam.test_scope }}</span>
+                <span style="font-size:.7rem; font-weight:700; text-transform:uppercase; color:#fff; background:#10b981; padding:4px 8px; border-radius:6px; margin-left:4px;">{{ exam.test_mode }}</span>
+                <h3 style="font-family:var(--font-d); font-size:1.25rem; font-weight:700; color:var(--text); margin-top:16px;">{{ exam.title }}</h3>
+                <p style="font-size:.85rem; color:var(--text2); margin-top:6px;"><i class="fa-solid fa-layer-group"></i> {{ exam.sections | length }} sections included</p>
+            </div>
+        </div>
+        
+        <div style="margin-top:24px;">
+            <a href="/mock/{{ exam.id }}/start" class="btn btn-primary" style="width:100%; border-radius:12px; padding:12px; display:inline-flex; align-items:center; justify-content:center; gap:8px;">
+                <i class="fa-solid fa-play"></i> Open Test
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <div style="grid-column: 1 / -1; text-align:center; padding: 60px 20px; background:var(--bg2); border-radius:24px; border:1px dashed var(--border);">
+        <div style="font-size:3rem; color:var(--text2); margin-bottom:16px;">
+            <i class="fa-solid fa-folder-open"></i>
+        </div>
+        <h3 style="font-size:1.2rem; color:var(--text); font-weight:600;">No tests available</h3>
+        <p style="color:var(--text2); font-size:.9rem; max-width:400px; margin:8px auto 0;">
+            There are currently no mock exams available. Please check back later.
+        </p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

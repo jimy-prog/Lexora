@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+
+<!-- Password change -->
+<div class="card mb-6">
+  <div class="card-header"><span class="card-title">🔐 Change Password</span></div>
+  <div class="card-body">
+    {% if request.query_params.get('success') == 'password_changed' %}
+    <div class="alert alert-success mb-4">✓ Password changed successfully</div>
+    {% endif %}
+    {% if request.query_params.get('error') == 'wrong_password' %}
+    <div class="alert" style="background:var(--red-bg);border:1px solid rgba(248,113,113,.25);color:var(--red)" class="mb-4">✕ Current password incorrect</div>
+    {% endif %}
+    <form method="post" action="/settings/change-password" style="max-width:400px">
+      <div class="form-group">
+        <label class="form-label">Current Password</label>
+        <input class="form-control" type="password" name="current_pw" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">New Password</label>
+        <input class="form-control" type="password" name="new_pw" required minlength="4">
+      </div>
+      <button type="submit" class="btn btn-primary">Update Password</button>
+    </form>
+    <div style="margin-top:12px;font-size:.78rem;color:var(--text3)">For security, change the initial admin password immediately after first login.</div>
+  </div>
+</div>
+<!-- Finance settings -->
+<div class="card mb-6">
+  <div class="card-header"><span class="card-title">Finance & Pricing</span></div>
+  <div class="card-body">
+    <form method="post" action="/settings/update">
+      <div class="grid-3">
+        {% for s in settings.values() if s.category == 'finance' %}
+        <div class="form-group">
+          <label class="form-label">{{ s.label }}</label>
+          <input class="form-control" name="{{ s.key }}" value="{{ s.value }}"
+            type="{% if 'pct' in s.key %}number{% else %}number{% endif %}"
+            step="{% if 'pct' in s.key %}1{% else %}1000{% endif %}">
+        </div>
+        {% endfor %}
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Per-group settings -->
+<div class="card mb-6">
+  <div class="card-header">
+    <span class="card-title">Group Settings & Management</span>
+    <button class="btn btn-primary btn-sm" onclick="openModal('addGroup')">+ New Group</button>
+  </div>
+  <div style="padding:0">
+    {% for g in groups %}
+    <div style="padding:18px 20px;border-bottom:1px solid var(--border);{% if not loop.last %}{% endif %}">
+      <div class="flex-between mb-3">
+        <div class="flex-center gap-2">
+          <span class="dot" style="background:{{ g.color }};width:10px;height:10px"></span>
+          <span style="font-weight:600;color:var(--text)">{{ g.name }}</span>
+          <span style="font-size:.72rem;color:var(--text3)">{{ g.group_type }}</span>
+          {% if g.status=='active' %}<span class="pill pill-green" style="font-size:.65rem">Active</span>
+          {% elif g.status=='paused' %}<span class="pill pill-yellow" style="font-size:.65rem">Paused</span>
+          {% else %}<span class="pill pill-grey" style="font-size:.65rem">Archived</span>{% endif %}
+        </div>
+        <div class="flex gap-2">
+          {% if g.status != 'archived' %}
+          <form method="post" action="/settings/group/{{ g.id }}/pause" style="display:inline">
+            <button class="btn btn-ghost btn-xs">{% if g.status=='paused' %}▶ Resume{% else %}⏸ Pause{% endif %}</button>
+          </form>
+          <form method="post" action="/settings/group/{{ g.id }}/archive" style="display:inline">
+            <button class="btn btn-orange btn-xs" onclick="return confirm('Archive {{ g.name }}? All students will be moved to Alumni.')">Archive Group</button>
+          </form>
+          {% else %}
+          <form method="post" action="/settings/group/{{ g.id }}/restore" style="display:inline">
+            <button class="btn btn-green btn-xs">Restore Group</button>
+          </form>
+          {% endif %}
+          <a href="/groups/{{ g.id }}" class="btn btn-ghost btn-xs">View →</a>
+        </div>
+      </div>
+      {% if g.status != 'archived' %}
+      <form method="post" action="/settings/group/{{ g.id }}/update">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr) 2fr;gap:12px;align-items:end">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Price/month</label>
+            <input class="form-control" name="price_monthly" type="number" value="{{ g.price_monthly|int }}" step="10000">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Teacher %</label>
+            <input class="form-control" name="teacher_pct" type="number" step="1" value="{{ (g.teacher_pct*100)|round|int }}">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Lessons/wk</label>
+            <input class="form-control" name="lessons_per_week" type="number" value="{{ g.lessons_per_week }}">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Weeks/mo</label>
+            <input class="form-control" name="weeks_per_month" type="number" value="{{ g.weeks_per_month }}">
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button type="submit" class="btn btn-primary btn-sm" style="width:100%">Save</button>
+          </div>
+          <div class="form-group" style="margin:0;grid-column:1/-1">
+            <label class="form-label">Schedule</label>
+            <input class="form-control" name="schedule" value="{{ g.schedule or '' }}" placeholder="Mon 18:00, Wed 18:00, Fri 18:00">
+            <input type="hidden" name="notes" value="{{ g.notes or '' }}">
+          </div>
+        </div>
+      </form>
+      {% else %}
+      <div style="font-size:.82rem;color:var(--text3)">Archived {{ g.archived_date or '' }} · {{ g.notes }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Add Group Modal -->
+<div class="modal-overlay" id="addGroup" onclick="if(event.target===this)closeModal('addGroup')">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Add New Group</span><button class="modal-close" onclick="closeModal('addGroup')">✕</button></div>
+    <div class="modal-body">
+      <form method="post" action="/groups/add">
+        <div class="form-group"><label class="form-label">Name *</label><input class="form-control" name="name" required></div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <select class="form-control" name="group_type">
+              <option value="group">Group</option>
+              <option value="individual">Individual</option>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">Color</label><input class="form-control" name="color" type="color" value="#7b61ff"></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Price/month (UZS)</label><input class="form-control" name="price_monthly" type="number" value="750000"></div>
+          <div class="form-group"><label class="form-label">Teacher %</label><input class="form-control" name="teacher_pct" type="number" value="40"></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Lessons/week</label><input class="form-control" name="lessons_per_week" type="number" value="3"></div>
+          <div class="form-group"><label class="form-label">Weeks/month</label><input class="form-control" name="weeks_per_month" type="number" value="4"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Schedule</label><input class="form-control" name="schedule" placeholder="Mon 18:00, Wed 18:00, Fri 18:00"></div>
+        <div class="form-group"><label class="form-label">Notes</label><textarea class="form-control" name="notes" rows="2"></textarea></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('addGroup')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

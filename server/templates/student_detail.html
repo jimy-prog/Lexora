@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}{{ student.name }}{% endblock %}
+{% block page_title %}{{ student.name }}{% endblock %}
+{% block topbar_actions %}
+<div style="display:flex;gap:8px">
+  {% if student.level %}<span class="level-badge" style="font-size:.85rem;padding:4px 12px">{{ student.level }}</span>{% endif %}
+  {% if student.archived %}<span class="pill pill-grey">Alumni</span>
+  {% elif student.active %}<span class="pill pill-green">Active</span>
+  {% else %}<span class="pill pill-grey">Inactive</span>{% endif %}
+  <button class="btn btn-ghost btn-sm" onclick="openModal('editStudent')" title="Edit profile">✎ Edit</button>
+  {% if student.phone %}<button class="btn btn-ghost btn-sm" type="button" onclick="callStudent('{{ student.id }}','{{ (student.phone or '')|replace("'", "") }}')">Call</button>{% endif %}
+  <button type="button" class="btn btn-ghost btn-sm" onclick="openHistoryPopup({{ student.id }})">🕘 History</button>
+  <a href="/reportcard/{{ student.id }}" target="_blank" class="btn btn-ghost btn-sm">📄 Report Card</a>
+</div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+@media print {
+  .sidebar,.topbar,.btn,.modal-overlay{display:none!important}
+  .main{margin-left:0}
+  body{background:#fff;color:#000}
+  .card{border:1px solid #ccc;break-inside:avoid}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="/students/" class="btn btn-ghost btn-sm mb-4" style="display:inline-flex">← All Students</a>
+
+<div class="grid-2 mb-6">
+  <!-- Profile card -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Profile</span></div>
+    <div class="card-body" style="display:grid;gap:11px;font-size:.88rem">
+      <div class="flex-between"><span style="color:var(--text3)">Group</span>
+        <span>{% if student.group %}<span class="dot" style="background:{{ student.group.color }};margin-right:5px"></span>{{ student.group.name }}{% else %}—{% endif %}</span>
+      </div>
+      <div class="flex-between"><span style="color:var(--text3)">Phone</span><span class="mono">{{ student.phone or '—' }}</span></div>
+      <div class="flex-between"><span style="color:var(--text3)">Parent Phone</span><span class="mono">{{ student.parent_phone or '—' }}</span></div>
+      <div class="flex-between"><span style="color:var(--text3)">Email</span><span>{{ student.email or '—' }}</span></div>
+      <div class="flex-between"><span style="color:var(--text3)">Started</span><span class="mono">{{ student.start_date or '—' }}</span></div>
+      {% if student.notes %}<div style="padding:9px 12px;background:var(--bg3);border-radius:6px;color:var(--text2);font-size:.82rem">{{ student.notes }}</div>{% endif %}
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Attendance Summary</span></div>
+    <div class="card-body">
+      <div class="grid-2" style="gap:10px;margin-bottom:12px">
+        {% for label, val, color, bg in [('Present', present, 'var(--green)', 'var(--green-bg)'), ('Absent', absent, 'var(--red)', 'var(--red-bg)'), ('Excused', excused, 'var(--yellow)', 'var(--yellow-bg)'), ('Rate', rate|string + '%', 'var(--accent)', 'var(--accent-glow)')] %}
+        <div style="text-align:center;padding:11px;background:{{ bg }};border-radius:8px;border:1px solid {{ color }}33">
+          <div style="font-size:1.5rem;font-family:var(--font-d);color:{{ color }}">{{ val }}</div>
+          <div style="font-size:.66rem;color:var(--text3);margin-top:3px;text-transform:uppercase;letter-spacing:.08em">{{ label }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="progress"><div class="progress-bar {% if rate>=80 %}pb-green{% elif rate>=60 %}pb-yellow{% else %}pb-red{% endif %}" style="width:{{ rate }}%"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Progress -->
+<div class="card mb-6">
+  <div class="card-header"><span class="card-title">Progress & Skills</span></div>
+  <div class="card-body grid-3" style="gap:16px">
+    <div>
+      <div class="form-label">Level</div>
+      <span class="level-badge" style="font-size:.9rem;padding:4px 14px">{{ student.level or 'Not set' }}</span>
+    </div>
+    <div>
+      <div class="form-label">Strengths</div>
+      <div style="font-size:.85rem;color:var(--text2)">{{ student.strengths or '—' }}</div>
+    </div>
+    <div>
+      <div class="form-label">Needs Work</div>
+      <div style="font-size:.85rem;color:var(--text2)">{{ student.weaknesses or '—' }}</div>
+    </div>
+    {% if student.progress_notes %}
+    <div style="grid-column:1/-1;padding:10px 14px;background:var(--bg3);border-radius:7px;font-size:.85rem;color:var(--text2)">
+      <div class="form-label" style="margin-bottom:5px">Progress Notes</div>
+      {{ student.progress_notes }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Test Results -->
+<div class="card mb-6">
+  <div class="card-header">
+    <span class="card-title">Test Results — Grammar · Activity · Vocabulary</span>
+    <button class="btn btn-primary btn-sm" onclick="openModal('addTest')">+ Add Test</button>
+  </div>
+  {% if tests %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Grammar</th><th>Activity</th><th>Vocabulary</th><th>Average</th><th>Comments</th><th></th></tr></thead>
+      <tbody>
+        {% for t in tests %}
+        <tr>
+          <td class="mono">{{ t.test_date }}</td>
+          <td>
+            {% if t.grammar is not none %}
+            <span style="font-weight:600;color:{% if t.grammar>=80 %}var(--green){% elif t.grammar>=60 %}var(--yellow){% else %}var(--red){% endif %}">{{ t.grammar }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if t.activity is not none %}
+            <span style="font-weight:600;color:{% if t.activity>=80 %}var(--green){% elif t.activity>=60 %}var(--yellow){% else %}var(--red){% endif %}">{{ t.activity }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if t.vocabulary is not none %}
+            <span style="font-weight:600;color:{% if t.vocabulary>=80 %}var(--green){% elif t.vocabulary>=60 %}var(--yellow){% else %}var(--red){% endif %}">{{ t.vocabulary }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if t.total is not none %}
+            <span class="pill {% if t.total>=80 %}pill-green{% elif t.total>=60 %}pill-yellow{% else %}pill-red{% endif %}">{{ t.total }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="font-size:.8rem;color:var(--text3)">{{ t.comments or '—' }}</td>
+          <td>
+            <form method="post" action="/students/{{ student.id }}/delete-test/{{ t.id }}" style="display:inline">
+              <button class="btn btn-danger btn-xs" type="submit" onclick="return confirm('Delete?')">✕</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <!-- Simple trend line -->
+  {% if tests|length > 1 %}
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <div class="form-label" style="margin-bottom:8px">Average Score Trend</div>
+    <div style="display:flex;align-items:flex-end;gap:8px;height:60px">
+      {% for t in tests|reverse %}
+      {% if t.total is not none %}
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+        <div style="font-size:.62rem;color:var(--text3)">{{ t.total }}</div>
+        <div style="width:100%;background:{% if t.total>=80 %}var(--green){% elif t.total>=60 %}var(--yellow){% else %}var(--red){% endif %};border-radius:3px 3px 0 0;height:{{ (t.total/100*44)|int }}px;opacity:.8"></div>
+        <div style="font-size:.58rem;color:var(--text3)">{{ t.test_date.strftime('%b') }}</div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="card-body" style="text-align:center;padding:24px;color:var(--text3);font-size:.85rem">No test results yet — click "+ Add Test" to record the first one</div>
+  {% endif %}
+</div>
+
+
+<!-- Weekly Performance -->
+<div class="card mb-6">
+  <div class="card-header">
+    <span class="card-title">Weekly Performance (🔴 Needs Work · 🟡 Revise · 🟢 Good)</span>
+    <a href="/performance/?month={{ month_str }}" class="btn btn-ghost btn-sm">Full View →</a>
+  </div>
+  {% if student.performance %}
+  <div style="overflow-x:auto">
+    <table style="border-collapse:collapse;width:100%;font-size:.82rem">
+      <thead>
+        <tr>
+          <th style="background:var(--bg3);padding:8px 14px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);font-size:.68rem;text-transform:uppercase;letter-spacing:.07em">Month</th>
+          <th style="background:var(--bg3);padding:8px 8px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);font-size:.68rem;text-transform:uppercase">Wk</th>
+          <th style="background:var(--bg3);padding:8px 8px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);font-size:.68rem;text-transform:uppercase">Grammar</th>
+          <th style="background:var(--bg3);padding:8px 8px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);font-size:.68rem;text-transform:uppercase">Activity</th>
+          <th style="background:var(--bg3);padding:8px 8px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);font-size:.68rem;text-transform:uppercase">Vocabulary</th>
+          <th style="background:var(--bg3);padding:8px 8px;text-align:center;border-bottom:1px solid var(--border);color:var(--text3);font-size:.68rem;text-transform:uppercase">Avg</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for wp in student.performance|sort(attribute='month',reverse=True) %}
+        {% set scores = [wp.grammar, wp.activity, wp.vocabulary]|select('ne', none)|list %}
+        {% set avg = (scores|sum / scores|length)|round(1) if scores else none %}
+        <tr>
+          <td style="padding:8px 14px;border-bottom:1px solid var(--border);font-family:var(--font-m);font-size:.78rem;color:var(--text2)">{{ wp.month }}</td>
+          <td style="padding:8px;border-bottom:1px solid var(--border);text-align:center;color:var(--text3);font-size:.8rem">{{ wp.week_num }}</td>
+          {% for val in [wp.grammar, wp.activity, wp.vocabulary] %}
+          <td style="padding:8px;border-bottom:1px solid var(--border);text-align:center;font-size:1rem">
+            {% if val == 1 %}🔴{% elif val == 2 %}🟡{% elif val == 3 %}🟢{% else %}<span style="color:var(--text3)">—</span>{% endif %}
+          </td>
+          {% endfor %}
+          <td style="padding:8px;border-bottom:1px solid var(--border);text-align:center;font-family:var(--font-m);font-size:.8rem;font-weight:600;color:{% if avg and avg >= 2.5 %}var(--green){% elif avg and avg >= 1.8 %}var(--yellow){% else %}var(--red){% endif %}">
+            {% if avg %}{{ avg }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body" style="text-align:center;padding:20px;color:var(--text3);font-size:.85rem">No performance data yet</div>
+  {% endif %}
+</div>
+
+<!-- Monthly breakdown -->
+{% if monthly_list %}
+<div class="card mb-6">
+  <div class="card-header"><span class="card-title">Monthly Attendance</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>Present</th><th>Absent</th><th>Excused</th><th>Rate</th></tr></thead>
+      <tbody>
+        {% for month, data in monthly_list %}
+        {% set total_m = data.present + data.absent + data.excused %}
+        {% set rate_m = (data.present / total_m * 100)|round|int if total_m else 0 %}
+        <tr>
+          <td class="mono">{{ month }}</td>
+          <td><span class="pill pill-green">{{ data.present }}</span></td>
+          <td><span class="pill pill-red">{{ data.absent }}</span></td>
+          <td><span class="pill pill-yellow">{{ data.excused }}</span></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:7px">
+              <div class="progress" style="width:55px"><div class="progress-bar {% if rate_m>=80 %}pb-green{% elif rate_m>=60 %}pb-yellow{% else %}pb-red{% endif %}" style="width:{{ rate_m }}%"></div></div>
+              <span style="font-size:.78rem;color:var(--text2)">{{ rate_m }}%</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Full history -->
+<div class="card">
+  <div class="card-header"><span class="card-title">Full Attendance Log</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Status</th><th>Attendance</th><th>Paid?</th></tr></thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td class="mono" style="font-size:.82rem">{{ r.lesson.date }}</td>
+          <td>{% if r.lesson.status=='Held' %}<span class="pill pill-green">Held</span>{% elif r.lesson.status=='Cancelled' %}<span class="pill pill-red">Cancelled</span>{% else %}<span class="pill pill-yellow">Rescheduled</span>{% endif %}
+            {% if r.lesson.topic %}<span style="color:var(--text3);font-size:.75rem;margin-left:5px">{{ r.lesson.topic }}</span>{% endif %}
+          </td>
+          <td>{% if r.status=='Present' %}<span class="pill pill-green">Present</span>{% elif r.status=='Absent' %}<span class="pill pill-red">Absent</span>{% else %}<span class="pill pill-yellow">Excused</span>{% endif %}</td>
+          <td>{% if r.status=='Present' and r.lesson.status=='Held' %}<span class="pill pill-blue">✓</span>{% else %}<span style="color:var(--text3)">—</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Student History -->
+<div class="card mt-6" id="history">
+  <div class="card-header"><span class="card-title">History</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>When</th><th>Type</th><th>Source</th><th>Details</th></tr></thead>
+      <tbody>
+        {% for ev in events %}
+        <tr>
+          <td class="mono" style="font-size:.78rem">{{ ev.created_at }}</td>
+          <td><span class="pill pill-grey">{{ ev.event_type }}</span></td>
+          <td style="font-size:.8rem;color:var(--text3)">{{ ev.source or '—' }}</td>
+          <td style="font-size:.82rem;color:var(--text2)">{{ ev.details or '—' }}</td>
+        </tr>
+        {% endfor %}
+        {% if not events %}<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text3)">No history yet</td></tr>{% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div class="modal-overlay" id="editStudent" onclick="if(event.target===this)closeModal('editStudent')">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Edit Profile</span><button class="modal-close" onclick="closeModal('editStudent')">✕</button></div>
+    <div class="modal-body">
+      <form method="post" action="/students/{{ student.id }}/update">
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Phone</label><input class="form-control" name="phone" value="{{ student.phone or '' }}"></div>
+          <div class="form-group"><label class="form-label">Parent Phone</label><input class="form-control" name="parent_phone" value="{{ student.parent_phone or '' }}"></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Email</label><input class="form-control" name="email" value="{{ student.email or '' }}"></div>
+          <div class="form-group">
+            <label class="form-label">CEFR Level</label>
+            <select class="form-control" name="level">
+              {% for lv in ['','A1','A2','B1','B2','C1','C2'] %}<option value="{{ lv }}" {% if student.level==lv %}selected{% endif %}>{{ lv or 'Not set' }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Strengths</label><textarea class="form-control" name="strengths" rows="2">{{ student.strengths or '' }}</textarea></div>
+        <div class="form-group"><label class="form-label">Needs Work</label><textarea class="form-control" name="weaknesses" rows="2">{{ student.weaknesses or '' }}</textarea></div>
+        <div class="form-group"><label class="form-label">Progress Notes</label><textarea class="form-control" name="progress_notes" rows="3">{{ student.progress_notes or '' }}</textarea></div>
+        <div class="form-group"><label class="form-label">General Notes</label><textarea class="form-control" name="notes" rows="2">{{ student.notes or '' }}</textarea></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('editStudent')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Test Modal -->
+<div class="modal-overlay" id="addTest" onclick="if(event.target===this)closeModal('addTest')">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Add Test Result</span><button class="modal-close" onclick="closeModal('addTest')">✕</button></div>
+    <div class="modal-body">
+      <form method="post" action="/students/{{ student.id }}/add-test">
+        <div class="form-group"><label class="form-label">Test Date</label><input class="form-control" name="test_date" type="date" required></div>
+        <div class="alert alert-info" style="font-size:.8rem">Scores out of 100. Leave blank if section not tested.</div>
+        <div class="grid-3">
+          <div class="form-group"><label class="form-label">Grammar</label><input class="form-control" name="grammar" type="number" min="0" max="100" placeholder="0–100"></div>
+          <div class="form-group"><label class="form-label">Activity</label><input class="form-control" name="activity" type="number" min="0" max="100" placeholder="0–100"></div>
+          <div class="form-group"><label class="form-label">Vocabulary</label><input class="form-control" name="vocabulary" type="number" min="0" max="100" placeholder="0–100"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Comments</label><textarea class="form-control" name="comments" rows="2" placeholder="Optional teacher notes..."></textarea></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('addTest')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Test</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openHistoryPopup(studentId) {
+  window.open(`/students/${studentId}/history`, `history-${studentId}`, 'width=980,height=720,scrollbars=yes,resizable=yes');
+}
+function callStudent(sid, phone) {
+  fetch(`/students/${sid}/log-call`, { method: 'POST' }).catch(() => {});
+  window.location.href = `tel:${phone}`;
+}
+</script>
+{% endblock %}

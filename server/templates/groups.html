@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Groups{% endblock %}
+{% block page_title %}Groups{% endblock %}
+{% block topbar_actions %}
+<button class="btn btn-primary btn-sm" onclick="openModal('addGroup')">+ New Group</button>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+.gc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:14px;transition:border-color .2s}
+.gc:hover{border-color:var(--border2)}
+.gc-stripe{height:4px}
+.gc-body{padding:16px 20px}
+.gc-sp{display:none;background:var(--bg4);border-top:1px solid var(--border);padding:16px 20px}
+.gc-sp.open{display:block}
+.online-fields{display:none;padding:12px;background:rgba(16,152,173,.06);border-radius:6px;border:1px solid rgba(16,152,173,.2);margin-bottom:10px}
+.online-fields.show{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.rate-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:14px;font-size:.68rem;font-weight:600}
+</style>
+{% endblock %}
+
+{% block content %}
+{% if not groups %}
+<div class="card"><div class="card-body" style="text-align:center;padding:40px;color:var(--text3)">No active groups. Create one above.</div></div>
+{% endif %}
+
+{% for g in groups %}
+{% set mode = g.mode if g.mode is defined else 'in-person' %}
+{% set rate_type = g.rate_type if g.rate_type is defined else 'per_lesson' %}
+{% set rate_amount = g.rate_amount if g.rate_amount is defined else 0 %}
+<div class="gc">
+  <div class="gc-stripe" style="background:{{ g.color }}"></div>
+  <div class="gc-body">
+    <div class="flex-between mb-3">
+      <div class="flex-center gap-3" style="flex-wrap:wrap">
+        <span class="dot" style="background:{{ g.color }};width:10px;height:10px"></span>
+        <span style="font-weight:700;font-size:.95rem;color:var(--text)">{{ g.name }}</span>
+        <span class="pill pill-grey" style="font-size:.62rem">{{ g.group_type }}</span>
+        {% if mode == 'online' %}
+        <span class="rate-badge" style="background:rgba(16,152,173,.15);color:#1098ad;border:1px solid rgba(16,152,173,.25)">🌐 Online</span>
+        {% if g.company_name is defined and g.company_name %}<span class="pill pill-blue" style="font-size:.62rem">{{ g.company_name }}</span>{% endif %}
+        {% endif %}
+        {% if g.status == 'paused' %}<span class="pill pill-yellow" style="font-size:.62rem">Paused</span>{% endif %}
+      </div>
+      <div class="flex gap-2">
+        <a href="/groups/{{ g.id }}" class="btn btn-ghost btn-sm">View →</a>
+        <button class="btn btn-ghost btn-sm" onclick="toggleSP({{ g.id }})">⚙ Edit</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;font-size:.82rem">
+      <div><span style="color:var(--text3)">Schedule</span><br><span class="mono" style="font-size:.75rem">{{ g.schedule or '—' }}</span></div>
+      <div><span style="color:var(--text3)">Students</span><br><strong>{{ g.student_count }}</strong></div>
+      {% if mode == 'online' %}
+      <div><span style="color:var(--text3)">Rate</span><br><span class="money">{{ "{:,.0f}".format(rate_amount|int) }}</span> <span style="color:var(--text3);font-size:.72rem">UZS/{% if rate_type=='per_hour' %}hr{% else %}lesson{% endif %}</span></div>
+      {% else %}
+      <div><span style="color:var(--text3)">Price/month</span><br><span class="money">{{ "{:,.0f}".format(g.price_monthly|int) }}</span></div>
+      <div><span style="color:var(--text3)">Per lesson</span><br><span class="money">{{ "{:,.0f}".format(g.epl|int if g.epl is defined else 25000) }}</span></div>
+      <div><span style="color:var(--text3)">Teacher %</span><br><span style="color:var(--accent)">{{ (g.teacher_pct*100)|int }}%</span></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Edit panel -->
+  <div class="gc-sp" id="sp-{{ g.id }}">
+    <form method="post" action="/settings/group/{{ g.id }}/update">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:10px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Mode</label>
+          <select class="form-control" name="mode" onchange="toggleOnlineFields(this,'of-{{ g.id }}')">
+            <option value="in-person" {% if mode!='online' %}selected{% endif %}>🏫 In-person</option>
+            <option value="online" {% if mode=='online' %}selected{% endif %}>🌐 Online</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0"><label class="form-label">Price/month</label><input class="form-control" name="price_monthly" type="number" value="{{ g.price_monthly|int }}"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Teacher %</label><input class="form-control" name="teacher_pct" type="number" value="{{ (g.teacher_pct*100)|int }}"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Finance Mode</label><select class="form-control" name="finance_mode"><option value="standard" {% if (g.finance_mode if g.finance_mode is defined else "standard") == "standard" %}selected{% endif %}>Use standard settings</option><option value="custom" {% if (g.finance_mode if g.finance_mode is defined else "standard") == "custom" %}selected{% endif %}>Use this group's own price</option></select></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Per-lesson rate (UZS)</label><input class="form-control" name="epl_override" type="number" value="{{ g.epl_override|int if g.epl_override is defined else 0 }}" placeholder="0 = auto by mode"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Lessons/week</label><input class="form-control" name="lessons_per_week" type="number" value="{{ g.lessons_per_week }}"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Weeks/month</label><input class="form-control" name="weeks_per_month" type="number" value="{{ g.weeks_per_month }}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Schedule</label><input class="form-control" name="schedule" value="{{ g.schedule or '' }}"></div>
+
+      <!-- Online fields -->
+      <div id="of-{{ g.id }}" class="online-fields {% if mode=='online' %}show{% endif %}">
+        <div class="form-group" style="margin:0"><label class="form-label">Company</label><input class="form-control" name="company_name" value="{{ g.company_name if g.company_name is defined else '' }}"></div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Rate Type</label>
+          <select class="form-control" name="rate_type">
+            <option value="per_lesson" {% if rate_type=='per_lesson' %}selected{% endif %}>Per Lesson</option>
+            <option value="per_hour" {% if rate_type=='per_hour' %}selected{% endif %}>Per Hour</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0"><label class="form-label">Rate (UZS)</label><input class="form-control" name="rate_amount" type="number" value="{{ rate_amount|int }}"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Duration (min)</label><input class="form-control" name="lesson_duration" type="number" value="{{ g.lesson_duration if g.lesson_duration is defined else 60 }}"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Zoom/Meet Link</label><input class="form-control" name="zoom_link" value="{{ g.zoom_link if g.zoom_link is defined else '' }}"></div>
+      </div>
+      <input type="hidden" name="notes" value="{{ g.notes or '' }}">
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSP({{ g.id }})">Cancel</button>
+        {% if g.status == 'active' %}
+        <form method="post" action="/settings/group/{{ g.id }}/pause" style="display:inline">
+          <button class="btn btn-orange btn-sm">⏸ Pause</button>
+        </form>
+        <form method="post" action="/settings/group/{{ g.id }}/archive" style="display:inline">
+          <button class="btn btn-danger btn-sm" onclick="return confirm('Archive {{ g.name }}?')">Archive</button>
+        </form>
+        {% elif g.status == 'paused' %}
+        <form method="post" action="/settings/group/{{ g.id }}/pause" style="display:inline">
+          <button class="btn btn-green btn-sm">▶ Resume</button>
+        </form>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Add Group Modal -->
+<div class="modal-overlay" id="addGroup" onclick="if(event.target===this)closeModal('addGroup')">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">New Group</span><button class="modal-close" onclick="closeModal('addGroup')">✕</button></div>
+    <div class="modal-body">
+      <form method="post" action="/groups/add">
+        <div class="form-group"><label class="form-label">Name *</label><input class="form-control" name="name" required></div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <select class="form-control" name="group_type">
+              <option value="group">Group</option>
+              <option value="individual">Individual</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mode</label>
+            <select class="form-control" name="mode" onchange="toggleOnlineFields(this,'new-online')">
+              <option value="in-person">🏫 In-person</option>
+              <option value="online">🌐 Online</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Price/month</label><input class="form-control" name="price_monthly" type="number" value="750000"></div>
+          <div class="form-group"><label class="form-label">Teacher %</label><input class="form-control" name="teacher_pct" type="number" value="40"></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Finance Mode</label>
+            <select class="form-control" name="finance_mode">
+              <option value="standard">Use standard settings</option>
+              <option value="custom">Use this group's own price</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Per-lesson override (UZS)</label>
+            <input class="form-control" name="epl_override" type="number" value="0" placeholder="0 = auto by mode">
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Schedule</label><input class="form-control" name="schedule" placeholder="Mon 18:00, Wed 18:00, Fri 18:00"></div>
+        <div class="form-group"><label class="form-label">Color</label><input class="form-control" type="color" name="color" value="#7b61ff"></div>
+
+        <!-- Online fields for new group -->
+        <div id="new-online" class="online-fields">
+          <div class="form-group" style="margin:0"><label class="form-label">Company</label><input class="form-control" name="company_name" placeholder="e.g. BrightEnglish"></div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Rate Type</label>
+            <select class="form-control" name="rate_type">
+              <option value="per_lesson">Per Lesson</option>
+              <option value="per_hour">Per Hour</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0"><label class="form-label">Rate (UZS)</label><input class="form-control" name="rate_amount" type="number" placeholder="80000"></div>
+          <div class="form-group" style="margin:0"><label class="form-label">Duration (min)</label><input class="form-control" name="lesson_duration" type="number" value="60"></div>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('addGroup')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Group</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleSP(gid) {
+  document.getElementById('sp-'+gid).classList.toggle('open');
+}
+function toggleOnlineFields(sel, id) {
+  const el = document.getElementById(id);
+  if(sel.value === 'online') el.classList.add('show');
+  else el.classList.remove('show');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ exam.title }} - Official Lexora IELTS Exam Simulator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --ielts-red: #E11B22; 
+            --ielts-dark: #2B2B2B;
+            --ielts-gray: #F0F2F5;
+            --ielts-border: #D1D5DB;
+            --ielts-blue: #0E7490;
+            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100vh;
+            font-family: var(--font-main);
+            background: #ffffff;
+            overflow: hidden; 
+            display: flex;
+            flex-direction: column;
+        }
+
+        .top-bar {
+            height: 60px;
+            background: var(--ielts-gray);
+            border-bottom: 2px solid var(--ielts-red);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .candidate-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            color: var(--ielts-dark);
+            font-size: 0.95rem;
+        }
+        .timer-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #fff;
+            padding: 6px 16px;
+            border-radius: 6px;
+            border: 1px solid var(--ielts-border);
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--ielts-dark);
+        }
+        .timer-icon { color: var(--ielts-red); }
+        .top-controls { display: flex; gap: 16px; }
+        .icon-btn {
+            background: none; border: none; font-size: 1.1rem;
+            color: var(--ielts-dark); cursor: pointer; padding: 8px;
+        }
+        .icon-btn:hover { color: var(--ielts-red); }
+
+        .workspace {
+            display: flex; flex: 1; height: calc(100vh - 120px);
+        }
+        
+        .part-section {
+            display: none;
+            width: 100%; height: 100%;
+        }
+        .part-section.active {
+            display: flex;
+        }
+
+        .left-pane {
+            flex: 1; border-right: 2px solid var(--ielts-border);
+            overflow-y: auto; padding: 40px; background: #fdfdfd;
+        }
+        .passage-title {
+            font-size: 1.6rem; font-weight: 700; margin-bottom: 24px;
+            text-align: center; line-height: 1.4;
+        }
+        .passage-content { font-size: 1.1rem; line-height: 1.8; color: #333; }
+        ::selection { background: #FFE066; color: #000; }
+
+        .right-pane {
+            flex: 1; overflow-y: auto; padding: 40px; background: #ffffff; scroll-behavior: smooth;
+        }
+        .question-block-instruction {
+            font-weight: 600; font-size: 0.95rem; font-style: italic;
+            margin-bottom: 24px; color: #4B5563;
+        }
+        
+        .q-item {
+            margin-bottom: 30px; padding-bottom: 20px;
+            border-bottom: 1px dashed var(--ielts-border);
+            transition: background 0.3s;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .q-item.highlighted {
+            background: #fefce8; /* extremely light yellow */
+            border: 1px solid #fde047;
+        }
+        .q-number {
+            display: inline-block; background: var(--ielts-dark); color: #fff;
+            width: 24px; height: 24px; text-align: center; border-radius: 50%;
+            font-size: 0.85rem; line-height: 24px; margin-right: 12px; font-weight: bold;
+        }
+        .q-prompt { font-size: 1.05rem; font-weight: 600; margin-bottom: 16px; }
+        
+        .mcq-option {
+            display: flex; align-items: center; gap: 12px; padding: 12px;
+            border: 1px solid var(--ielts-border); border-radius: 8px;
+            margin-bottom: 8px; cursor: pointer; transition: background 0.2s;
+        }
+        .mcq-option.selected {
+            background: #E0F2FE;
+            border-color: var(--ielts-blue);
+        }
+        .mcq-option:hover { background: var(--ielts-gray); }
+        .mcq-option input[type="radio"] { transform: scale(1.3); cursor: pointer; }
+        
+        .gap-fill {
+            font-size: 1rem; font-family: inherit; border: 1px solid var(--ielts-border);
+            border-radius: 4px; padding: 10px 12px; width: 300px; max-width: 100%;
+            display: block; margin-top: 12px; margin-left: 36px;
+        }
+        .gap-fill:focus { outline: none; border-color: var(--ielts-dark); box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
+
+        .bottom-bar {
+            height: 60px; background: var(--ielts-dark); display: flex;
+            align-items: center; justify-content: space-between; padding: 0 24px;
+            flex-shrink: 0; color: #fff; user-select: none;
+        }
+        .nav-sections { display: flex; gap: 8px; }
+        .nav-section-btn {
+            background: transparent; border: none; color: #ccc;
+            font-weight: 600; padding: 8px 16px; cursor: pointer; font-size: 0.95rem;
+        }
+        .nav-section-btn.active { color: #fff; border-bottom: 3px solid var(--ielts-red); }
+        .nav-section-btn:hover { color: #fff; }
+        
+        .number-pad { display: flex; gap: 4px; align-items: center; }
+        .q-badge {
+            width: 32px; height: 32px; border-radius: 4px; background: #4B5563;
+            color: #fff; font-weight: bold; border: none; cursor: pointer; font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .q-badge.answered { background: #fff; color: var(--ielts-dark); }
+        .q-badge.current { border: 2px solid var(--ielts-red); transform: scale(1.1); z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+
+        .action-buttons { display: flex; gap: 12px; }
+        .btn-nav {
+            background: transparent; color: #fff; border: 1px solid #6B7280;
+            padding: 8px 24px; border-radius: 20px; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; gap: 8px; transition: background 0.2s;
+        }
+        .btn-nav:hover { background: rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <div class="candidate-info">
+            <i class="fa-solid fa-user-circle fa-lg"></i>
+            {{ user.full_name or user.username }} &nbsp;&bull;&nbsp; {{ exam.title }}
+        </div>
+        
+        {% if "Listening" in exam.test_scope and exam.audio_url %}
+            <div style="flex:1; display:flex; justify-content:center; align-items:center;">
+                <audio id="examAudio" src="{{ exam.audio_url }}" controls style="height: 36px; {% if exam.test_mode == 'Exam Mode' %}pointer-events: none; opacity:0.8;{% endif %}"></audio>
+                {% if exam.test_mode == 'Exam Mode' %}
+                    <button class="btn btn-sm" id="startExamAudio" onclick="startExamAudio()" style="background:#e11b22; color:white; border:none; padding:8px 16px; border-radius:20px; font-weight:bold; margin-left:12px;">Start Audio</button>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <div class="timer-container" id="timer">
+            <i class="fa-solid fa-clock timer-icon"></i> 00:00
+        </div>
+        <div class="top-controls">
+            <form id="submitExamForm" action="/mock/{{ exam.id }}/submit" method="POST" style="margin:0;">
+                <input type="hidden" name="feedback_type" id="feedback_type_input" value="">
+                <input type="hidden" name="teacher_id" id="teacher_id_input" value="">
+                <button type="button" onclick="handleInitialSubmit()" class="btn btn-sm" style="background:#4B5563; color:#fff; border:none; padding:8px 16px; border-radius:20px; font-weight:600; margin-right:8px;">Submit</button>
+            </form>
+            <button class="icon-btn" onclick="toggleFullscreen()" title="Fullscreen"><i class="fa-solid fa-compress"></i></button>
+        </div>
+    </div>
+
+    <!-- Writing Feedback Modal -->
+    <div id="feedbackModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
+        <div style="background:#fff; width:500px; border-radius:24px; padding:32px; box-shadow:0 25px 50px rgba(0,0,0,0.2);">
+            <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:16px;">Writing Feedback</h3>
+            <p style="color:#64748b; font-size:0.9rem; margin-bottom:24px;">How would you like your writing tasks to be evaluated?</p>
+            
+            <div style="display:flex; flex-direction:column; gap:16px;">
+                <label style="display:flex; gap:16px; padding:16px; border:2px solid #e2e8f0; border-radius:16px; cursor:pointer; transition:all 0.2s;" id="label-ai" onclick="selectFeedback('ai')">
+                    <div style="width:40px; height:40px; background:rgba(123, 97, 255, 0.1); color:#7b61ff; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-weight:700; color:#1e293b;">AI Correction (Immediate)</div>
+                        <div style="font-size:0.8rem; color:#64748b;">Get score and explanation in 3-5 minutes.</div>
+                    </div>
+                    <input type="radio" name="feedback_choice" value="ai" style="display:none;">
+                </label>
+
+                <label style="display:flex; gap:16px; padding:16px; border:2px solid #e2e8f0; border-radius:16px; cursor:pointer; transition:all 0.2s;" id="label-teacher" onclick="selectFeedback('teacher')">
+                    <div style="width:40px; height:40px; background:rgba(16, 185, 129, 0.1); color:#10b981; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">
+                        <i class="fa-solid fa-user-tie"></i>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-weight:700; color:#1e293b;">Teacher Review (Manual)</div>
+                        <div style="font-size:0.8rem; color:#64748b;">Personalized feedback from your selected teacher.</div>
+                    </div>
+                    <input type="radio" name="feedback_choice" value="teacher" style="display:none;">
+                </label>
+
+                <div id="teacherSelectSection" style="display:none; margin-top:8px;">
+                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#64748b; margin-bottom:8px; text-transform:uppercase;">Select Teacher</label>
+                    <select id="teacher_id_select" class="gap-fill" style="width:100%; margin:0; padding:12px;">
+                        <option value="">-- Choose a teacher --</option>
+                        {% for t in teachers %}
+                        <option value="{{ t.id }}">{{ t.full_name or t.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-top:32px; display:flex; gap:12px;">
+                <button onclick="document.getElementById('feedbackModal').style.display='none'" class="btn" style="flex:1; background:#f1f5f9; color:#64748b; border:none; padding:14px; border-radius:12px; font-weight:600;">Cancel</button>
+                <button onclick="finalSubmit()" class="btn" style="flex:1; background:#7b61ff; color:#fff; border:none; padding:14px; border-radius:12px; font-weight:600;">Confirm & Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="workspace">
+        {% set q_counter = namespace(value=1) %}
+        {% for section in exam.sections %}
+        <div class="part-section {% if loop.first %}active{% endif %}" id="part-{{ loop.index }}">
+            
+            {% if "Listening" not in exam.test_scope %}
+            <div class="left-pane">
+                <div class="passage-title">{{ section.section_type | upper }}</div>
+                <div class="passage-content">
+                    {% for block in section.blocks %}
+                        {% if block.passage_text %}
+                            <div style="margin-bottom: 20px;">
+                                {{ block.passage_text | safe }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="right-pane" id="right-pane-{{ loop.index }}">
+            {% else %}
+            <div class="right-pane" id="right-pane-{{ loop.index }}" style="width: 100%; max-width: 900px; margin: 0 auto; border-left: none;">
+                <div class="passage-title" style="text-align:center; margin-bottom:24px; padding-bottom:12px; border-bottom:2px solid var(--accent); color:var(--text);">{{ section.section_type | upper }}</div>
+            {% endif %}
+            
+                {% if "Writing" in exam.test_scope %}
+                    <div style="height: 100%; display: flex; flex-direction: column; padding: 20px;">
+                        <textarea name="writing_response_{{ section.id }}" id="writing-area-{{ loop.index }}" style="flex:1; width:100%; resize:none; padding:16px; border:1px solid var(--ielts-border); border-radius:8px; font-family:var(--font-st); font-size:1.05rem; line-height:1.6;" oninput="countWords(this.value, {{ loop.index }})"></textarea>
+                        <div style="margin-top:12px; font-weight:600; color:var(--text2); display:flex; justify-content:space-between;">
+                            <span>Word Count: <span id="word-count-{{ loop.index }}" style="color:var(--text); font-size:1.1rem;">0</span></span>
+                        </div>
+                    </div>
+                {% else %}
+                    {% for block in section.blocks %}
+                        <div class="question-block-instruction">{{ block.instructions | safe }}</div>
+                        
+                        {% for q in block.questions %}
+                            {% set current_q = q_counter.value %}
+                            <div class="q-item" id="q-container-{{ current_q }}" onclick="focusQuestion({{ current_q }})">
+                                <div class="q-prompt"><span class="q-number">{{ q.question_number }}</span> {{ q.prompt | safe }}</div>
+                                
+                                {% if q.q_type == "MCQ" and q.options %}
+                                    {% for opt in q.options %}
+                                    <label class="mcq-option" onclick="selectRadio({{ current_q }}, '{{ opt.id }}'); focusQuestion({{ current_q }});">
+                                        <input type="radio" name="q{{ current_q }}" value="{{ opt.id }}"> {{ opt.text }}
+                                    </label>
+                                    {% endfor %}
+                                {% else %}
+                                    <input type="text" class="gap-fill" style="width:200px" id="input-{{ current_q }}" autocomplete="off" oninput="markAnswered({{ current_q }})" onclick="focusQuestion({{ current_q }})">
+                                {% endif %}
+                            </div>
+                            {% set q_counter.value = q_counter.value + 1 %}
+                        {% endfor %}
+                        
+                        <hr style="border:0; border-top:1px dashed var(--ielts-border); margin:40px 0;">
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+            <div style="padding: 40px; text-align: center; width:100%;">
+                <h2 style="color:var(--text2);">This exam has no sections populated yet.</h2>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Official Bottom Navigation -->
+    <div class="bottom-bar">
+        <div class="nav-sections">
+            {% for section in exam.sections %}
+            <button class="nav-section-btn {% if loop.first %}active{% endif %}" id="btn-part-{{ loop.index }}" onclick="switchPart({{ loop.index }})">Part {{ loop.index }}</button>
+            {% endfor %}
+        </div>
+        
+        <div class="number-pad" id="number-pad">
+            <!-- Badges auto-generated via JS -->
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn-nav" onclick="navArrow(-1)"><i class="fa-solid fa-arrow-left"></i></button>
+            <button class="btn-nav" onclick="navArrow(1)"><i class="fa-solid fa-arrow-right"></i></button>
+        </div>
+    </div>
+
+    <script>
+        const TOTAL_QUESTIONS = {{ q_counter.value - 1 }};
+        let currentQuestion = 1;
+        let currentPart = 1;
+
+        // Map questions to parts
+        const questionToPart = {};
+        {% set js_q_idx = namespace(value=1) %}
+        {% for section in exam.sections %}
+            {% set s_idx = loop.index %}
+            {% for block in section.blocks %}
+                {% for q in block.questions %}
+                    questionToPart[{{ js_q_idx.value }}] = {{ s_idx }};
+                    {% set js_q_idx.value = js_q_idx.value + 1 %}
+                {% endfor %}
+            {% endfor %}
+        {% endfor %}
+
+        // Initialize Number Pad
+        const numberPad = document.getElementById('number-pad');
+        for (let i = 1; i <= TOTAL_QUESTIONS; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'q-badge';
+            btn.id = 'badge-' + i;
+            btn.innerText = i;
+            btn.onclick = () => jumpToQuestion(i);
+            numberPad.appendChild(btn);
+            
+            // Add spacer every 5 questions
+            if (i % 5 === 0 && i !== TOTAL_QUESTIONS) {
+                const sep = document.createElement('span');
+                sep.style.margin = "0 4px";
+                numberPad.appendChild(sep);
+            }
+        }
+
+        // Set initial state
+        if (TOTAL_QUESTIONS > 0) {
+            document.getElementById('badge-1').classList.add('current');
+        }
+
+        function jumpToQuestion(qNum) {
+            if (qNum > TOTAL_QUESTIONS || qNum < 1) return;
+            
+            let targetPart = questionToPart[qNum];
+            if (currentPart !== targetPart) {
+                switchPart(targetPart);
+            }
+
+            focusQuestion(qNum);
+            
+            // Scroll right pane to question
+            const qContainer = document.getElementById('q-container-' + qNum);
+            if (qContainer) {
+                const rightPane = document.getElementById('right-pane-' + targetPart);
+                rightPane.scrollTo({ top: qContainer.offsetTop - 60, behavior: 'smooth' });
+            }
+        }
+
+        function focusQuestion(qNum) {
+            // Remove current from all
+            for (let i = 1; i <= TOTAL_QUESTIONS; i++) {
+                document.getElementById('badge-' + i).classList.remove('current');
+                const qc = document.getElementById('q-container-' + i);
+                if (qc) qc.classList.remove('highlighted');
+            }
+            
+            // Add current
+            currentQuestion = qNum;
+            document.getElementById('badge-' + qNum).classList.add('current');
+            const qContainer = document.getElementById('q-container-' + qNum);
+            if (qContainer) qContainer.classList.add('highlighted');
+        }
+
+        function navArrow(dir) {
+            let nextQ = currentQuestion + dir;
+            if (nextQ < 1) nextQ = 1;
+            if (nextQ > TOTAL_QUESTIONS) nextQ = TOTAL_QUESTIONS;
+            jumpToQuestion(nextQ);
+        }
+
+        function switchPart(partNum) {
+            currentPart = partNum;
+            document.querySelectorAll('.part-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-section-btn').forEach(el => el.classList.remove('active'));
+            
+            const targetPart = document.getElementById('part-' + partNum);
+            if(targetPart) targetPart.classList.add('active');
+            
+            const targetBtn = document.getElementById('btn-part-' + partNum);
+            if(targetBtn) targetBtn.classList.add('active');
+        }
+
+        function markAnswered(qNum) {
+            const val = document.getElementById('input-' + qNum).value.trim();
+            const badge = document.getElementById('badge-' + qNum);
+            if (val.length > 0) badge.classList.add('answered');
+            else badge.classList.remove('answered');
+        }
+
+        function selectRadio(qNum, value) {
+            // Unselect visual styles for this question block
+            const qContainer = document.getElementById('q-container-' + qNum);
+            qContainer.querySelectorAll('.mcq-option').forEach(el => el.classList.remove('selected'));
+            
+            // Select radio naturally
+            const radio = qContainer.querySelector(`input[value="${value}"]`);
+            if (radio) {
+                radio.checked = true;
+                radio.closest('.mcq-option').classList.add('selected');
+            }
+            // Mark answered visually
+            document.getElementById('badge-' + qNum).classList.add('answered');
+        }
+
+        // Timer simulation
+        let timeRemaining = {% if "Listening" in exam.test_scope %}2400{% else %}3600{% endif %};
+        setInterval(() => {
+            timeRemaining--;
+            if (timeRemaining < 0) timeRemaining = 0;
+            const min = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
+            const sec = (timeRemaining % 60).toString().padStart(2, '0');
+            const timerEl = document.getElementById('timer');
+            timerEl.innerHTML = `<i class="fa-solid fa-clock timer-icon"></i> ${min}:${sec}`;
+            
+            if (timeRemaining <= 300) {
+                timerEl.style.color = '#E11B22';
+                timerEl.style.borderColor = '#E11B22';
+                timerEl.querySelector('.timer-icon').style.color = '#E11B22';
+            }
+        }, 1000);
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+        
+        function confirmSubmit() {
+            if(confirm("Are you sure you want to submit your exam early?")) {
+                document.getElementById("submitExamForm").submit();
+            }
+        }
+
+        let selectedFeedbackType = null;
+        function handleInitialSubmit() {
+            {% if "Writing" in exam.test_scope %}
+                document.getElementById('feedbackModal').style.display = 'flex';
+            {% else %}
+                confirmSubmit();
+            {% endif %}
+        }
+
+        function selectFeedback(type) {
+            selectedFeedbackType = type;
+            document.getElementById('label-ai').style.borderColor = '#e2e8f0';
+            document.getElementById('label-teacher').style.borderColor = '#e2e8f0';
+            document.getElementById('label-' + type).style.borderColor = '#7b61ff';
+            
+            if (type === 'teacher') {
+                document.getElementById('teacherSelectSection').style.display = 'block';
+            } else {
+                document.getElementById('teacherSelectSection').style.display = 'none';
+            }
+        }
+
+        function finalSubmit() {
+            if (!selectedFeedbackType) {
+                alert("Please select a feedback method.");
+                return;
+            }
+            
+            document.getElementById('feedback_type_input').value = selectedFeedbackType;
+            if (selectedFeedbackType === 'teacher') {
+                const tId = document.getElementById('teacher_id_select').value;
+                if (!tId) {
+                    alert("Please select a teacher.");
+                    return;
+                }
+                document.getElementById('teacher_id_input').value = tId;
+            }
+            
+            document.getElementById("submitExamForm").submit();
+        }
+        
+        function startExamAudio() {
+            const audio = document.getElementById("examAudio");
+            if (audio) {
+                audio.play().then(() => {
+                    document.getElementById("startExamAudio").style.display = "none";
+                }).catch(e => {
+                    alert("Audio playback failed. Please check the audio file format or your browser permissions. Error: " + e.message);
+                });
+            }
+        }
+        
+        function countWords(text, index) {
+            let count = 0;
+            if (text.trim() !== "") {
+                count = text.trim().split(/\s+/).length;
+            }
+            const counterSpan = document.getElementById("word-count-" + index);
+            if (counterSpan) {
+                counterSpan.innerText = count;
+                // Typically Task 1 is 150, Task 2 is 250. Simple heuristic:
+                if (index === 1 && count < 150) counterSpan.style.color = "#ef4444";
+                else if (index === 2 && count < 250) counterSpan.style.color = "#ef4444";
+                else counterSpan.style.color = "#10b981";
+            }
+        }
+    </script>
+</body>
+</html>
