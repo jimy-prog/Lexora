@@ -7,3 +7,4 @@ openpyxl==3.1.2
 itsdangerous==2.1.2
 psycopg2-binary==2.9.9
 firebase-admin==6.5.0
+python-docx==1.1.2

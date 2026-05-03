@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}My Classes | Lexora{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:32px;">
+    <div>
+        <h1 style="font-family:var(--font-d); font-size:2rem; font-weight:800; color:var(--text); letter-spacing:-0.03em;">My Classes</h1>
+        <p style="color:var(--text2); font-size: .95rem; margin-top:4px;">Manage your enrollments and interact with your teachers.</p>
+    </div>
+    <div style="display:flex; gap:12px;">
+        <a href="/mock/classes/join" class="btn btn-primary" style="border-radius:12px; padding:10px 24px;">
+            <i class="fa-solid fa-plus"></i> Join New Class
+        </a>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:20px;">
+    {% for cls in classes %}
+    <div class="card" style="padding:24px; border-radius:24px; border:1px solid var(--border); background:var(--bg); transition:transform 0.2s;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+            <div style="width:48px; height:48px; background:var(--accent-glow); color:var(--accent); border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">
+                <i class="fa-solid fa-graduation-cap"></i>
+            </div>
+            <span style="font-size:0.75rem; font-weight:700; color:var(--text2); background:var(--bg2); padding:4px 10px; border-radius:8px;">
+                ID: {{ cls.id }}
+            </span>
+        </div>
+        
+        <h3 style="font-size:1.25rem; font-weight:800; color:var(--text); margin-bottom:4px;">{{ cls.class_name }}</h3>
+        <p style="color:var(--text2); font-size:0.9rem; margin-bottom:20px;">Teacher: <span style="font-weight:600; color:var(--text);">{{ cls.teacher.full_name }}</span></p>
+        
+        <div style="display:flex; gap:10px; padding-top:16px; border-top:1px solid var(--border);">
+            <a href="#" class="btn btn-ghost" style="flex:1; border-radius:10px; font-size:0.85rem;">View Materials</a>
+            <a href="#" class="btn btn-ghost" style="flex:1; border-radius:10px; font-size:0.85rem;">Classmates</a>
+        </div>
+    </div>
+    {% else %}
+    <div style="grid-column: 1 / -1; text-align:center; padding: 80px 20px; background:var(--bg2); border-radius:32px; border:1px dashed var(--border);">
+        <div style="font-size:3rem; color:var(--text2); margin-bottom:20px;">
+            <i class="fa-solid fa-school-circle-exclamation"></i>
+        </div>
+        <h3 style="font-size:1.3rem; color:var(--text); font-weight:800;">Not enrolled in any classes</h3>
+        <p style="color:var(--text2); font-size:1rem; max-width:400px; margin:12px auto 24px; line-height:1.6;">
+            Ask your teacher for a 6-digit invite code to join their IELTS preparation group.
+        </p>
+        <a href="/mock/classes/join" class="btn btn-primary" style="border-radius:14px; padding:12px 32px;">
+            <i class="fa-solid fa-plus"></i> Join Your First Class
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

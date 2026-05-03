@@ -83,9 +83,6 @@
         <button onclick="document.getElementById('bulkAnswersModal').style.display='flex'" class="btn btn-ghost" style="border-radius:12px; border:1px solid var(--border);">
             <i class="fa-solid fa-paste"></i> Bulk Paste Answers
         </button>
-        <button onclick="document.getElementById('addSectionModal').style.display='flex'" class="btn btn-ghost border" style="border-radius:12px;">
-            <i class="fa-solid fa-folder-plus"></i> Add Section
-        </button>
         <form action="/mock/{{ exam.id }}/publish" method="POST" style="margin:0;">
             <button type="submit" class="btn btn-green" style="border-radius:12px;">
                 <i class="fa-solid fa-share-nodes"></i> Publish Exam
@@ -117,6 +114,7 @@
                             <option value="Reading Section" {% if exam.test_scope == "Reading Section" %}selected{% endif %}>Reading Section</option>
                             <option value="Listening Section" {% if exam.test_scope == "Listening Section" %}selected{% endif %}>Listening Section</option>
                             <option value="Writing Section" {% if exam.test_scope == "Writing Section" %}selected{% endif %}>Writing Section</option>
+                            <option value="Speaking Section" {% if exam.test_scope == "Speaking Section" %}selected{% endif %}>Speaking Section</option>
                         </select>
                     </div>
                     <div style="flex: 1;">
@@ -143,7 +141,7 @@
                         </form>
                         {% if request.query_params.get("uploaded_img") %}
                         <div style="margin-top:12px; padding:12px; background:#dcfce7; border:1px solid #86efac; border-radius:10px;">
-                            <span style="font-size:0.8rem; color:#166534; font-weight:700;">HTML Copied to clipboard!</span>
+                            <span style="font-size:0.8rem; color:#166534; font-weight:700;">HTML Copied!</span>
                             <input type="text" value='<img src="{{ request.query_params.get("uploaded_img") }}" style="max-width:100%; border-radius:8px;">' class="input-clean" style="margin-top:8px; padding:8px; border-color:#86efac;" onclick="this.select(); document.execCommand('copy');">
                         </div>
                         {% endif %}
@@ -169,72 +167,7 @@
             </div>
         </div>
         
-        <!-- AI Builder Tool -->
-        <div class="builder-card" style="border-color:#c7d2fe; box-shadow:0 8px 30px rgba(79, 70, 229, 0.1);">
-            <div class="builder-header" style="background:linear-gradient(90deg, #eef2ff, #fff); border-bottom-color:#e0e7ff;">
-                <h3 style="font-size:1.1rem; color:#4f46e5; font-weight:700;"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Extractor (PDF Ingestion)</h3>
-            </div>
-            <div class="builder-body">
-                <form id="uploadForm" enctype="multipart/form-data" style="display:flex; gap:12px;">
-                    <input type="file" name="pdf_doc" id="pdfFileInput" accept="application/pdf" class="input-clean" style="border-color:#a5b4fc;" required>
-                    <button type="submit" id="extractBtn" class="btn btn-primary" style="background:#4f46e5; border-color:#4f46e5; padding:0 32px;">Extract Passages & Questions</button>
-                </form>
-                
-                <div id="aiOverlay" style="display:none; margin-top:24px; padding:24px; background:#fafafa; border-radius:12px; border:1px dashed #c7d2fe; text-align:center;">
-                    <div style="font-size:2rem; color:#4f46e5; margin-bottom:12px;"><i class="fa-solid fa-brain fa-fade"></i></div>
-                    <div style="font-weight:700; color:#3730a3; margin-bottom:16px; font-size:1.1rem;" id="aiMessage">Scanning Document...</div>
-                    <div style="height:8px; width:100%; background:#e0e7ff; border-radius:10px; overflow:hidden; margin-bottom:8px;">
-                        <div id="aiProgress" style="height:100%; width:0%; background:#4f46e5; transition:width 0.5s ease; border-radius:10px;"></div>
-                    </div>
-                    <div style="font-size:0.85rem; color:#6b7280; font-weight:700;" id="aiPercent">0%</div>
-                </div>
-            </div>
-            <script>
-            document.getElementById('uploadForm').addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const fileInput = document.getElementById('pdfFileInput');
-                if(!fileInput.files[0]) return;
-                
-                this.style.display = 'none';
-                document.getElementById('aiOverlay').style.display = 'block';
-                
-                const pBar = document.getElementById('aiProgress');
-                const pText = document.getElementById('aiPercent');
-                const pMsg = document.getElementById('aiMessage');
-                const formData = new FormData();
-                formData.append('pdf_doc', fileInput.files[0]);
-                
-                try {
-                    const response = await fetch("/mock/{{ exam.id }}/upload-pdf", { method: "POST", body: formData });
-                    if (!response.ok) throw new Error("Failed to start background extraction");
-                    
-                    const pollInterval = setInterval(async () => {
-                        try {
-                            const statRes = await fetch("/mock/{{ exam.id }}/upload-status");
-                            const stat = await statRes.json();
-                            if (stat.status !== "idle") {
-                                pBar.style.width = stat.progress + '%';
-                                pText.innerText = stat.progress + '%';
-                                pMsg.innerText = stat.message;
-                            }
-                            if (stat.status === "completed") {
-                                clearInterval(pollInterval);
-                                setTimeout(() => { window.location.reload(); }, 1000);
-                            } else if (stat.status === "error") {
-                                clearInterval(pollInterval);
-                                pBar.style.background = "#ef4444";
-                                pMsg.style.color = "#ef4444";
-                            }
-                        } catch (e) { console.error("Polling error:", e); }
-                    }, 1000);
-                } catch(err) {
-                    pMsg.innerText = "Error: " + err.message; pMsg.style.color = "#ef4444"; pBar.style.background = "#ef4444";
-                }
-            });
-            </script>
-        </div>
-
-        <!-- Question Editor (The Meat) -->
+        <!-- Question Editor -->
         <form action="/mock/{{ exam.id }}/save-answers" method="POST" id="questionsForm">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                 <h2 style="font-size:1.4rem; font-weight:800; color:var(--text);"><i class="fa-solid fa-list-check"></i> Examination Content</h2>
@@ -250,6 +183,7 @@
                             <span style="font-size:0.8rem; color:var(--text2); font-weight:600;"><i class="fa-regular fa-clock"></i> {{ section.time_limit_minutes }} Min</span>
                         </div>
                         <div style="display:flex; gap:8px;">
+                            <button type="button" onclick="openEditSectionModal({{ section.id }}, `{{ (section.blocks[0].passage_text | escape if section.blocks else '') | safe }}`, `{{ (section.blocks[0].instructions | escape if section.blocks else '') | safe }}`)" class="btn btn-sm btn-ghost border" style="background:#fff;"><i class="fa-solid fa-pen-to-square"></i> Edit Content</button>
                             <button type="button" onclick="openQuestionModal({{ section.id }})" class="btn btn-sm btn-ghost border" style="background:#fff;"><i class="fa-solid fa-plus"></i> Add Question</button>
                             <button type="button" onclick="if(confirm('Delete entire section?')) { const f = document.createElement('form'); f.method='POST'; f.action='/mock/{{ exam.id }}/delete-section/{{ section.id }}'; document.body.appendChild(f); f.submit(); }" class="btn btn-sm btn-ghost border" style="background:#fff; color:#ef4444; border-color:#fca5a5;"><i class="fa-solid fa-trash"></i></button>
                         </div>
@@ -257,6 +191,12 @@
                     
                     <div class="builder-body" style="padding:16px; background:#f8fafc;">
                         {% for block in section.blocks %}
+                            {% if block.media_url %}
+                                <div style="margin-bottom:16px; padding:12px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; text-align:center;">
+                                    <img src="{{ block.media_url }}" style="max-height:150px; border-radius:8px;">
+                                    <div style="font-size:0.75rem; color:var(--text2); margin-top:8px;">Block Media: {{ block.media_url }}</div>
+                                </div>
+                            {% endif %}
                             {% for q in block.questions %}
                             <div class="question-item">
                                 <div class="question-header">
@@ -264,15 +204,17 @@
                                         <strong style="font-size:1.05rem;">Question {{ q.question_number }}</strong>
                                         <span class="q-badge" style="margin-left:8px;">{{ q.q_type }}</span>
                                     </div>
-                                    <button type="button" onclick="if(confirm('Delete question?')) { const f = document.createElement('form'); f.method='POST'; f.action='/mock/{{ exam.id }}/delete-question/{{ q.id }}'; document.body.appendChild(f); f.submit(); }" class="btn btn-xs" style="background:transparent; border:none; color:#ef4444; font-size:1rem; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+                                    <div style="display:flex; gap:8px;">
+                                        <button type="button" data-id="{{ q.id }}" data-type="{{ q.q_type }}" data-prompt="{{ q.prompt | escape }}" data-answer="{{ q.correct_answer_text | escape }}" onclick="openEditQuestionModal(this)" class="btn btn-xs" style="background:transparent; border:none; color:var(--accent); font-size:1rem; cursor:pointer;"><i class="fa-solid fa-pen-to-square"></i></button>
+                                        <button type="button" onclick="if(confirm('Delete question?')) { const f = document.createElement('form'); f.method='POST'; f.action='/mock/{{ exam.id }}/delete-question/{{ q.id }}'; document.body.appendChild(f); f.submit(); }" class="btn btn-xs" style="background:transparent; border:none; color:#ef4444; font-size:1rem; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+                                    </div>
                                 </div>
                                 <div style="font-size:0.95rem; color:var(--text); line-height:1.5; padding:12px; background:#fff; border:1px solid #e2e8f0; border-radius:8px;">
                                     {{ q.prompt | safe }}
                                 </div>
-                                
                                 <div>
                                     <label class="form-label" style="color:var(--accent);">Exact Answer Key</label>
-                                    <input type="text" name="answer_{{ q.id }}" value="{{ q.correct_answer_text }}" class="input-clean" placeholder="Enter correct answer (e.g. FALSE, 1994, B)" style="border-color:#cbd5e1; font-weight:600; color:#0f172a;">
+                                    <input type="text" name="answer_{{ q.id }}" value="{{ q.correct_answer_text }}" class="input-clean" placeholder="Enter correct answer" style="border-color:#cbd5e1; font-weight:600; color:#0f172a;">
                                 </div>
                             </div>
                             {% endfor %}
@@ -287,7 +229,6 @@
                 <div style="text-align:center; padding:60px 20px; background:#fff; border-radius:24px; border:2px dashed var(--border);">
                     <i class="fa-solid fa-box-open" style="font-size:3rem; color:var(--text2); margin-bottom:16px;"></i>
                     <h3 style="font-size:1.2rem; font-weight:700; color:var(--text); margin-bottom:8px;">No Sections Found</h3>
-                    <p style="color:var(--text2); font-size:0.95rem; margin-bottom:24px;">Use the AI Extractor or add a section manually to start building.</p>
                 </div>
             {% endif %}
         </form>
@@ -297,47 +238,62 @@
     <div style="flex:1; position:sticky; top:32px; height:calc(100vh - 64px);">
         <div class="builder-card" style="height:100%; display:flex; flex-direction:column; margin-bottom:0; box-shadow:0 24px 64px rgba(0,0,0,0.08);">
             <div class="builder-header" style="background:#1e293b; color:#fff; border-bottom:none;">
-                <h3 style="font-size:1rem; font-weight:700; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-mobile-screen"></i> Student Simulator</h3>
-                <a href="/mock/{{ exam.id }}/start" target="_blank" class="btn btn-xs" style="background:rgba(255,255,255,0.1); color:#fff; border:none;">Open Fullscreen</a>
+                <h3 style="font-size:1rem; font-weight:700; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-mobile-screen"></i> Simulator</h3>
+                <a href="/mock/{{ exam.id }}/start" target="_blank" class="btn btn-xs" style="background:rgba(255,255,255,0.1); color:#fff; border:none;">Fullscreen</a>
             </div>
             <div style="flex:1; background:#f1f5f9; position:relative; overflow:hidden;">
-                <!-- We simulate a zoomed out view -->
                 <iframe id="previewIframe" src="/mock/{{ exam.id }}/start" style="width:125%; height:125%; border:none; transform: scale(0.8); transform-origin: top left; position:absolute; top:0; left:0;"></iframe>
-                <div style="position:absolute; top:0; left:0; right:0; bottom:0; background:transparent; z-index:10; pointer-events:none;"></div>
             </div>
+            
+            <!-- AI CHAT AREA -->
+            <div style="height:300px; border-top:2px solid var(--border); display:flex; flex-direction:column; background:var(--bg2);">
+                <div style="padding:10px 16px; background:var(--bg3); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.8rem; font-weight:800; color:var(--accent);"><i class="fa-solid fa-robot"></i> Gemini Assistant</span>
+                    <button onclick="clearAIChat()" class="btn btn-xs" style="font-size:0.7rem;">Clear</button>
+                </div>
+                <div id="ai_chat_log" style="flex:1; overflow-y:auto; padding:12px; font-size:0.85rem; display:flex; flex-direction:column; gap:10px;">
+                    <div style="background:#fff; padding:10px; border-radius:12px; border:1px solid var(--border); color:var(--text2);">
+                        Ask Gemini to help you generate questions or fix extraction errors.
+                    </div>
+                </div>
+                <div style="padding:10px; background:#fff; border-top:1px solid var(--border); display:flex; gap:8px;">
+                    <input type="text" id="ai_chat_input" placeholder="e.g. Give me 5 MCQs for passage 1" style="flex:1; border:1px solid var(--border); border-radius:8px; padding:8px; font-size:0.85rem;" onkeypress="if(event.key==='Enter') sendAIChat()">
+                    <button onclick="sendAIChat()" class="btn btn-primary btn-sm"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+
             <div style="padding:12px 24px; background:#fff; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
                 <span style="font-size:0.8rem; color:var(--text2); font-weight:600;"><i class="fa-solid fa-rotate"></i> Auto-refreshes on save</span>
-                <button type="button" onclick="document.getElementById('previewIframe').src = document.getElementById('previewIframe').src" class="btn btn-xs btn-ghost border">Refresh Preview</button>
+                <button type="button" onclick="document.getElementById('previewIframe').src = document.getElementById('previewIframe').src" class="btn btn-xs btn-ghost border">Refresh</button>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
-<!-- Modals (Add Section, Add Question, Bulk Answers) -->
-<div id="addSectionModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center;">
-    <div style="background:#fff; width:500px; border-radius:24px; padding:32px; box-shadow:0 32px 80px rgba(0,0,0,0.2);">
-        <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:24px;">Add New Section</h3>
-        <form action="/mock/{{ exam.id }}/add-section" method="POST">
+{% block modals %}
+<!-- Edit Section Modal -->
+<div id="editSectionModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; width:600px; border-radius:24px; padding:32px; box-shadow:0 32px 80px rgba(0,0,0,0.2);">
+        <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:24px;">Edit Section Content</h3>
+        <form id="editSectionForm" action="" method="POST">
             <div style="margin-bottom:16px;">
-                <label class="form-label">Section Title</label>
-                <input type="text" name="section_type" required class="input-clean" placeholder="e.g. Reading Passage 1">
-            </div>
-            <div style="margin-bottom:16px;">
-                <label class="form-label">Time Limit (Min)</label>
-                <input type="number" name="time_limit_minutes" value="20" required class="input-clean">
+                <label class="form-label">Passage / Main Text (HTML)</label>
+                <textarea name="passage_text" id="edit_passage_text" rows="8" class="input-clean"></textarea>
             </div>
             <div style="margin-bottom:24px;">
-                <label class="form-label">Passage HTML</label>
-                <textarea name="passage_text" rows="4" class="input-clean" placeholder="<p>Enter text here...</p>"></textarea>
+                <label class="form-label">Instructions / Task Prompt</label>
+                <textarea name="instructions" id="edit_instructions" rows="3" class="input-clean"></textarea>
             </div>
             <div style="display:flex; gap:12px;">
-                <button type="button" onclick="document.getElementById('addSectionModal').style.display='none'" class="btn btn-ghost input-clean" style="flex:1;">Cancel</button>
-                <button type="submit" class="btn btn-primary input-clean" style="flex:1; background:var(--text); color:#fff; border:none;">Create Section</button>
+                <button type="button" onclick="document.getElementById('editSectionModal').style.display='none'" class="btn btn-ghost input-clean" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn btn-primary input-clean" style="flex:1; background:var(--accent); color:#fff; border:none;">Save Changes</button>
             </div>
         </form>
     </div>
 </div>
 
+<!-- Add Question Modal -->
 <div id="addQuestionModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center;">
     <div style="background:#fff; width:500px; border-radius:24px; padding:32px; box-shadow:0 32px 80px rgba(0,0,0,0.2);">
         <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:24px;">Add Manual Question</h3>
@@ -347,14 +303,18 @@
                 <label class="form-label">Question Type</label>
                 <select name="q_type" required class="input-clean">
                     <option value="GAP_FILL">Gap Fill / Blank</option>
-                    <option value="MCQ">Multiple Choice</option>
+                    <option value="MCQ">Multiple Choice (Single)</option>
+                    <option value="MCQ_MULTI">Multiple Choice (Multiple)</option>
                     <option value="TFNG">True / False / Not Given</option>
-                    <option value="MATCHING">Matching</option>
+                    <option value="YNNG">Yes / No / Not Given</option>
+                    <option value="MATCHING">Matching Headings / Information</option>
+                    <option value="DIAGRAM">Diagram / Map Labeling</option>
+                    <option value="SHORT_ANS">Short Answer</option>
                 </select>
             </div>
             <div style="margin-bottom:16px;">
                 <label class="form-label">Prompt / Text</label>
-                <textarea name="prompt" rows="3" required class="input-clean" placeholder="Type the question here..."></textarea>
+                <textarea name="prompt" rows="3" required class="input-clean" placeholder="Type question here..."></textarea>
             </div>
             <div style="margin-bottom:24px;">
                 <label class="form-label">Correct Answer</label>
@@ -370,17 +330,75 @@
 
 <div id="bulkAnswersModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center;">
     <div style="background:#fff; width:600px; border-radius:24px; padding:32px; box-shadow:0 32px 80px rgba(0,0,0,0.2);">
-        <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:16px;"><i class="fa-solid fa-paste"></i> Bulk Import Answers</h3>
-        <p style="font-size:0.9rem; color:var(--text2); margin-bottom:24px; line-height:1.5;">
-            Paste your answers from a PDF/Word file below. Use standard numbering like <strong>1. FALSE</strong> or <strong>2) NOT GIVEN</strong>.
-        </p>
+        <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:16px;"><i class="fa-solid fa-paste"></i> Bulk Import</h3>
         <form action="/mock/{{ exam.id }}/bulk-answers" method="POST">
             <div style="margin-bottom:24px;">
-                <textarea name="bulk_text" rows="12" class="input-clean" placeholder="1. TRUE&#10;2. FALSE&#10;3. NOT GIVEN&#10;4. C&#10;5. A" required style="font-family:monospace; font-size:1rem;"></textarea>
+                <textarea name="bulk_text" rows="12" class="input-clean" placeholder="1. TRUE&#10;2. FALSE" required style="font-family:monospace;"></textarea>
             </div>
             <div style="display:flex; gap:12px;">
                 <button type="button" onclick="document.getElementById('bulkAnswersModal').style.display='none'" class="btn btn-ghost input-clean" style="flex:1;">Cancel</button>
-                <button type="submit" class="btn btn-primary input-clean" style="flex:1; background:var(--accent); color:#fff; border:none; box-shadow:0 4px 14px rgba(123,97,255,0.4);">Parse & Save Answers</button>
+                <button type="submit" class="btn btn-primary input-clean" style="flex:1; background:var(--accent); color:#fff; border:none;">Import</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Section Modal -->
+<div id="addSectionModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; width:450px; border-radius:24px; padding:32px; box-shadow:0 32px 80px rgba(0,0,0,0.2);">
+        <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:24px;">Add New Section</h3>
+        <form action="/mock/{{ exam.id }}/add-section" method="POST">
+            <div style="margin-bottom:16px;">
+                <label class="form-label">Section Title</label>
+                <input type="text" name="section_type" required placeholder="e.g. Reading Passage 1" class="input-clean">
+            </div>
+            <div style="margin-bottom:24px;">
+                <label class="form-label">Time Limit (Minutes)</label>
+                <input type="number" name="time_limit" value="20" required class="input-clean">
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button type="button" onclick="document.getElementById('addSectionModal').style.display='none'" class="btn btn-ghost input-clean" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn btn-primary input-clean" style="flex:1; background:var(--accent); color:#fff; border:none;">Create Section</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Question Modal -->
+<div id="editQuestionModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; width:500px; border-radius:24px; padding:32px; box-shadow:0 32px 80px rgba(0,0,0,0.2);">
+        <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:24px;">Edit Question</h3>
+        <form id="editQuestionForm" action="" method="POST">
+            <div style="margin-bottom:16px;">
+                <label class="form-label">Question Type</label>
+                <select name="q_type" id="edit_q_type" required class="input-clean">
+                    <option value="GAP_FILL">Gap Fill / Blank</option>
+                    <option value="MCQ">Multiple Choice (Single)</option>
+                    <option value="TFNG">True / False / Not Given</option>
+                    <option value="YNNG">Yes / No / Not Given</option>
+                    <option value="MATCHING">Matching</option>
+                    <option value="SHORT_ANS">Short Answer</option>
+                </select>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label class="form-label">Prompt / Text (HTML allowed)</label>
+                <textarea name="prompt" id="edit_q_prompt" rows="5" required class="input-clean"></textarea>
+            </div>
+            <div style="margin-bottom:24px;">
+                <label class="form-label">Correct Answer / Key</label>
+                <input type="text" name="correct_answer_text" id="edit_q_answer" class="input-clean" placeholder="e.g. YES or 2 words max">
+            </div>
+
+            <!-- MCQ Options Section -->
+            <div id="edit_options_container" style="display:none; margin-bottom:24px; padding:16px; background:#f8fafc; border-radius:12px; border:1px solid #e2e8f0;">
+                <label class="form-label">MCQ Options</label>
+                <div id="options_list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;"></div>
+                <button type="button" onclick="addOptionField()" class="btn btn-ghost btn-xs" style="width:100%;"><i class="fa-solid fa-plus"></i> Add Option</button>
+                <input type="hidden" name="options_json" id="options_json_input">
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button type="button" onclick="document.getElementById('editQuestionModal').style.display='none'" class="btn btn-ghost input-clean" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn btn-primary input-clean" style="flex:1; background:var(--accent); color:#fff; border:none;">Update Question</button>
             </div>
         </form>
     </div>
@@ -390,6 +408,117 @@
 function openQuestionModal(sectionId) {
     document.getElementById("targetSectionId").value = sectionId;
     document.getElementById("addQuestionModal").style.display = "flex";
+}
+function openEditSectionModal(sectionId, passage, instructions) {
+    document.getElementById("editSectionForm").action = "/mock/{{ exam.id }}/update-section-content/" + sectionId;
+    document.getElementById("edit_passage_text").value = passage;
+    document.getElementById("edit_instructions").value = instructions;
+    document.getElementById("editSectionModal").style.display = "flex";
+}
+async function openEditQuestionModal(btn) {
+    const qId = btn.dataset.id;
+    const type = btn.dataset.type;
+    const prompt = btn.dataset.prompt;
+    const answer = btn.dataset.answer;
+
+    document.getElementById("editQuestionForm").action = "/mock/{{ exam.id }}/update-question/" + qId;
+    document.getElementById("edit_q_type").value = type;
+    document.getElementById("edit_q_prompt").value = prompt;
+    document.getElementById("edit_q_answer").value = answer;
+    
+    const optContainer = document.getElementById("edit_options_container");
+    const optList = document.getElementById("options_list");
+    optList.innerHTML = '';
+    
+    if (type === 'MCQ') {
+        optContainer.style.display = 'block';
+        try {
+            const resp = await fetch("/mock/question/" + qId);
+            const data = await resp.json();
+            if (data.options && data.options.length > 0) {
+                data.options.forEach(o => addOptionField(o.text, o.is_correct));
+            } else {
+                // Add 4 empty by default
+                for(let i=0; i<4; i++) addOptionField();
+            }
+        } catch(e) { console.error(e); }
+    } else {
+        optContainer.style.display = 'none';
+    }
+    
+    document.getElementById("editQuestionModal").style.display = "flex";
+}
+
+function addOptionField(text = '', isCorrect = false) {
+    const div = document.createElement('div');
+    div.style = "display:flex; gap:8px; align-items:center;";
+    div.innerHTML = `
+        <input type="radio" name="is_correct_radio" ${isCorrect ? 'checked' : ''} onchange="updateOptionsJSON()">
+        <input type="text" class="input-clean option-text" value="${text}" placeholder="Option text" style="flex:1; padding:6px 10px;" oninput="updateOptionsJSON()">
+        <button type="button" onclick="this.parentElement.remove(); updateOptionsJSON();" style="background:none; border:none; color:var(--red); cursor:pointer;"><i class="fa-solid fa-times"></i></button>
+    `;
+    document.getElementById("options_list").appendChild(div);
+    updateOptionsJSON();
+}
+
+function updateOptionsJSON() {
+    const rows = document.querySelectorAll("#options_list > div");
+    const opts = Array.from(rows).map(row => ({
+        text: row.querySelector(".option-text").value,
+        is_correct: row.querySelector("input[type='radio']").checked,
+        order: 0
+    }));
+    document.getElementById("options_json_input").value = JSON.stringify(opts);
+}
+
+// Ensure type change toggles options
+document.getElementById('edit_q_type').onchange = function() {
+    document.getElementById('edit_options_container').style.display = (this.value === 'MCQ') ? 'block' : 'none';
+    if (this.value === 'MCQ' && document.getElementById('options_list').children.length === 0) {
+        for(let i=0; i<4; i++) addOptionField();
+    }
+};
+
+async function sendAIChat() {
+    const input = document.getElementById('ai_chat_input');
+    const log = document.getElementById('ai_chat_log');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    // Add user message
+    const userDiv = document.createElement('div');
+    userDiv.style = "background:var(--accent); color:#fff; padding:10px; border-radius:12px; align-self:flex-end; max-width:80%; font-size:0.8rem;";
+    userDiv.innerText = text;
+    log.appendChild(userDiv);
+    input.value = '';
+    log.scrollTop = log.scrollHeight;
+
+    // Add loading
+    const loadDiv = document.createElement('div');
+    loadDiv.style = "background:#f1f5f9; padding:10px; border-radius:12px; align-self:flex-start; max-width:80%; font-size:0.8rem; border:1px solid #e2e8f0;";
+    loadDiv.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Gemini is thinking...';
+    log.appendChild(loadDiv);
+    log.scrollTop = log.scrollHeight;
+
+    try {
+        const response = await fetch(`/mock/{{ exam.id }}/ai-chat`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: text})
+        });
+        const data = await response.json();
+        loadDiv.innerHTML = data.reply;
+        if (data.action_html) {
+            loadDiv.innerHTML += '<div style="margin-top:8px;">' + data.action_html + '</div>';
+        }
+    } catch (err) {
+        loadDiv.innerText = "Error: " + err.message;
+    }
+    log.scrollTop = log.scrollHeight;
+}
+
+function clearAIChat() {
+    document.getElementById('ai_chat_log').innerHTML = '';
 }
 </script>
 {% endblock %}

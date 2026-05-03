@@ -3,15 +3,25 @@ import shutil
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from services.ai_extractor import extract_ielts_exam_from_pdf
-from fastapi.responses import HTMLResponse, RedirectResponse
+from datetime import datetime
+import json
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from master_database import SessionMaster, MockExam, ExamSection, QuestionBlock, Question, AnswerOption, MockAttempt, AttemptAnswer, WritingFeedback, ClassRoom, ClassMember
-from auth import get_current_user, require_auth
-from config import UPLOADS_DIR
+from master_database import SessionMaster, MockExam, ExamSection, QuestionBlock, Question, AnswerOption, MockAttempt, AttemptAnswer, WritingFeedback, ClassRoom, ClassMember, User
+from auth import get_current_user
+from config import UPLOADS_DIR, GEMINI_API_KEY
 
 router = APIRouter(prefix="/mock", tags=["mock"])
 templates = Jinja2Templates(directory="templates")
+
+# Lazy-load Gemini to avoid startup crash if key is missing
+def _get_gemini_model():
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=GEMINI_API_KEY)
+        return genai.GenerativeModel('gemini-1.5-flash')
+    except Exception:
+        return None
 
 def get_mdb():
     db = SessionMaster()
@@ -59,7 +69,7 @@ async def manage_mocks(request: Request, db: SessionMaster = Depends(get_mdb)):
 @router.post("/create")
 async def create_mock(request: Request, title: str = Form(...), exam_type: str = Form("IELTS"), test_scope: str = Form("Full Test"), test_mode: str = Form("Exam Mode"), db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Only Admins can create exams")
         
     exam = MockExam(title=title, exam_type=exam_type, test_scope=test_scope, test_mode=test_mode)
@@ -72,7 +82,7 @@ async def create_mock(request: Request, title: str = Form(...), exam_type: str =
 @router.post("/{exam_id}/update-settings")
 async def update_settings(request: Request, exam_id: int, title: str = Form(...), test_scope: str = Form(...), test_mode: str = Form(...), db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
@@ -86,32 +96,12 @@ async def update_settings(request: Request, exam_id: int, title: str = Form(...)
     
     return RedirectResponse(f"/mock/{exam.id}/build", status_code=303)
 
-@router.post("/{exam_id}/add-section")
-async def add_section(request: Request, exam_id: int, section_type: str = Form(...), time_limit_minutes: int = Form(...), passage_text: str = Form(""), db: SessionMaster = Depends(get_mdb)):
-    user = get_current_user(request)
-    if not user or user.role != "owner":
-        raise HTTPException(status_code=403, detail="Unauthorized")
-        
-    exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
-    if not exam:
-        raise HTTPException(status_code=404, detail="Exam not found")
-        
-    section = ExamSection(exam_id=exam.id, section_type=section_type, time_limit_minutes=time_limit_minutes)
-    db.add(section)
-    db.flush()
-    
-    if passage_text:
-        # Create a block automatically to hold the passage text
-        block = QuestionBlock(section_id=section.id, passage_text=passage_text, instructions="")
-        db.add(block)
-        
-    db.commit()
-    return RedirectResponse(f"/mock/{exam.id}/build", status_code=303)
+# (add-section is defined below with the full implementation)
 
 @router.post("/{exam_id}/add-question")
 async def add_question(request: Request, exam_id: int, section_id: int = Form(...), instructions: str = Form(""), q_type: str = Form(...), prompt: str = Form(...), correct_answer_text: str = Form(""), db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     section = db.query(ExamSection).filter(ExamSection.id == section_id, ExamSection.exam_id == exam_id).first()
@@ -136,7 +126,7 @@ async def add_question(request: Request, exam_id: int, section_id: int = Form(..
     question = Question(
         block_id=block.id,
         q_type=q_type,
-        question_number=str(question_num),
+        question_number=int(question_num),
         prompt=prompt,
         correct_answer_text=correct_answer_text,
         points=1
@@ -149,7 +139,7 @@ async def add_question(request: Request, exam_id: int, section_id: int = Form(..
 @router.get("/{exam_id}/build", response_class=HTMLResponse)
 async def mock_builder(request: Request, exam_id: int, db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Only Admins can build exams")
         
     exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
@@ -163,10 +153,77 @@ async def mock_builder(request: Request, exam_id: int, db: SessionMaster = Depen
         "exam": exam
     })
 
+@router.post("/upload-speaking")
+async def upload_speaking_audio(
+    attempt_id: int = Form(...),
+    question_id: int = Form(...),
+    audio_file: UploadFile = File(...),
+    db: SessionMaster = Depends(get_mdb)
+):
+    # Create directory for attempts if not exists
+    attempt_dir = os.path.join(UPLOADS_DIR, f"attempt_{attempt_id}")
+    os.makedirs(attempt_dir, exist_ok=True)
+    
+    file_path = os.path.join(attempt_dir, f"q_{question_id}_{audio_file.filename}")
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(audio_file.file, buffer)
+        
+    # Update database
+    # We find or create the answer for this question
+    ans = db.query(AttemptAnswer).filter(
+        AttemptAnswer.attempt_id == attempt_id,
+        AttemptAnswer.question_id == question_id
+    ).first()
+    
+    if not ans:
+        ans = AttemptAnswer(attempt_id=attempt_id, question_id=question_id)
+        db.add(ans)
+        
+    ans.audio_url = f"/uploads/attempt_{attempt_id}/q_{question_id}_{audio_file.filename}"
+    db.commit()
+    
+    return {"status": "success", "url": ans.audio_url}
+
+@router.post("/upload-writing-image")
+async def upload_writing_image(
+    attempt_id: int = Form(...),
+    section_id: int = Form(...),
+    image_file: UploadFile = File(...),
+    db: SessionMaster = Depends(get_mdb)
+):
+    attempt_dir = os.path.join(UPLOADS_DIR, f"attempt_{attempt_id}")
+    os.makedirs(attempt_dir, exist_ok=True)
+    
+    filename = f"writing_{section_id}_{image_file.filename}"
+    file_path = os.path.join(attempt_dir, filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(image_file.file, buffer)
+        
+    # Find section to get first question
+    section = db.query(ExamSection).filter(ExamSection.id == section_id).first()
+    if not section or not section.blocks or not section.blocks[0].questions:
+        raise HTTPException(status_code=400, detail="No question found in section to attach upload to")
+        
+    first_q = section.blocks[0].questions[0]
+    
+    ans = db.query(AttemptAnswer).filter(
+        AttemptAnswer.attempt_id == attempt_id,
+        AttemptAnswer.question_id == first_q.id
+    ).first()
+    
+    if not ans:
+        ans = AttemptAnswer(attempt_id=attempt_id, question_id=first_q.id)
+        db.add(ans)
+        
+    ans.file_url = f"/uploads/attempt_{attempt_id}/{filename}"
+    db.commit()
+    
+    return {"status": "success", "url": ans.file_url}
+
 @router.post("/{exam_id}/publish")
 async def publish_exam(request: Request, exam_id: int, db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
@@ -181,7 +238,7 @@ async def publish_exam(request: Request, exam_id: int, db: SessionMaster = Depen
 @router.post("/{exam_id}/delete")
 async def delete_exam(request: Request, exam_id: int, db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
@@ -220,18 +277,33 @@ async def mock_take(request: Request, exam_id: int, db: SessionMaster = Depends(
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
         
-    # Fetch teachers for selection if it's a writing test
-    teachers = []
-    if "Writing" in exam.test_scope:
-        # Public teachers or teachers of the student's classes
-        # For now, let's fetch all public teachers
-        from master_database import User as MasterUser
-        teachers = db.query(MasterUser).filter(MasterUser.account_type == "teacher", MasterUser.is_public_teacher == True).all()
+    # Create or get existing in-progress attempt
+    attempt = db.query(MockAttempt).filter(
+        MockAttempt.student_id == user.id,
+        MockAttempt.exam_id == exam_id,
+        MockAttempt.status == "in_progress"
+    ).first()
+    
+    if not attempt:
+        attempt = MockAttempt(
+            tenant_id=user.tenant_id,
+            student_id=user.id,
+            exam_id=exam_id,
+            status="in_progress"
+        )
+        db.add(attempt)
+        db.commit()
+        db.refresh(attempt)
+        
+    # Fetch teachers
+    from master_database import User as MasterUser
+    teachers = db.query(MasterUser).filter(MasterUser.account_type == "teacher").all()
         
     return templates.TemplateResponse("mock_take.html", {
         "request": request,
         "user": user,
         "exam": exam,
+        "attempt": attempt,
         "teachers": teachers
     })
 
@@ -308,7 +380,7 @@ def process_pdf_background(temp_path: str, exam_id: int, test_scope: str):
 @router.post("/{exam_id}/upload-pdf")
 async def process_pdf(request: Request, exam_id: int, background_tasks: BackgroundTasks, pdf_doc: UploadFile = File(...), db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Only Admins can process tests")
         
     exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
@@ -330,7 +402,7 @@ async def process_pdf(request: Request, exam_id: int, background_tasks: Backgrou
 @router.get("/{exam_id}/upload-status")
 async def get_upload_status(exam_id: int, request: Request):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     status = EXTRACTION_STATUS.get(exam_id, {"progress": 0, "message": "Waiting...", "status": "idle"})
@@ -339,7 +411,7 @@ async def get_upload_status(exam_id: int, request: Request):
 @router.post("/{exam_id}/upload-audio")
 async def upload_audio(request: Request, exam_id: int, audio_file: UploadFile = File(...), db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Only Admins can upload audio")
         
     exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
@@ -362,7 +434,7 @@ async def upload_audio(request: Request, exam_id: int, audio_file: UploadFile = 
 @router.post("/{exam_id}/upload-image")
 async def upload_image(request: Request, exam_id: int, image_file: UploadFile = File(...), db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Only Admins can upload images")
         
     target_dir = UPLOADS_DIR / "images"
@@ -379,7 +451,7 @@ async def upload_image(request: Request, exam_id: int, image_file: UploadFile = 
 @router.post("/{exam_id}/save-answers")
 async def save_answers(request: Request, exam_id: int, db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     form = await request.form()
@@ -405,10 +477,119 @@ async def save_answers(request: Request, exam_id: int, db: SessionMaster = Depen
     db.commit()
     return RedirectResponse(f"/mock/{exam_id}/build", status_code=303)
 
+@router.get("/question/{q_id}")
+async def get_question(q_id: int, db: SessionMaster = Depends(get_mdb)):
+    q = db.query(Question).filter(Question.id == q_id).first()
+    if not q:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    opts = [{"id": o.id, "text": o.text, "is_correct": o.is_correct} for o in q.options]
+    return JSONResponse({
+        "id": q.id,
+        "q_type": q.q_type,
+        "prompt": q.prompt,
+        "correct_answer_text": q.correct_answer_text,
+        "options": opts
+    })
+
+@router.post("/{exam_id}/update-question/{q_id}")
+async def update_question(request: Request, exam_id: int, q_id: int, 
+                          q_type: str = Form(...), prompt: str = Form(...), 
+                          correct_answer_text: str = Form(""), db: SessionMaster = Depends(get_mdb)):
+    user = get_current_user(request)
+    if not user or user.role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    question = db.query(Question).filter(Question.id == q_id).first()
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+        
+    question.q_type = q_type
+    question.prompt = prompt
+    question.correct_answer_text = correct_answer_text
+    
+    # Handle MCQ options if provided in form
+    form = await request.form()
+    options_json = form.get("options_json")
+    if options_json:
+        try:
+            opts = json.loads(options_json)
+            # Clear existing
+            db.query(AnswerOption).filter(AnswerOption.question_id == q_id).delete()
+            for o in opts:
+                db.add(AnswerOption(
+                    question_id=q_id,
+                    text=o['text'],
+                    is_correct=o['is_correct'],
+                    order=o.get('order', 0)
+                ))
+        except: pass
+        
+    db.commit()
+    return RedirectResponse(f"/mock/{exam_id}/build", status_code=303)
+
+@router.post("/{exam_id}/add-section")
+async def add_section(request: Request, exam_id: int, 
+                      section_type: str = Form(...), time_limit: int = Form(20), 
+                      db: SessionMaster = Depends(get_mdb)):
+    user = get_current_user(request)
+    if not user or user.role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    # Find max order
+    max_order = db.query(ExamSection).filter(ExamSection.exam_id == exam_id).count()
+    
+    section = ExamSection(
+        exam_id=exam_id,
+        section_type=section_type,
+        time_limit_minutes=time_limit,
+        order=max_order + 1
+    )
+    db.add(section)
+    db.flush()
+    
+    # Create an empty block for it
+    block = QuestionBlock(
+        section_id=section.id,
+        instructions="Complete the tasks below",
+        passage_text="<p>Enter your passage or content here.</p>"
+    )
+    db.add(block)
+    db.commit()
+    return RedirectResponse(f"/mock/{exam_id}/build", status_code=303)
+
+from pydantic import BaseModel
+class AIChatRequest(BaseModel):
+    message: str
+
+@router.post("/{exam_id}/ai-chat")
+async def ai_chat(request: Request, exam_id: int, chat_req: AIChatRequest, db: SessionMaster = Depends(get_mdb)):
+    user = get_current_user(request)
+    if not user or user.role not in ["owner", "admin"]:
+        return JSONResponse({"reply": "Unauthorized"}, status_code=403)
+        
+    exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
+    if not exam:
+        return JSONResponse({"reply": "Exam not found"}, status_code=404)
+        
+    # Gemini call
+    model = _get_gemini_model()
+    if not model:
+        return JSONResponse({"reply": "Gemini AI is not configured. Please set GEMINI_API_KEY."})
+
+    system_context = f"""You are an AI assistant for the Lexora IELTS platform.
+The user is editing a mock exam titled '{exam.title}' (scope: {exam.test_scope}).
+Help with generating questions, fixing extracted text, or IELTS advice. Be concise."""
+    
+    try:
+        response = model.generate_content(system_context + "\nUser: " + chat_req.message)
+        return JSONResponse({"reply": response.text})
+    except Exception as e:
+        return JSONResponse({"reply": f"Gemini error: {str(e)}"}, status_code=500)
+
 @router.post("/{exam_id}/bulk-answers")
 async def bulk_answers(request: Request, exam_id: int, bulk_text: str = Form(...), db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Only Admins can save answers")
         
     exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
@@ -452,10 +633,32 @@ async def bulk_answers(request: Request, exam_id: int, bulk_text: str = Form(...
     db.commit()
     return RedirectResponse(f"/mock/{exam_id}/build", status_code=303)
 
+@router.post("/{exam_id}/update-section-content/{section_id}")
+async def update_section_content(
+    exam_id: int, 
+    section_id: int,
+    passage_text: str = Form(None),
+    instructions: str = Form(None),
+    db: SessionMaster = Depends(get_mdb)
+):
+    section = db.query(ExamSection).filter(ExamSection.id == section_id).first()
+    if section:
+        # For now, we assume one block per section for manual edits or update the first block
+        if not section.blocks:
+            from master_database import QuestionBlock
+            block = QuestionBlock(section_id=section_id, passage_text=passage_text or "", instructions=instructions or "")
+            db.add(block)
+        else:
+            block = section.blocks[0]
+            if passage_text is not None: block.passage_text = passage_text
+            if instructions is not None: block.instructions = instructions
+        db.commit()
+    return RedirectResponse(f"/mock/{exam_id}/build", status_code=303)
+
 @router.post("/{exam_id}/delete-section/{section_id}")
 async def delete_section(request: Request, exam_id: int, section_id: int, db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
     
     section = db.query(ExamSection).filter(ExamSection.id == section_id, ExamSection.exam_id == exam_id).first()
@@ -467,7 +670,7 @@ async def delete_section(request: Request, exam_id: int, section_id: int, db: Se
 @router.post("/{exam_id}/delete-question/{question_id}")
 async def delete_question(request: Request, exam_id: int, question_id: int, db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.role != "owner":
+    if not user or user.role not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
     
     question = db.query(Question).filter(Question.id == question_id).first()
@@ -491,15 +694,26 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
         
     form = await request.form()
     
-    # 1. Create Attempt
-    attempt = MockAttempt(
-        tenant_id=user.tenant_id,
-        student_id=user.id,
-        exam_id=exam.id,
-        status="completed",
-        completed_at=datetime.utcnow()
-    )
-    db.add(attempt)
+    # 1. Reuse existing in-progress attempt if possible
+    attempt = db.query(MockAttempt).filter(
+        MockAttempt.student_id == user.id,
+        MockAttempt.exam_id == exam.id,
+        MockAttempt.status == "in_progress"
+    ).first()
+    
+    if not attempt:
+        attempt = MockAttempt(
+            tenant_id=user.tenant_id,
+            student_id=user.id,
+            exam_id=exam.id,
+            status="completed",
+            completed_at=datetime.utcnow()
+        )
+        db.add(attempt)
+    else:
+        attempt.status = "completed"
+        attempt.completed_at = datetime.utcnow()
+        
     db.flush()
     
     # 2. Grade
@@ -536,20 +750,45 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
             if is_correct:
                 raw_score += question.points
                 
-            ans = AttemptAnswer(
-                attempt_id=attempt.id,
-                question_id=q_id,
-                text_response=text_resp,
-                option_id=option_id,
-                is_correct=is_correct
-            )
-            db.add(ans)
+            ans = db.query(AttemptAnswer).filter(
+                AttemptAnswer.attempt_id == attempt.id,
+                AttemptAnswer.question_id == q_id
+            ).first()
+            
+            if not ans:
+                ans = AttemptAnswer(attempt_id=attempt.id, question_id=q_id)
+                db.add(ans)
+                
+            ans.text_response = text_resp
+            ans.option_id = option_id
+            ans.is_correct = is_correct
+
+        elif key.startswith("writing_response_"):
+            try:
+                s_id = int(key.replace("writing_response_", ""))
+                section = db.query(ExamSection).filter(ExamSection.id == s_id).first()
+                if section and section.blocks and section.blocks[0].questions:
+                    q_id = section.blocks[0].questions[0].id
+                    ans = db.query(AttemptAnswer).filter(
+                        AttemptAnswer.attempt_id == attempt.id,
+                        AttemptAnswer.question_id == q_id
+                    ).first()
+                    if not ans:
+                        ans = AttemptAnswer(attempt_id=attempt.id, question_id=q_id)
+                        db.add(ans)
+                    ans.text_response = val
+            except Exception:
+                pass
             
     # 3. Handle Writing Feedback (if any)
     feedback_type = form.get("feedback_type") # 'ai' or 'teacher'
     selected_teacher_id = form.get("teacher_id")
     
     if feedback_type:
+        attempt.feedback_preference = feedback_type
+        if selected_teacher_id:
+            attempt.selected_teacher_id = int(selected_teacher_id)
+            
         from master_database import WritingFeedback
         wf = WritingFeedback(
             attempt_id=attempt.id,
@@ -565,6 +804,43 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
     db.commit()
     
     return RedirectResponse(f"/mock/results/{attempt.id}", status_code=303)
+
+@router.get("/results/{attempt_id}/export")
+async def export_results(attempt_id: int, db: SessionMaster = Depends(get_mdb)):
+    from docx import Document
+    from docx.shared import Inches
+    import io
+    
+    attempt = db.query(MockAttempt).filter(MockAttempt.id == attempt_id).first()
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+        
+    doc = Document()
+    doc.add_heading(f"IELTS Exam Results: {attempt.exam.title}", 0)
+    
+    doc.add_paragraph(f"Candidate: {attempt.student.full_name or attempt.student.username}")
+    doc.add_paragraph(f"Date: {attempt.completed_at.strftime('%Y-%m-%d %H:%M')}")
+    doc.add_paragraph(f"Overall Band Score: {attempt.band_score}")
+    
+    doc.add_heading("Writing Responses", level=1)
+    
+    # Get writing responses
+    for ans in attempt.answers:
+        if ans.question.section_type and "Writing" in ans.question.section_type:
+            doc.add_heading(f"{ans.question.section_type}", level=2)
+            doc.add_paragraph(ans.text_response)
+            doc.add_paragraph(f"Word Count: {len(ans.text_response.split())}")
+            
+    file_stream = io.BytesIO()
+    doc.save(file_stream)
+    file_stream.seek(0)
+    
+    filename = f"Lexora_Result_{attempt_id}.docx"
+    return StreamingResponse(
+        file_stream,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 @router.get("/results/{attempt_id}", response_class=HTMLResponse)
 async def mock_results(request: Request, attempt_id: int, db: SessionMaster = Depends(get_mdb)):
@@ -605,33 +881,61 @@ async def mock_history(request: Request, db: SessionMaster = Depends(get_mdb)):
 @router.get("/inquiries", response_class=HTMLResponse)
 async def writing_inquiries(request: Request, db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.account_type != "teacher":
-        raise HTTPException(status_code=403, detail="Teachers only")
-        
-    inquiries = db.query(WritingFeedback).filter(WritingFeedback.teacher_id == user.id).order_by(WritingFeedback.created_at.desc()).all()
-    
-    return templates.TemplateResponse("teacher_inquiries.html", {
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    if user.role != "owner" and user.account_type != "teacher":
+        raise HTTPException(status_code=403, detail="Teachers and Owner only")
+
+    # Owner sees all, teacher sees only their own
+    q = db.query(WritingFeedback)
+    if user.role != "owner":
+        q = q.filter(WritingFeedback.teacher_id == user.id)
+
+    pending = q.filter(WritingFeedback.status == "pending").all()
+    completed = q.filter(WritingFeedback.status == "completed").order_by(WritingFeedback.id.desc()).limit(20).all()
+
+    def enrich(items):
+        result = []
+        for fb in items:
+            attempt = db.query(MockAttempt).filter(MockAttempt.id == fb.attempt_id).first()
+            if not attempt:
+                continue
+            student = db.query(User).filter(User.id == attempt.student_id).first()
+            exam = db.query(MockExam).filter(MockExam.id == attempt.exam_id).first()
+            writing_ans = db.query(AttemptAnswer).join(Question).join(QuestionBlock).join(ExamSection).filter(
+                AttemptAnswer.attempt_id == attempt.id,
+                ExamSection.section_type.ilike("%writing%")
+            ).first()
+            result.append({
+                "feedback": fb, "student": student, "exam": exam,
+                "attempt": attempt,
+                "writing_text": writing_ans.text_response if writing_ans else "",
+            })
+        return result
+
+    return templates.TemplateResponse("writing_inquiries.html", {
         "request": request,
         "user": user,
-        "inquiries": inquiries,
-        "active_page": "writing_inquiries"
+        "active_page": "writing_inquiries",
+        "pending": enrich(pending),
+        "completed": enrich(completed),
     })
 
 @router.post("/inquiries/{feedback_id}/grade")
 async def grade_writing(request: Request, feedback_id: int, score: float = Form(...), feedback_text: str = Form(...), db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.account_type != "teacher":
+    if not user or (user.role != "owner" and user.account_type != "teacher"):
         raise HTTPException(status_code=403, detail="Teachers only")
-        
-    fb = db.query(WritingFeedback).filter(WritingFeedback.id == feedback_id, WritingFeedback.teacher_id == user.id).first()
+
+    fb = db.query(WritingFeedback).filter(WritingFeedback.id == feedback_id).first()
     if not fb:
         raise HTTPException(status_code=404)
-        
+
     fb.score = score
     fb.feedback_text = feedback_text
     fb.status = "completed"
     db.commit()
-    
+
     return RedirectResponse("/mock/inquiries", status_code=303)
 
 @router.get("/classes/join", response_class=HTMLResponse)
@@ -642,58 +946,98 @@ async def join_class_page(request: Request):
         "user": user,
         "active_page": "my_classes"
     })
-
-@router.post("/classes/join")
-async def join_class_post(request: Request, invite_code: str = Form(...), db: SessionMaster = Depends(get_mdb)):
-    user = get_current_user(request)
-    if not user: raise HTTPException(status_code=401)
-    
-    classroom = db.query(ClassRoom).filter(ClassRoom.invite_code == invite_code.strip()).first()
-    if not classroom:
-        return templates.TemplateResponse("student_join_class.html", {
-            "request": request, "user": user, "error": "Invalid invite code"
-        })
-        
-    # Check if already a member
-    existing = db.query(ClassMember).filter(ClassMember.class_id == classroom.id, ClassMember.student_id == user.id).first()
-    if existing:
-        return RedirectResponse("/mock", status_code=303)
-        
-    new_member = ClassMember(class_id=classroom.id, student_id=user.id)
-    db.add(new_member)
-    db.commit()
-    
-    return RedirectResponse("/mock", status_code=303)
+# --- TEACHER CLASS MANAGEMENT ---
 
 @router.get("/classes", response_class=HTMLResponse)
+async def unified_classes(request: Request, db: SessionMaster = Depends(get_mdb)):
+    user = get_current_user(request)
+    if not user: return RedirectResponse("/login", status_code=302)
+    
+    if user.account_type == "teacher" or user.role == "owner":
+        q = db.query(ClassRoom)
+        if user.role != "owner":
+            q = q.filter(ClassRoom.teacher_id == user.id)
+        classes = q.all()
+        return templates.TemplateResponse("teacher_classes.html", {
+            "request": request, 
+            "user": user, 
+            "classes": classes, 
+            "active_page": "classes"
+        })
+    else:
+        # Student view: classes they are members of
+        memberships = db.query(ClassMember).filter(ClassMember.student_id == user.id).all()
+        classes = [m.classroom for m in memberships]
+        return templates.TemplateResponse("student_classes.html", {
+            "request": request, 
+            "user": user, 
+            "classes": classes, 
+            "active_page": "classes"
+        })
+
+@router.get("/teacher/classes", response_class=HTMLResponse)
 async def teacher_classes(request: Request, db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
-    if not user or user.account_type != "teacher":
-        raise HTTPException(status_code=403, detail="Teachers only")
+    if not user or user.role not in ["teacher", "owner"]:
+        return RedirectResponse("/login", status_code=302)
         
     classes = db.query(ClassRoom).filter(ClassRoom.teacher_id == user.id).all()
     return templates.TemplateResponse("teacher_classes.html", {
         "request": request,
         "user": user,
         "classes": classes,
-        "active_page": "groups"
+        "active_page": "classes"
     })
 
-@router.post("/classes/create")
-async def create_class(request: Request, name: str = Form(...), db: SessionMaster = Depends(get_mdb)):
+@router.post("/teacher/classes/create")
+async def create_class(
+    request: Request, 
+    class_name: str = Form(...), 
+    db: SessionMaster = Depends(get_mdb)
+):
     user = get_current_user(request)
-    if not user or user.account_type != "teacher":
+    if not user or user.role not in ["teacher", "owner"]:
         raise HTTPException(status_code=403)
         
     import random, string
-    code = "LEX-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    invite_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     
     new_class = ClassRoom(
         teacher_id=user.id,
-        name=name.strip(),
-        invite_code=code
+        name=class_name,
+        invite_code=invite_code
     )
     db.add(new_class)
     db.commit()
+    return RedirectResponse("/mock/teacher/classes", status_code=303)
+
+@router.post("/student/join-class")
+async def join_class(
+    request: Request, 
+    invite_code: str = Form(...), 
+    db: SessionMaster = Depends(get_mdb)
+):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+        
+    classroom = db.query(ClassRoom).filter(ClassRoom.invite_code == invite_code.upper()).first()
+    if not classroom:
+        return RedirectResponse("/mock/history?error=Invalid invite code", status_code=303)
+        
+    # Check if already a member
+    existing = db.query(ClassMember).filter(
+        ClassMember.class_id == classroom.id,
+        ClassMember.student_id == user.id
+    ).first()
     
-    return RedirectResponse("/mock/classes", status_code=303)
+    if not existing:
+        member = ClassMember(class_id=classroom.id, student_id=user.id)
+        db.add(member)
+        db.commit()
+        
+    return RedirectResponse("/mock/history?joined=success", status_code=303)
+
+
+# ─── Writing / Speaking Inquiries (Teacher + Owner) ──────────────────────────
+

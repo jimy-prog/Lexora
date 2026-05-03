@@ -31,6 +31,7 @@ else:
 
 SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "lexora-dev-secret-change-me")
 SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME", "lexora_session")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD", "change-me")
 

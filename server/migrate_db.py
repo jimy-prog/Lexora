@@ -25,9 +25,31 @@ def migrate():
     except sqlite3.OperationalError as e:
         print(f"Skipping is_public_teacher: {e}")
 
-    # Ensure student_id in mock_attempts is a ForeignKey to users (SQLite doesn't support easy ALTER for FK, but we can ensure the column exists)
-    # Actually, it was already student_id, just needed to be linked in ORM.
-    
+    # New columns for Mock overhaul
+    try:
+        cursor.execute("ALTER TABLE mock_attempts ADD COLUMN feedback_preference TEXT")
+        print("Added feedback_preference to mock_attempts")
+    except sqlite3.OperationalError as e:
+        print(f"Skipping feedback_preference: {e}")
+
+    try:
+        cursor.execute("ALTER TABLE mock_attempts ADD COLUMN selected_teacher_id INTEGER")
+        print("Added selected_teacher_id to mock_attempts")
+    except sqlite3.OperationalError as e:
+        print(f"Skipping selected_teacher_id: {e}")
+
+    try:
+        cursor.execute("ALTER TABLE mock_attempt_answers ADD COLUMN audio_url TEXT")
+        print("Added audio_url to mock_attempt_answers")
+    except sqlite3.OperationalError as e:
+        print(f"Skipping audio_url: {e}")
+
+    try:
+        cursor.execute("ALTER TABLE mock_attempt_answers ADD COLUMN file_url TEXT")
+        print("Added file_url to mock_attempt_answers")
+    except sqlite3.OperationalError as e:
+        print(f"Skipping file_url: {e}")
+
     conn.commit()
     conn.close()
     print("Migration finished.")

@@ -1,74 +1,72 @@
 {% extends "base.html" %}
-{% block title %}My Classes - Lexora{% endblock %}
-{% block page_title %}My Classes{% endblock %}
+{% block title %}My Classes - Teacher{% endblock %}
 
 {% block content %}
-<div style="max-width: 1000px; margin: 0 auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
-        <div>
-            <h2 style="font-family:var(--font-d); font-size:1.8rem; font-weight:700; color:var(--text); letter-spacing:-0.02em;">Class Management</h2>
-            <p style="color:var(--text2); margin-top:4px;">Manage your classrooms and invite students to your groups.</p>
-        </div>
-        <button onclick="document.getElementById('createClassModal').style.display='flex'" class="btn btn-primary" style="padding:12px 24px; border-radius:12px;">
-            <i class="fa-solid fa-plus"></i> Create New Class
-        </button>
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
+    <div>
+        <h1 style="font-family:var(--font-d); font-size:2.2rem; font-weight:800; color:var(--text);">My Classes</h1>
+        <p style="color:var(--text2); font-size: 1rem;">Manage your students and track their mock exam progress.</p>
     </div>
+    <button onclick="document.getElementById('createClassModal').style.display='flex'" class="btn btn-primary" style="padding:12px 24px; border-radius:12px;">
+        <i class="fa-solid fa-plus"></i> Create New Class
+    </button>
+</div>
 
-    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap:24px;">
-        {% for cls in classes %}
-        <div class="card">
-            <div class="card-body" style="padding:24px;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
-                    <div style="width:48px; height:48px; background:var(--accent-glow); color:var(--accent); border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">
-                        <i class="fa-solid fa-users"></i>
-                    </div>
-                    <div class="pill pill-blue" style="font-family:var(--font-m); letter-spacing:1px; font-size:0.75rem;">{{ cls.invite_code }}</div>
-                </div>
-                
-                <h3 style="font-size:1.2rem; font-weight:700; color:var(--text); margin-bottom:4px;">{{ cls.name }}</h3>
-                <p style="font-size:0.85rem; color:var(--text2); margin-bottom:20px;">Created on {{ cls.created_at.strftime('%Y-%m-%d') }}</p>
-                
-                <div style="display:flex; align-items:center; gap:8px; padding-top:16px; border-top:1px solid var(--border);">
-                    <div style="flex:1; font-size:0.8rem; color:var(--text2);">
-                        <i class="fa-solid fa-user-graduate"></i> <strong>{{ cls.members|length }}</strong> Students
-                    </div>
-                    <button class="btn btn-xs btn-ghost border" onclick="copyCode('{{ cls.invite_code }}')">Copy Code</button>
-                </div>
+<div class="grid-container" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:24px;">
+    {% for cls in classes %}
+    <div class="card" style="padding:24px; border-radius:24px; background:#fff; border:1px solid var(--border); box-shadow:0 4px 6px rgba(0,0,0,0.02);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+            <div style="width:48px; height:48px; background:var(--accent-glow); color:var(--accent); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.5rem;">
+                <i class="fa-solid fa-users-rectangle"></i>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:0.7rem; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.05em;">Invite Code</div>
+                <div style="font-family:monospace; font-size:1.1rem; font-weight:700; color:var(--accent); background:var(--accent-glow); padding:4px 12px; border-radius:8px; display:inline-block;">{{ cls.invite_code }}</div>
             </div>
         </div>
-        {% endfor %}
         
-        {% if not classes %}
-        <div style="grid-column: 1 / -1; text-align:center; padding:60px 20px; background:var(--bg2); border-radius:24px; border:2px dashed var(--border);">
-            <div style="font-size:3.5rem; color:var(--text3); margin-bottom:20px;"><i class="fa-solid fa-layer-group"></i></div>
-            <h3 style="font-size:1.4rem; font-weight:700; color:var(--text);">No classes yet</h3>
-            <p style="color:var(--text2); margin-top:8px;">Create your first class to start inviting students.</p>
+        <h3 style="font-size:1.25rem; font-weight:800; color:var(--text); margin-bottom:4px;">{{ cls.class_name }}</h3>
+        <p style="font-size:0.9rem; color:var(--text2); margin-bottom:24px;">{{ cls.members|length }} students enrolled</p>
+        
+        <div style="border-top:1px solid var(--border); padding-top:20px;">
+            <h4 style="font-size:0.8rem; font-weight:700; color:var(--text2); text-transform:uppercase; margin-bottom:12px;">Students</h4>
+            {% if cls.members %}
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    {% for member in cls.members %}
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <img src="{{ member.student.profile_image or '/static/default_avatar.png' }}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">
+                        <div>
+                            <div style="font-size:0.9rem; font-weight:600; color:var(--text);">{{ member.student.full_name or member.student.username }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="font-size:0.85rem; color:var(--text2); font-style:italic;">No students yet.</p>
+            {% endif %}
         </div>
-        {% endif %}
+        
+        <div style="margin-top:24px;">
+            <a href="#" class="btn btn-ghost border" style="width:100%; text-align:center; font-size:0.85rem;">View Detailed Analytics</a>
+        </div>
     </div>
+    {% endfor %}
 </div>
 
 <!-- Create Class Modal -->
-<div id="createClassModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); z-index:1000; align-items:center; justify-content:center;">
-    <div style="background:#fff; width:450px; border-radius:24px; padding:32px; box-shadow:0 32px 64px rgba(0,0,0,0.2);">
+<div id="createClassModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; width:450px; border-radius:24px; padding:32px; box-shadow:0 32px 80px rgba(0,0,0,0.2);">
         <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:24px;">Create New Class</h3>
-        <form action="/mock/classes/create" method="POST">
-            <div class="form-group" style="margin-bottom:24px;">
-                <label class="form-label">Class Name</label>
-                <input type="text" name="name" required class="form-control" placeholder="e.g. IELTS Evening Group A" style="padding:14px;">
+        <form action="/mock/teacher/classes/create" method="POST">
+            <div style="margin-bottom:24px;">
+                <label class="form-label" style="display:block; margin-bottom:8px; font-weight:600; color:var(--text2);">Class Name</label>
+                <input type="text" name="class_name" required class="input-clean" placeholder="e.g. IELTS Evening Batch B" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:10px;">
             </div>
             <div style="display:flex; gap:12px;">
-                <button type="button" onclick="document.getElementById('createClassModal').style.display='none'" class="btn" style="flex:1; background:#f1f5f9; color:#64748b; border:none; padding:14px; border-radius:12px;">Cancel</button>
-                <button type="submit" class="btn btn-primary" style="flex:1; padding:14px; border-radius:12px;">Create Class</button>
+                <button type="button" onclick="document.getElementById('createClassModal').style.display='none'" class="btn btn-ghost" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="flex:1; background:var(--accent); color:#fff; border:none;">Create</button>
             </div>
         </form>
     </div>
 </div>
-
-<script>
-function copyCode(code) {
-    navigator.clipboard.writeText(code);
-    alert("Invite code " + code + " copied to clipboard!");
-}
-</script>
 {% endblock %}

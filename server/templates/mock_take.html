@@ -191,52 +191,66 @@
         </div>
     </div>
 
-    <!-- Writing Feedback Modal -->
-    <div id="feedbackModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:2000; align-items:center; justify-content:center;">
-        <div style="background:#fff; width:500px; border-radius:24px; padding:32px; box-shadow:0 25px 50px rgba(0,0,0,0.2);">
-            <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:16px;">Writing Feedback</h3>
-            <p style="color:#64748b; font-size:0.9rem; margin-bottom:24px;">How would you like your writing tasks to be evaluated?</p>
-            
-            <div style="display:flex; flex-direction:column; gap:16px;">
-                <label style="display:flex; gap:16px; padding:16px; border:2px solid #e2e8f0; border-radius:16px; cursor:pointer; transition:all 0.2s;" id="label-ai" onclick="selectFeedback('ai')">
-                    <div style="width:40px; height:40px; background:rgba(123, 97, 255, 0.1); color:#7b61ff; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">
-                        <i class="fa-solid fa-robot"></i>
-                    </div>
-                    <div style="flex:1;">
-                        <div style="font-weight:700; color:#1e293b;">AI Correction (Immediate)</div>
-                        <div style="font-size:0.8rem; color:#64748b;">Get score and explanation in 3-5 minutes.</div>
-                    </div>
-                    <input type="radio" name="feedback_choice" value="ai" style="display:none;">
-                </label>
+    <!-- Pre-Exam Setup Overlay -->
+    <div id="setupOverlay" style="position:fixed; inset:0; background:#fff; z-index:3000; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px;">
+        <div style="max-width:600px; width:100%; text-align:center;">
+            <div style="font-family:'Space Grotesk', sans-serif; font-size:2.5rem; font-weight:800; color:#101114; margin-bottom:12px;">Lex<span>ora</span></div>
+            <h2 style="font-size:1.8rem; font-weight:700; color:#1e293b; margin-bottom:8px;">Ready to start your exam?</h2>
+            <p style="color:#64748b; margin-bottom:40px;">Configure your preferences and environment before we begin.</p>
 
-                <label style="display:flex; gap:16px; padding:16px; border:2px solid #e2e8f0; border-radius:16px; cursor:pointer; transition:all 0.2s;" id="label-teacher" onclick="selectFeedback('teacher')">
-                    <div style="width:40px; height:40px; background:rgba(16, 185, 129, 0.1); color:#10b981; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">
-                        <i class="fa-solid fa-user-tie"></i>
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:24px; padding:32px; text-align:left; margin-bottom:32px;">
+                <div style="display:flex; flex-direction:column; gap:24px;">
+                    <!-- Feedback Choice (Required for Writing) -->
+                    {% if "Writing" in exam.test_scope %}
+                    <div>
+                        <label style="display:block; font-size:0.75rem; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:12px; letter-spacing:0.05em;">How should your Writing be checked?</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div class="setup-option" id="opt-ai" onclick="selectSetupFeedback('ai')" style="padding:16px; border:2px solid #e2e8f0; border-radius:12px; cursor:pointer; transition:all 0.2s;">
+                                <i class="fa-solid fa-robot" style="color:#7b61ff; font-size:1.2rem; margin-bottom:8px;"></i>
+                                <div style="font-weight:700; font-size:0.9rem; color:#1e293b;">AI Correction</div>
+                                <div style="font-size:0.75rem; color:#64748b;">Immediate response</div>
+                            </div>
+                            <div class="setup-option" id="opt-teacher" onclick="selectSetupFeedback('teacher')" style="padding:16px; border:2px solid #e2e8f0; border-radius:12px; cursor:pointer; transition:all 0.2s;">
+                                <i class="fa-solid fa-user-tie" style="color:#10b981; font-size:1.2rem; margin-bottom:8px;"></i>
+                                <div style="font-weight:700; font-size:0.9rem; color:#1e293b;">Teacher Review</div>
+                                <div style="font-size:0.75rem; color:#64748b;">Professional grading</div>
+                            </div>
+                        </div>
+                        <div id="setupTeacherSelect" style="display:none; margin-top:16px;">
+                            <label style="display:block; font-size:0.7rem; font-weight:700; color:#64748b; margin-bottom:8px; text-transform:uppercase;">Select Teacher</label>
+                            <select id="setup_teacher_id" style="width:100%; padding:12px; border:1px solid #e2e8f0; border-radius:8px; font-size:0.9rem;">
+                                <option value="">-- Choose a teacher --</option>
+                                {% for t in teachers %}
+                                <option value="{{ t.id }}">{{ t.full_name or t.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
-                    <div style="flex:1;">
-                        <div style="font-weight:700; color:#1e293b;">Teacher Review (Manual)</div>
-                        <div style="font-size:0.8rem; color:#64748b;">Personalized feedback from your selected teacher.</div>
-                    </div>
-                    <input type="radio" name="feedback_choice" value="teacher" style="display:none;">
-                </label>
+                    {% endif %}
 
-                <div id="teacherSelectSection" style="display:none; margin-top:8px;">
-                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#64748b; margin-bottom:8px; text-transform:uppercase;">Select Teacher</label>
-                    <select id="teacher_id_select" class="gap-fill" style="width:100%; margin:0; padding:12px;">
-                        <option value="">-- Choose a teacher --</option>
-                        {% for t in teachers %}
-                        <option value="{{ t.id }}">{{ t.full_name or t.username }}</option>
-                        {% endfor %}
-                    </select>
+                    <!-- Microphone Check (Required for Speaking) -->
+                    {% if "Speaking" in exam.test_scope %}
+                    <div>
+                        <label style="display:block; font-size:0.75rem; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:12px; letter-spacing:0.05em;">Microphone Access</label>
+                        <button type="button" id="micBtn" onclick="requestMic()" style="width:100%; background:#fff; color:#334155; border:1px solid #e2e8f0; padding:14px; border-radius:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px;">
+                            <i class="fa-solid fa-microphone"></i> <span>Enable Microphone</span>
+                        </button>
+                        <div id="micStatus" style="margin-top:8px; font-size:0.8rem; color:#64748b; text-align:center;"></div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
-            <div style="margin-top:32px; display:flex; gap:12px;">
-                <button onclick="document.getElementById('feedbackModal').style.display='none'" class="btn" style="flex:1; background:#f1f5f9; color:#64748b; border:none; padding:14px; border-radius:12px; font-weight:600;">Cancel</button>
-                <button onclick="finalSubmit()" class="btn" style="flex:1; background:#7b61ff; color:#fff; border:none; padding:14px; border-radius:12px; font-weight:600;">Confirm & Submit</button>
-            </div>
+            <button onclick="confirmSetup()" style="width:100%; background:#7b61ff; color:#fff; border:none; padding:18px; border-radius:16px; font-weight:700; font-size:1.1rem; cursor:pointer; box-shadow:0 10px 25px rgba(123, 97, 255, 0.25);">
+                Begin Examination <i class="fa-solid fa-arrow-right" style="margin-left:8px;"></i>
+            </button>
         </div>
     </div>
+
+    <style>
+        .setup-option.active { border-color: #7b61ff !important; background: #f5f3ff; }
+        .setup-option:hover { border-color: #7b61ff; }
+    </style>
 
     <div class="workspace">
         {% set q_counter = namespace(value=1) %}
@@ -263,10 +277,66 @@
             {% endif %}
             
                 {% if "Writing" in exam.test_scope %}
-                    <div style="height: 100%; display: flex; flex-direction: column; padding: 20px;">
-                        <textarea name="writing_response_{{ section.id }}" id="writing-area-{{ loop.index }}" style="flex:1; width:100%; resize:none; padding:16px; border:1px solid var(--ielts-border); border-radius:8px; font-family:var(--font-st); font-size:1.05rem; line-height:1.6;" oninput="countWords(this.value, {{ loop.index }})"></textarea>
-                        <div style="margin-top:12px; font-weight:600; color:var(--text2); display:flex; justify-content:space-between;">
-                            <span>Word Count: <span id="word-count-{{ loop.index }}" style="color:var(--text); font-size:1.1rem;">0</span></span>
+                    <div class="writing-task-container" style="display: flex; gap: 24px; flex: 1; min-height: 0; padding: 20px;">
+                        <!-- Left Pane: Task Content -->
+                        <div class="task-content-pane" style="flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; overflow-y: auto;">
+                            <h3 style="font-size: 1.2rem; font-weight: 700; color: #1e293b; margin-bottom: 16px;">Writing Task</h3>
+                            {% for block in section.blocks %}
+                                {% if block.media_url %}
+                                    <div style="margin-bottom: 20px; text-align: center;">
+                                        <img src="{{ block.media_url }}" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                    </div>
+                                {% endif %}
+                                <div class="passage-content" style="font-size: 1rem; color: #334155;">{{ block.passage_text | safe }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Right Pane: Response Area -->
+                        <div class="task-response-pane" style="flex: 1.2; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Your Response</span>
+                                <span style="font-size: 0.8rem; font-weight: 600; color: #64748b;">Words: <span id="word-count-{{ loop.index }}" style="color: #7b61ff; font-size: 1rem; font-weight: 700;">0</span></span>
+                            </div>
+                            <textarea name="writing_response_{{ section.id }}" id="writing-area-{{ loop.index }}" placeholder="Start typing..." style="flex: 1; width: 100%; resize: none; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 1.05rem; line-height: 1.6; outline: none; margin-bottom: 12px;" oninput="countWords(this.value, {{ loop.index }})"></textarea>
+                            
+                            <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                                <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Or Upload Handwritten Work</div>
+                                <div style="display: flex; gap: 10px; width: 100%;">
+                                    <input type="file" id="writing-upload-{{ loop.index }}" accept="image/*,application/pdf" style="display: none;" onchange="handleWritingUpload({{ loop.index }}, {{ section.id }})">
+                                    <button type="button" onclick="document.getElementById('writing-upload-{{ loop.index }}').click()" style="flex: 1; background: #fff; color: #334155; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                        <i class="fa-solid fa-camera"></i> <span>Choose Image/PDF</span>
+                                    </button>
+                                </div>
+                                <div id="upload-status-{{ loop.index }}" style="font-size: 0.8rem; color: #64748b;"></div>
+                                <div id="upload-preview-{{ loop.index }}" style="display: none; margin-top: 8px;">
+                                    <a href="#" target="_blank" id="upload-link-{{ loop.index }}" style="color: #7b61ff; font-size: 0.85rem; font-weight: 600; text-decoration: none;">View uploaded file</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% elif "Speaking" in exam.test_scope %}
+                    <div id="speaking-container-{{ loop.index }}" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px; width: 100%;">
+                        <div id="speaking-intro-{{ loop.index }}">
+                            <i class="fa-solid fa-microphone-lines" style="font-size: 4rem; color: #7b61ff; margin-bottom: 24px;"></i>
+                            <h2 style="font-size: 1.8rem; font-weight: 700; color: #1e293b; margin-bottom: 12px;">Speaking Section</h2>
+                            <p style="color: #64748b; margin-bottom: 32px;">Answer the questions as they appear. Your responses are recorded.</p>
+                            <button onclick="startSpeakingFlow({{ loop.index }}, [
+                                {% for block in section.blocks %}
+                                    {% for q in block.questions %}
+                                        { id: {{ q.id }}, prompt: '{{ q.prompt | escape }}' },
+                                    {% endfor %}
+                                {% endfor %}
+                            ])" class="btn" style="background: #1e293b; color: #fff; padding: 16px 40px; border-radius: 12px; font-weight: 700;">Start Speaking</button>
+                        </div>
+
+                        <div id="speaking-active-{{ loop.index }}" style="display: none; width: 100%; max-width: 600px;">
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 24px; padding: 40px; margin-bottom: 32px; min-height: 200px; display: flex; align-items: center; justify-content: center;">
+                                <div id="speaking-question-text-{{ loop.index }}" style="font-size: 1.5rem; font-weight: 700; color: #1e293b;"></div>
+                            </div>
+                            <div id="recording-indicator-{{ loop.index }}" style="display: none; align-items: center; justify-content: center; gap: 12px; color: #ef4444; font-weight: 700;">
+                                <div class="pulse-red" style="width: 12px; height: 12px; background: #ef4444; border-radius: 50%;"></div>
+                                RECORDING... <span id="speaking-timer-{{ loop.index }}">30</span>s
+                            </div>
                         </div>
                     </div>
                 {% else %}
@@ -325,6 +395,8 @@
         const TOTAL_QUESTIONS = {{ q_counter.value - 1 }};
         let currentQuestion = 1;
         let currentPart = 1;
+        let isExamActive = false;
+        let selectedFeedbackType = null;
 
         // Map questions to parts
         const questionToPart = {};
@@ -349,7 +421,6 @@
             btn.onclick = () => jumpToQuestion(i);
             numberPad.appendChild(btn);
             
-            // Add spacer every 5 questions
             if (i % 5 === 0 && i !== TOTAL_QUESTIONS) {
                 const sep = document.createElement('span');
                 sep.style.margin = "0 4px";
@@ -357,22 +428,58 @@
             }
         }
 
-        // Set initial state
         if (TOTAL_QUESTIONS > 0) {
             document.getElementById('badge-1').classList.add('current');
         }
 
+        // --- SETUP LOGIC ---
+        function selectSetupFeedback(type) {
+            selectedFeedbackType = type;
+            document.querySelectorAll('.setup-option').forEach(el => el.classList.remove('active'));
+            document.getElementById('opt-' + type).classList.add('active');
+            
+            const ts = document.getElementById('setupTeacherSelect');
+            if (ts) ts.style.display = (type === 'teacher') ? 'block' : 'none';
+        }
+
+        async function requestMic() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                document.getElementById('micBtn').style.borderColor = '#10b981';
+                document.getElementById('micBtn').style.color = '#10b981';
+                document.getElementById('micBtn').innerHTML = '<i class="fa-solid fa-check"></i> Microphone Ready';
+                document.getElementById('micStatus').innerText = "Access granted.";
+                stream.getTracks().forEach(track => track.stop());
+            } catch (err) {
+                alert("Could not access microphone: " + err.message);
+            }
+        }
+
+        function confirmSetup() {
+            {% if "Writing" in exam.test_scope %}
+            if (!selectedFeedbackType) {
+                alert("Please select a feedback method.");
+                return;
+            }
+            if (selectedFeedbackType === 'teacher' && !document.getElementById('setup_teacher_id').value) {
+                alert("Please select a teacher.");
+                return;
+            }
+            document.getElementById('feedback_type_input').value = selectedFeedbackType;
+            document.getElementById('teacher_id_input').value = document.getElementById('setup_teacher_id').value;
+            {% endif %}
+
+            document.getElementById('setupOverlay').style.display = 'none';
+            isExamActive = true;
+            // If Listening, we might want to start audio automatically or show the button
+        }
+
+        // --- EXAM NAVIGATION ---
         function jumpToQuestion(qNum) {
             if (qNum > TOTAL_QUESTIONS || qNum < 1) return;
-            
             let targetPart = questionToPart[qNum];
-            if (currentPart !== targetPart) {
-                switchPart(targetPart);
-            }
-
+            if (currentPart !== targetPart) switchPart(targetPart);
             focusQuestion(qNum);
-            
-            // Scroll right pane to question
             const qContainer = document.getElementById('q-container-' + qNum);
             if (qContainer) {
                 const rightPane = document.getElementById('right-pane-' + targetPart);
@@ -381,14 +488,11 @@
         }
 
         function focusQuestion(qNum) {
-            // Remove current from all
             for (let i = 1; i <= TOTAL_QUESTIONS; i++) {
                 document.getElementById('badge-' + i).classList.remove('current');
                 const qc = document.getElementById('q-container-' + i);
                 if (qc) qc.classList.remove('highlighted');
             }
-            
-            // Add current
             currentQuestion = qNum;
             document.getElementById('badge-' + qNum).classList.add('current');
             const qContainer = document.getElementById('q-container-' + qNum);
@@ -406,12 +510,8 @@
             currentPart = partNum;
             document.querySelectorAll('.part-section').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-section-btn').forEach(el => el.classList.remove('active'));
-            
-            const targetPart = document.getElementById('part-' + partNum);
-            if(targetPart) targetPart.classList.add('active');
-            
-            const targetBtn = document.getElementById('btn-part-' + partNum);
-            if(targetBtn) targetBtn.classList.add('active');
+            document.getElementById('part-' + partNum).classList.add('active');
+            document.getElementById('btn-part-' + partNum).classList.add('active');
         }
 
         function markAnswered(qNum) {
@@ -422,116 +522,183 @@
         }
 
         function selectRadio(qNum, value) {
-            // Unselect visual styles for this question block
             const qContainer = document.getElementById('q-container-' + qNum);
             qContainer.querySelectorAll('.mcq-option').forEach(el => el.classList.remove('selected'));
-            
-            // Select radio naturally
             const radio = qContainer.querySelector(`input[value="${value}"]`);
             if (radio) {
                 radio.checked = true;
                 radio.closest('.mcq-option').classList.add('selected');
             }
-            // Mark answered visually
             document.getElementById('badge-' + qNum).classList.add('answered');
         }
 
-        // Timer simulation
+        // --- TIMER ---
         let timeRemaining = {% if "Listening" in exam.test_scope %}2400{% else %}3600{% endif %};
         setInterval(() => {
+            if (!isExamActive) return;
             timeRemaining--;
-            if (timeRemaining < 0) timeRemaining = 0;
+            if (timeRemaining < 0) {
+                timeRemaining = 0;
+                confirmSubmit();
+            }
             const min = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
             const sec = (timeRemaining % 60).toString().padStart(2, '0');
             const timerEl = document.getElementById('timer');
             timerEl.innerHTML = `<i class="fa-solid fa-clock timer-icon"></i> ${min}:${sec}`;
-            
             if (timeRemaining <= 300) {
                 timerEl.style.color = '#E11B22';
                 timerEl.style.borderColor = '#E11B22';
-                timerEl.querySelector('.timer-icon').style.color = '#E11B22';
             }
         }, 1000);
 
         function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.log(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-                });
-            } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                }
-            }
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else document.exitFullscreen();
         }
         
-        function confirmSubmit() {
+        function handleInitialSubmit() {
             if(confirm("Are you sure you want to submit your exam early?")) {
                 document.getElementById("submitExamForm").submit();
             }
         }
 
-        let selectedFeedbackType = null;
-        function handleInitialSubmit() {
-            {% if "Writing" in exam.test_scope %}
-                document.getElementById('feedbackModal').style.display = 'flex';
-            {% else %}
-                confirmSubmit();
-            {% endif %}
-        }
-
-        function selectFeedback(type) {
-            selectedFeedbackType = type;
-            document.getElementById('label-ai').style.borderColor = '#e2e8f0';
-            document.getElementById('label-teacher').style.borderColor = '#e2e8f0';
-            document.getElementById('label-' + type).style.borderColor = '#7b61ff';
-            
-            if (type === 'teacher') {
-                document.getElementById('teacherSelectSection').style.display = 'block';
-            } else {
-                document.getElementById('teacherSelectSection').style.display = 'none';
-            }
-        }
-
-        function finalSubmit() {
-            if (!selectedFeedbackType) {
-                alert("Please select a feedback method.");
-                return;
-            }
-            
-            document.getElementById('feedback_type_input').value = selectedFeedbackType;
-            if (selectedFeedbackType === 'teacher') {
-                const tId = document.getElementById('teacher_id_select').value;
-                if (!tId) {
-                    alert("Please select a teacher.");
-                    return;
-                }
-                document.getElementById('teacher_id_input').value = tId;
-            }
-            
-            document.getElementById("submitExamForm").submit();
-        }
-        
         function startExamAudio() {
             const audio = document.getElementById("examAudio");
             if (audio) {
                 audio.play().then(() => {
                     document.getElementById("startExamAudio").style.display = "none";
                 }).catch(e => {
-                    alert("Audio playback failed. Please check the audio file format or your browser permissions. Error: " + e.message);
+                    alert("Audio failure: " + e.message);
                 });
             }
         }
         
+        // --- SPEAKING FLOW ---
+        let mediaRecorder;
+        let audioChunks = [];
+        let speakingQuestions = [];
+        let currentSpeakingIdx = 0;
+        let speakingTimer;
+
+        async function startSpeakingFlow(idx, questions) {
+            speakingQuestions = questions;
+            currentSpeakingIdx = 0;
+            document.getElementById('speaking-intro-' + idx).style.display = 'none';
+            document.getElementById('speaking-active-' + idx).style.display = 'block';
+            nextSpeakingQuestion(idx);
+        }
+
+        async function nextSpeakingQuestion(idx) {
+            if (currentSpeakingIdx >= speakingQuestions.length) {
+                document.getElementById('speaking-question-text-' + idx).innerText = "Speaking section completed.";
+                document.getElementById('recording-indicator-' + idx).style.display = 'none';
+                return;
+            }
+
+            const q = speakingQuestions[currentSpeakingIdx];
+            document.getElementById('speaking-question-text-' + idx).innerText = q.prompt;
+            
+            // Start Recording
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => { audioChunks.push(event.data); };
+                mediaRecorder.onstop = () => { uploadSpeakingAudio(idx, q.id); };
+
+                mediaRecorder.start();
+                document.getElementById('recording-indicator-' + idx).style.display = 'flex';
+                
+                // 30s Timer
+                let timeLeft = 30;
+                document.getElementById('speaking-timer-' + idx).innerText = timeLeft;
+                speakingTimer = setInterval(() => {
+                    timeLeft--;
+                    document.getElementById('speaking-timer-' + idx).innerText = timeLeft;
+                    if (timeLeft <= 0) {
+                        clearInterval(speakingTimer);
+                        stopSpeakingRecord(idx);
+                    }
+                }, 1000);
+
+            } catch (err) {
+                alert("Recording failed: " + err.message);
+            }
+        }
+
+        function stopSpeakingRecord(idx) {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(t => t.stop());
+            }
+            clearInterval(speakingTimer);
+            document.getElementById('recording-indicator-' + idx).style.display = 'none';
+            
+            currentSpeakingIdx++;
+            setTimeout(() => { nextSpeakingQuestion(idx); }, 1000);
+        }
+
+        async function handleWritingUpload(index, sectionId) {
+            const fileInput = document.getElementById('writing-upload-' + index);
+            const status = document.getElementById('upload-status-' + index);
+            const preview = document.getElementById('upload-preview-' + index);
+            const link = document.getElementById('upload-link-' + index);
+
+            if (!fileInput.files || fileInput.files.length === 0) return;
+
+            const file = fileInput.files[0];
+            status.innerText = "Uploading " + file.name + "...";
+            status.style.color = "#64748b";
+
+            const formData = new FormData();
+            formData.append('image_file', file);
+            formData.append('attempt_id', {{ attempt.id if attempt else 0 }});
+            formData.append('section_id', sectionId);
+
+            try {
+                const response = await fetch('/mock/upload-writing-image', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    status.innerText = "✓ Uploaded successfully";
+                    status.style.color = "#10b981";
+                    preview.style.display = 'block';
+                    link.href = result.url;
+                } else {
+                    status.innerText = "✗ Upload failed: " + (result.detail || "Unknown error");
+                    status.style.color = "#ef4444";
+                }
+            } catch (err) {
+                status.innerText = "✗ Upload error: " + err.message;
+                status.style.color = "#ef4444";
+            }
+        }
+
+        async function uploadSpeakingAudio(idx, questionId) {
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('audio_file', blob, `speaking_${questionId}.webm`);
+            formData.append('attempt_id', {{ attempt.id if attempt else 0 }});
+            formData.append('question_id', questionId);
+
+            try {
+                await fetch('/mock/upload-speaking', { method: 'POST', body: formData });
+                console.log("Audio uploaded for Q" + questionId);
+            } catch (err) {
+                console.error("Upload failed", err);
+            }
+        }
+
         function countWords(text, index) {
             let count = 0;
-            if (text.trim() !== "") {
-                count = text.trim().split(/\s+/).length;
-            }
+            if (text.trim() !== "") count = text.trim().split(/\s+/).length;
             const counterSpan = document.getElementById("word-count-" + index);
             if (counterSpan) {
                 counterSpan.innerText = count;
-                // Typically Task 1 is 150, Task 2 is 250. Simple heuristic:
                 if (index === 1 && count < 150) counterSpan.style.color = "#ef4444";
                 else if (index === 2 && count < 250) counterSpan.style.color = "#ef4444";
                 else counterSpan.style.color = "#10b981";

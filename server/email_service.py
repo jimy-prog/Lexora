@@ -58,3 +58,29 @@ def send_otp_email(receiver_email: str, otp_code: str):
     </html>
     """
     return send_custom_email(receiver_email, f"{otp_code} is your Lexora verification code", body)
+
+
+def send_password_reset_email(receiver_email: str, reset_link: str):
+    body = f"""
+    <html>
+    <body style="font-family: sans-serif; line-height: 1.6; color: #333; background:#f6f7fb; margin:0; padding:20px;">
+        <div style="max-width: 520px; margin: 0 auto; background:#fff; padding: 36px 40px; border: 1px solid #e5e7eb; border-radius: 16px;">
+            <div style="text-align:center; margin-bottom:24px;">
+                <span style="font-size:1.8rem; font-weight:700; color:#101114; letter-spacing:-0.03em;">Lex<span style="color:#7b61ff">ora</span></span>
+            </div>
+            <h2 style="font-size:1.2rem; font-weight:700; color:#101114; margin:0 0 8px;">Reset your password</h2>
+            <p style="color:#6b6f7a; font-size:.9rem; margin:0 0 24px;">We received a request to reset the password for your Lexora account. Click the button below to choose a new password.</p>
+            <div style="text-align: center; margin: 28px 0;">
+                <a href="{reset_link}" style="display:inline-block; background:#7b61ff; color:#fff; text-decoration:none; font-weight:700; font-size:.95rem; padding:14px 36px; border-radius:999px;">
+                    Reset Password
+                </a>
+            </div>
+            <p style="color:#6b6f7a; font-size:.82rem; text-align:center;">This link expires in <strong>30 minutes</strong>.</p>
+            <p style="color:#6b6f7a; font-size:.82rem; text-align:center;">If you didn't request a password reset, you can safely ignore this email.</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 24px 0;">
+            <p style="font-size: 11px; color: #aaa; text-align: center;">&copy; 2026 Lexora. All rights reserved.</p>
+        </div>
+    </body>
+    </html>
+    """
+    return send_custom_email(receiver_email, "Reset your Lexora password", body)

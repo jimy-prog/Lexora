@@ -34,9 +34,16 @@
     <div class="settings-nav-header">Preferences</div>
     <a class="nav-st {% if tab=='profile' or not tab %}active{% endif %}" href="/profile/?tab=profile"><span class="icon">👤</span> General Profile</a>
     <a class="nav-st {% if tab=='appearance' %}active{% endif %}" href="/profile/?tab=appearance"><span class="icon">🎨</span> Appearance</a>
+    
+    {% if profile.account_type == 'teacher' or profile.role == 'owner' %}
     <a class="nav-st {% if tab=='finance' %}active{% endif %}" href="/profile/?tab=finance"><span class="icon">💰</span> Billing & Rates</a>
+    {% endif %}
+    
     <a class="nav-st {% if tab=='security' %}active{% endif %}" href="/profile/?tab=security"><span class="icon">🔐</span> Security</a>
+    
+    {% if profile.role == 'owner' %}
     <a class="nav-st {% if tab=='system' %}active{% endif %}" href="/profile/?tab=system"><span class="icon">🔧</span> System Admin</a>
+    {% endif %}
   </div>
   
   <div class="settings-content">
@@ -75,6 +82,24 @@
           <div class="grid-2">
             <div class="form-group"><label class="form-label">Full Name</label><input class="form-control" name="name" value="{{ profile.full_name or '' }}"></div>
             <div class="form-group"><label class="form-label">Title</label><input class="form-control" name="title" value="{{ profile.title or '' }}"></div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Account Type</label>
+                <select class="form-control" name="account_type">
+                    <option value="student" {% if profile.account_type == 'student' %}selected{% endif %}>Student</option>
+                    <option value="teacher" {% if profile.account_type == 'teacher' %}selected{% endif %}>Teacher</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Study Focus</label>
+                <select class="form-control" name="study_focus">
+                    <option value="ielts_academic" {% if profile.study_focus == 'ielts_academic' %}selected{% endif %}>IELTS Academic</option>
+                    <option value="ielts_general" {% if profile.study_focus == 'ielts_general' %}selected{% endif %}>IELTS General</option>
+                    <option value="general_english" {% if profile.study_focus == 'general_english' %}selected{% endif %}>General English</option>
+                    <option value="other" {% if profile.study_focus == 'other' %}selected{% endif %}>Other</option>
+                </select>
+            </div>
           </div>
           <div class="grid-2">
             <div class="form-group"><label class="form-label">Phone</label><input class="form-control" name="phone" value="{{ profile.phone or '' }}" placeholder="+998..."></div>
@@ -143,6 +168,7 @@
   </div>
 </div>
 
+{% if profile.account_type == 'teacher' or profile.role == 'owner' %}
 <!-- ── FINANCE RATES ───────────────────────────────────────────────────── -->
 <div class="tp {% if tab=='finance' %}on{% endif %}">
   <div class="card mb-6">
@@ -167,6 +193,7 @@
     and click the <strong>⚙ Edit</strong> button on any group card.
   </div>
 </div>
+{% endif %}
 
 <!-- ── SECURITY ────────────────────────────────────────────────────────── -->
 <div class="tp {% if tab=='security' %}on{% endif %}">
@@ -194,14 +221,14 @@
     <div class="card">
       <div class="card-header"><span class="card-title">Current Account</span></div>
       <div class="card-body">
-        <div class="form-group"><label class="form-label">Username</label><input class="form-control" value="{{ current_user.username if current_user else '' }}" disabled></div>
-        <div class="form-group"><label class="form-label">Email</label><input class="form-control" value="{{ current_user.email if current_user else '' }}" disabled></div>
-        <div class="form-group"><label class="form-label">Role</label><input class="form-control" value="{{ current_user.role if current_user else '' }}" disabled></div>
+        <div class="form-group"><label class="form-label">Username</label><input class="form-control" value="{{ profile.username if profile else '' }}" disabled></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-control" value="{{ profile.email if profile else '' }}" disabled></div>
+        <div class="form-group"><label class="form-label">Role</label><input class="form-control" value="{{ profile.role if profile else '' }}" disabled></div>
       </div>
     </div>
   </div>
 
-  {% if current_user and current_user.role == 'owner' %}
+  {% if profile and profile.role == 'owner' %}
   <div class="card mt-6">
     <div class="card-header"><span class="card-title">Owner Account Management</span></div>
     <div class="card-body">
@@ -220,14 +247,14 @@
             <tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr>
           </thead>
           <tbody>
-            {% for user in users %}
+            {% for user in mdb_users %}
             <tr>
               <td class="td-primary">{{ user.full_name or user.username }}<div style="font-size:.72rem;color:var(--text3)">@{{ user.username }}</div></td>
               <td>{{ user.email }}</td>
               <td><span class="pill {% if user.role == 'owner' %}pill-orange{% else %}pill-blue{% endif %}">{{ user.role }}</span></td>
               <td><span class="pill {% if user.is_active %}pill-green{% else %}pill-grey{% endif %}">{{ 'Active' if user.is_active else 'Inactive' }}</span></td>
               <td>
-                {% if user.id != current_user.id %}
+                {% if user.id != profile.id %}
                 <form method="post" action="/settings/users/{{ user.id }}/toggle" style="display:inline">
                   <button class="btn btn-ghost btn-xs">{{ 'Disable' if user.is_active else 'Enable' }}</button>
                 </form>
@@ -263,6 +290,7 @@
   {% endif %}
 </div>
 
+{% if profile.role == 'owner' %}
 <!-- ── SYSTEM ──────────────────────────────────────────────────────────── -->
 <div class="tp {% if tab=='system' %}on{% endif %}">
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
@@ -299,6 +327,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 {% endblock %}
 

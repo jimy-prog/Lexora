@@ -8,9 +8,11 @@ from master_database import User, SessionMaster
 from database import get_db, Base, Settings, Group
 import os, shutil
 
+from config import APP_NAME, SECRET_KEY, STATIC_DIR, UPLOADS_DIR
 router = APIRouter(prefix="/profile")
 templates = Jinja2Templates(directory="templates")
-os.makedirs("./uploads/profile", exist_ok=True)
+PROFILE_PHOTO_DIR = UPLOADS_DIR / "profile"
+os.makedirs(PROFILE_PHOTO_DIR, exist_ok=True)
 
 @router.get("/")
 def profile_page(request: Request, db: Session = Depends(get_db)):
@@ -24,19 +26,19 @@ def profile_page(request: Request, db: Session = Depends(get_db)):
     # We use the current_user object as the 'profile'
     profile = user
     
-    users = []
+    mdb_users = []
     mdb = SessionMaster()
     try:
         users_list = mdb.query(User).filter_by(tenant_id=user.tenant_id).order_by(User.created_at.asc()).all()
         for u in users_list: mdb.expunge(u)
-        users = users_list
+        mdb_users = users_list
     finally:
         mdb.close()
 
     tab      = request.query_params.get("tab", "profile")
     return templates.TemplateResponse("settings_page.html", {
         "request":request, "profile":profile, "settings":settings,
-        "groups":groups, "users":users, "tab":tab, "active_page":"settings",
+        "groups":groups, "mdb_users":mdb_users, "tab":tab, "active_page":"settings",
         "current_user": user,
     })
 
@@ -56,6 +58,8 @@ async def update_profile(request: Request):
             db_user.phone = form.get("phone", db_user.phone)
             db_user.school_name = form.get("school_name", db_user.school_name)
             db_user.bank_details = form.get("bank_details", db_user.bank_details)
+            db_user.account_type = form.get("account_type", db_user.account_type)
+            db_user.study_focus = form.get("study_focus", db_user.study_focus)
             mdb.commit()
     finally:
         mdb.close()
@@ -70,7 +74,7 @@ async def upload_photo(request: Request, photo: UploadFile = File(...)):
     if photo.filename:
         ext = photo.filename.rsplit(".",1)[-1]
         filename = f"user_{user.id}.{ext}"
-        path = f"./uploads/profile/{filename}"
+        path = PROFILE_PHOTO_DIR / filename
         with open(path,"wb") as f: shutil.copyfileobj(photo.file, f)
         
         mdb = SessionMaster()

@@ -321,8 +321,13 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
     <a class="nav-link {% if active_page=='dashboard' %}active{% endif %}" href="/dashboard">
       <span class="nav-icon">📊</span> Dashboard
     </a>
+    {% if user and user.role == 'owner' %}
+    <a class="nav-link {% if active_page=='users' %}active{% endif %}" href="/owner/users">
+      <span class="nav-icon">👥</span> Manage Users
+    </a>
+    {% endif %}
 
-    {% if request.state.current_user and (request.state.current_user.role == 'owner' or request.state.current_user.account_type == 'teacher') %}
+    {% if user and (user.role == 'owner' or user.account_type == 'teacher') %}
     <div class="nav-section">Teaching Process</div>
     <a class="nav-link {% if active_page=='timetable' %}active{% endif %}" href="/timetable/">
       <span class="nav-icon">🗓</span> Timetable
@@ -330,36 +335,39 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
     <a class="nav-link {% if active_page=='students' %}active{% endif %}" href="/students/">
       <span class="nav-icon">👤</span> Students
     </a>
+    <a class="nav-link {% if active_page=='banned' %}active{% endif %}" href="/students/banned">
+      <span class="nav-icon">🚫</span> Banned
+    </a>
+    <a class="nav-link {% if active_page=='groups' %}active{% endif %}" href="/groups/">
+      <span class="nav-icon">👥</span> My Groups
+    </a>
+    <a class="nav-link {% if active_page=='online' %}active{% endif %}" href="/online/">
+      <span class="nav-icon">🌐</span> Online Sections
+    </a>
     <a class="nav-link {% if active_page=='finance' %}active{% endif %}" href="/finance/">
       <span class="nav-icon">💰</span> Finance
     </a>
-    <a class="nav-link {% if active_page=='groups' %}active{% endif %}" href="/mock/classes">
-      <span class="nav-icon">👥</span> My Classes
+    {% endif %}
+
+    <div class="nav-section">IELTS Program</div>
+    {% if user and user.role == 'owner' %}
+    <a class="nav-link {% if active_page=='manage_mocks' %}active{% endif %}" href="/mock/manage">
+      <span class="nav-icon">⚙️</span> Mock Builder
+    </a>
+    {% endif %}
+    
+    {% if user and (user.role == 'owner' or user.account_type == 'teacher') %}
+    <a class="nav-link {% if active_page=='classes' %}active{% endif %}" href="/mock/classes">
+      <span class="nav-icon">🏫</span> IELTS Classes
     </a>
     <a class="nav-link {% if active_page=='writing_inquiries' %}active{% endif %}" href="/mock/inquiries">
       <span class="nav-icon">📩</span> Writing Inquiries
     </a>
     {% endif %}
 
-    <div class="nav-section">Learning Content</div>
-    {% if request.state.current_user and request.state.current_user.role == 'owner' %}
-    <a class="nav-link {% if active_page=='manage_mocks' %}active{% endif %}" href="/mock/manage">
-      <span class="nav-icon">⚙️</span> Mock Builder
-    </a>
-    {% endif %}
-    
     <a class="nav-link {% if active_page=='mock' %}active{% endif %}" href="/mock/">
       <span class="nav-icon">💻</span> Mock Exams
     </a>
-    
-    {% if request.state.current_user and request.state.current_user.account_type == 'student' %}
-    <a class="nav-link {% if active_page=='history' %}active{% endif %}" href="/mock/history">
-      <span class="nav-icon">📜</span> My Results
-    </a>
-    <a class="nav-link {% if active_page=='my_classes' %}active{% endif %}" href="/mock/classes/join">
-      <span class="nav-icon">🏫</span> Join Class
-    </a>
-    {% endif %}
 
     <div class="nav-section">Platform</div>
     <a class="nav-link {% if active_page=='settings' %}active{% endif %}" href="/profile/">
@@ -368,13 +376,25 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
     <a class="nav-link {% if active_page=='support' %}active{% endif %}" href="/support">
       <span class="nav-icon">🎧</span> Support & Help
     </a>
+    {% if user and user.role == 'owner' %}
+    <a class="nav-link {% if active_page=='support_inquiries' %}active{% endif %}" href="/support/inquiries">
+      <span class="nav-icon">📩</span> Support Inquiries
+    </a>
+    {% endif %}
   </nav>
 
   <div class="sidebar-footer">
-    {% if request.state.current_user %}
-    <div style="text-align:center;padding:2px 6px 4px">
-      <div style="font-size:.78rem;color:var(--text2);font-weight:600">{{ request.state.current_user.full_name or request.state.current_user.username }}</div>
-      <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">{{ request.state.current_user.role }}</div>
+    {% if user %}
+    <div style="display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:12px;">
+      {% if user.photo_path %}
+        <img src="{{ user.photo_path }}" style="width:42px; height:42px; border-radius:50%; object-fit:cover; border:2px solid var(--accent);">
+      {% else %}
+        <div style="width:42px; height:42px; border-radius:50%; background:var(--bg3); display:flex; align-items:center; justify-content:center; font-size:1.2rem; color:var(--text3); border:1px solid var(--border);">👤</div>
+      {% endif %}
+      <div style="text-align:center;">
+        <div style="font-size:.78rem; color:var(--text2); font-weight:700;">{{ user.full_name or user.username }}</div>
+        <div style="font-size:.65rem; color:var(--text3); text-transform:uppercase; letter-spacing:.05em;">{{ user.role }}</div>
+      </div>
     </div>
     {% endif %}
     <select class="form-control" id="paletteSelect" onchange="setPalette(this.value)" style="font-size:.72rem;padding:8px 10px;border-radius:999px">

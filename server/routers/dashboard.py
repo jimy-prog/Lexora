@@ -14,7 +14,7 @@ def _nm(d):
     if d.month == 12: return date(d.year+1,1,1)
     return date(d.year, d.month+1, 1)
 
-@router.get("/dashboard")
+@router.get("/teacher/dashboard")
 def dashboard(request: Request, show_marked: int = 0, db: Session = Depends(get_db)):
     user = get_current_user(request)
     if not user:

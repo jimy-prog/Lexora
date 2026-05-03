@@ -5,8 +5,10 @@ from fastapi.responses import RedirectResponse, HTMLResponse, PlainTextResponse
 from starlette.middleware.sessions import SessionMiddleware
 import uvicorn, os, random
 from datetime import datetime, timedelta
-from master_database import SessionMaster, EmailOTP, PlatformTenant, User
+from master_database import SessionMaster, EmailOTP, PlatformTenant, User, PasswordResetToken
 from auth import hash_pw
+import secrets
+from email_service import send_otp_email, send_password_reset_email
 
 from config import APP_NAME, SECRET_KEY, STATIC_DIR, UPLOADS_DIR
 from master_database import init_master_db
@@ -33,6 +35,8 @@ from routers import online as online_router
 from routers import archive as archive_router
 from routers import api_auth
 from routers import mock_platform
+from routers import owner_dashboard
+from routers import owner_users
 
 app = FastAPI(title=APP_NAME)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
@@ -125,11 +129,87 @@ async def logout_route(request: Request):
     response.delete_cookie(SESSION_KEY)
     return response
 
-@app.get("/register", response_class=HTMLResponse)
-async def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request, "step": "1"})
 
-from email_service import send_otp_email
+@app.get("/forgot-password", response_class=HTMLResponse)
+async def forgot_password_page(request: Request):
+    return templates.TemplateResponse("forgot_password.html", {"request": request})
+
+@app.post("/forgot-password")
+async def forgot_password_post(request: Request, email: str = Form(...)):
+    db = SessionMaster()
+    try:
+        user = db.query(User).filter(User.email == email.strip().lower()).first()
+        if user:
+            # Generate token
+            token = secrets.token_urlsafe(32)
+            expires = datetime.utcnow() + timedelta(minutes=30)
+            
+            # Save token
+            reset_token = PasswordResetToken(
+                user_id=user.id,
+                token=token,
+                expires_at=expires
+            )
+            db.add(reset_token)
+            db.commit()
+            
+            # Send email
+            reset_link = f"{request.base_url}reset-password?token={token}"
+            send_password_reset_email(user.email, reset_link)
+            
+        return templates.TemplateResponse("forgot_password.html", {
+            "request": request, 
+            "success": "If an account with that email exists, a password reset link has been sent."
+        })
+    finally:
+        db.close()
+
+@app.get("/reset-password", response_class=HTMLResponse)
+async def reset_password_page(request: Request, token: str):
+    db = SessionMaster()
+    try:
+        reset_token = db.query(PasswordResetToken).filter(
+            PasswordResetToken.token == token,
+            PasswordResetToken.used == False,
+            PasswordResetToken.expires_at > datetime.utcnow()
+        ).first()
+        
+        if not reset_token:
+            return templates.TemplateResponse("forgot_password.html", {
+                "request": request, 
+                "error": "Invalid or expired reset token."
+            })
+            
+        return templates.TemplateResponse("reset_password.html", {"request": request, "token": token})
+    finally:
+        db.close()
+
+@app.post("/reset-password")
+async def reset_password_post(request: Request, token: str = Form(...), password: str = Form(...)):
+    db = SessionMaster()
+    try:
+        reset_token = db.query(PasswordResetToken).filter(
+            PasswordResetToken.token == token,
+            PasswordResetToken.used == False,
+            PasswordResetToken.expires_at > datetime.utcnow()
+        ).first()
+        
+        if not reset_token:
+            return templates.TemplateResponse("forgot_password.html", {
+                "request": request, 
+                "error": "Invalid or expired reset token."
+            })
+            
+        user = db.query(User).filter(User.id == reset_token.user_id).first()
+        if user:
+            user.password_hash = hash_pw(password)
+            reset_token.used = True
+            db.commit()
+            return RedirectResponse("/login?reset=success", status_code=302)
+        
+        return RedirectResponse("/login", status_code=302)
+    finally:
+        db.close()
 
 @app.post("/register/direct")
 async def register_direct(request: Request, email: str = Form(...), 
@@ -222,6 +302,35 @@ async def support_post(request: Request, category: str = Form(...),
     finally:
         db.close()
 
+@app.get("/support/inquiries", response_class=HTMLResponse)
+async def support_inquiries(request: Request):
+    user = get_current_user(request)
+    if not user or user.role != "owner":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    db = SessionMaster()
+    try:
+        from master_database import SupportTicket
+        tickets = db.query(SupportTicket).order_by(SupportTicket.created_at.desc()).all()
+        return templates.TemplateResponse("support_inquiries.html", {
+            "request": request,
+            "user": user,
+            "tickets": tickets,
+            "active_page": "support_inquiries"
+        })
+    finally:
+        db.close()
+
+@app.get("/dashboard")
+async def dashboard_redirect(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    if user.role == "owner":
+        return RedirectResponse("/owner/dashboard", status_code=302)
+    # Default teacher dashboard
+    return RedirectResponse("/teacher/dashboard", status_code=302)
+
 for r in [dashboard.router, students.router, groups.router, lessons.router,
           attendance.router, finance.router, reports.router, payments.router,
           backup.router, settings_router.router, calendar_router.router,
@@ -230,7 +339,9 @@ for r in [dashboard.router, students.router, groups.router, lessons.router,
           profile_router.router, monthly_report.router,
           timetable_export.router, holidays_router.router,
           online_router.router, archive_router.router,
-          mock_platform.router]:
+          mock_platform.router,
+          owner_dashboard.router,
+          owner_users.router]:
     app.include_router(r)
 from firebase_config import verify_id_token
 

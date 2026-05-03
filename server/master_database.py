@@ -28,6 +28,12 @@ class User(MasterBase):
     role = Column(String, default="owner")  # owner, admin
     is_active = Column(Boolean, default=True)
     full_name = Column(String, default="")
+    title = Column(String, default="")
+    bio = Column(String, default="")
+    phone = Column(String, default="")
+    school_name = Column(String, default="")
+    bank_details = Column(String, default="")
+    photo_path = Column(String, default="")
     account_type = Column(String, default="student") # teacher or student
     study_focus = Column(String, default="")
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -68,7 +74,7 @@ class MockExam(MasterBase):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     sections = relationship("ExamSection", back_populates="exam", cascade="all, delete-orphan")
-    attempts = relationship("MockAttempt", back_populates="exam")
+    attempts = relationship("MockAttempt", back_populates="exam", cascade="all, delete-orphan")
 
 class ExamSection(MasterBase):
     __tablename__ = "mock_exam_sections"
@@ -127,11 +133,14 @@ class MockAttempt(MasterBase):
     completed_at = Column(DateTime, nullable=True)
     total_score = Column(Integer, default=0)
     band_score = Column(Float, nullable=True)
+    feedback_preference = Column(String, nullable=True) # 'ai' or 'teacher'
+    selected_teacher_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     
     tenant = relationship("PlatformTenant")
-    student = relationship("User")
+    student = relationship("User", foreign_keys=[student_id])
     exam = relationship("MockExam", back_populates="attempts")
     answers = relationship("AttemptAnswer", back_populates="attempt", cascade="all, delete-orphan")
+    feedback = relationship("WritingFeedback", back_populates="attempt", cascade="all, delete-orphan")
 
 class AttemptAnswer(MasterBase):
     __tablename__ = "mock_attempt_answers"
@@ -140,6 +149,8 @@ class AttemptAnswer(MasterBase):
     question_id = Column(Integer, ForeignKey("mock_questions.id"), nullable=False)
     text_response = Column(String, default="")
     option_id = Column(Integer, ForeignKey("mock_answer_options.id"), nullable=True)
+    audio_url = Column(String, nullable=True) # For speaking section
+    file_url = Column(String, nullable=True)  # For writing section image/pdf uploads
     is_correct = Column(Boolean, nullable=True)
     
     attempt = relationship("MockAttempt", back_populates="answers")
@@ -192,6 +203,18 @@ class SupportTicket(MasterBase):
     status = Column(String, default="open") # 'open', 'resolved'
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    user = relationship("User")
+
+
+class PasswordResetToken(MasterBase):
+    __tablename__ = "password_reset_tokens"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token = Column(String, unique=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
     user = relationship("User")
 
 

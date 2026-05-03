@@ -7,6 +7,28 @@
             <h1 style="font-size:1.8rem; font-weight:700; color:var(--text); letter-spacing:-0.03em;">My Exam History</h1>
             <p style="color:var(--text2); font-size:0.9rem; margin-top:4px;">A complete record of your past mock exams and scores.</p>
         </div>
+        <div>
+            <button onclick="document.getElementById('joinClassModal').style.display='flex'" class="btn btn-ghost border" style="border-radius:12px;">
+                <i class="fa-solid fa-users"></i> Join Class
+            </button>
+        </div>
+    </div>
+
+    <!-- Join Class Modal -->
+    <div id="joinClassModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#fff; width:400px; border-radius:24px; padding:32px; box-shadow:0 32px 80px rgba(0,0,0,0.2);">
+            <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:12px;">Join a Class</h3>
+            <p style="color:var(--text2); font-size:0.9rem; margin-bottom:24px;">Enter the invite code provided by your teacher.</p>
+            <form action="/mock/student/join-class" method="POST">
+                <div style="margin-bottom:24px;">
+                    <input type="text" name="invite_code" required class="input-clean" placeholder="CODE123" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:10px; font-family:monospace; text-align:center; font-size:1.2rem; letter-spacing:2px;">
+                </div>
+                <div style="display:flex; gap:12px;">
+                    <button type="button" onclick="document.getElementById('joinClassModal').style.display='none'" class="btn btn-ghost" style="flex:1;">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex:1; background:var(--accent); color:#fff; border:none;">Join</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     {% if attempts %}

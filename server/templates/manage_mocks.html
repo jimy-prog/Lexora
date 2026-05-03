@@ -11,9 +11,53 @@
         <button onclick="document.getElementById('createModal').style.display='flex'" class="btn btn-primary" style="border-radius:12px; padding:10px 20px;">
             <i class="fa-solid fa-plus"></i> Create New Exam
         </button>
-        <button class="btn btn-ghost" style="border-radius:12px;">
+        <button onclick="document.getElementById('aiUploadModal').style.display='flex'" class="btn btn-ghost" style="border-radius:12px;">
             <i class="fa-solid fa-file-pdf"></i> Upload PDF (AI)
         </button>
+    </div>
+</div>
+
+<!-- AI Upload Modal -->
+<div id="aiUploadModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:var(--bg); width:450px; border-radius:24px; padding:32px; box-shadow:0 24px 64px rgba(0,0,0,0.2);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+            <h3 style="font-size:1.4rem; font-weight:800; color:var(--text);"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent);"></i> AI Exam Extractor</h3>
+            <button onclick="document.getElementById('aiUploadModal').style.display='none'" style="background:none; border:none; color:var(--text2); cursor:pointer; font-size:1.2rem;"><i class="fa-solid fa-times"></i></button>
+        </div>
+        
+        <div id="uploadStage1">
+            <p style="color:var(--text2); font-size:0.95rem; margin-bottom:20px; line-height:1.5;">Gemini will analyze your PDF and automatically build sections, passages, and questions.</p>
+            <form id="aiUploadForm">
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; font-size:.85rem; font-weight:700; color:var(--text); margin-bottom:8px;">Target Mock Exam</label>
+                    <select name="exam_id" id="ai_exam_id" style="width:100%; box-sizing:border-box; padding:12px; border-radius:12px; border:1px solid var(--border); background:var(--bg2); color:var(--text);">
+                        {% for exam in exams %}
+                            {% if not exam.is_published %}
+                            <option value="{{ exam.id }}">{{ exam.title }} (Draft)</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="margin-bottom:24px;">
+                    <label style="display:block; font-size:.85rem; font-weight:700; color:var(--text); margin-bottom:8px;">PDF Document</label>
+                    <input type="file" name="pdf_doc" id="ai_pdf_file" accept=".pdf" required style="width:100%; box-sizing:border-box; padding:12px; border-radius:12px; border:1px solid var(--border); background:var(--bg2); color:var(--text);">
+                </div>
+                <button type="button" onclick="startAIExtraction()" class="btn btn-primary" style="width:100%; justify-content:center; padding:14px; border-radius:14px; font-weight:700;">
+                    <i class="fa-solid fa-bolt"></i> Start AI Analysis
+                </button>
+            </form>
+        </div>
+
+        <div id="uploadStage2" style="display:none; text-align:center;">
+            <div id="ai_spinner" style="margin-bottom:24px;">
+                <i class="fa-solid fa-circle-notch fa-spin" style="font-size:3rem; color:var(--accent);"></i>
+            </div>
+            <h4 id="ai_status_title" style="font-size:1.1rem; font-weight:700; margin-bottom:8px;">Processing Document...</h4>
+            <div style="width:100%; height:8px; background:var(--bg3); border-radius:4px; overflow:hidden; margin-bottom:12px;">
+                <div id="ai_progress_bar" style="width:5%; height:100%; background:var(--accent); transition: width 0.3s ease;"></div>
+            </div>
+            <p id="ai_status_msg" style="color:var(--text2); font-size:0.85rem;">Initializing Gemini pipeline...</p>
+        </div>
     </div>
 </div>
 
@@ -86,7 +130,7 @@
                         <option value="Reading Section">Reading Section</option>
                         <option value="Listening Section">Listening Section</option>
                         <option value="Writing Section">Writing Section</option>
-                        <option value="Speaking Section" disabled>Speaking (Coming Soon)</option>
+                        <option value="Speaking Section">Speaking Section</option>
                     </select>
                 </div>
             </div>
@@ -106,10 +150,89 @@
             </div>
             <div style="display:flex; gap:12px;">
                 <button type="button" onclick="document.getElementById('createModal').style.display='none'" class="btn btn-ghost" style="flex:1; border-radius:12px; padding:12px;">Cancel / Back</button>
+                <button type="button" onclick="document.getElementById('createModal').style.display='none'; document.getElementById('aiUploadModal').style.display='flex';" class="btn btn-primary" style="flex:1; border-radius:12px; padding:12px; background:#101114; border-color:#101114;"><i class="fa-solid fa-robot"></i> AI Generator</button>
                 <button type="submit" class="btn btn-primary" style="flex:1; border-radius:12px; padding:12px;">Create Foundation</button>
             </div>
         </form>
     </div>
 </div>
+
+<!-- AI Modal Consolidation Complete -->
+
+<script>
+let pollInterval = null;
+
+async function startAIExtraction() {
+    const examId = document.getElementById('ai_exam_id').value;
+    const pdfFile = document.getElementById('ai_pdf_file').files[0];
+    
+    if (!pdfFile) {
+        alert("Please select a PDF file");
+        return;
+    }
+    
+    document.getElementById('uploadStage1').style.display = 'none';
+    document.getElementById('uploadStage2').style.display = 'block';
+    
+    const formData = new FormData();
+    formData.append('pdf_doc', pdfFile);
+    
+    try {
+        const response = await fetch(`/mock/${examId}/upload-pdf`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        
+        if (result.status === 'started') {
+            pollExtractionStatus(examId);
+        } else {
+            alert("Failed to start extraction");
+            resetAIModal();
+        }
+    } catch (err) {
+        alert("Error: " + err.message);
+        resetAIModal();
+    }
+}
+
+function pollExtractionStatus(examId) {
+    pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`/mock/${examId}/upload-status`);
+            const data = await response.json();
+            
+            const bar = document.getElementById('ai_progress_bar');
+            const msg = document.getElementById('ai_status_msg');
+            
+            bar.style.width = data.progress + '%';
+            msg.innerText = data.message;
+            
+            if (data.status === 'completed') {
+                clearInterval(pollInterval);
+                document.getElementById('ai_status_title').innerText = "Success!";
+                document.getElementById('ai_spinner').innerHTML = '<i class="fa-solid fa-check-circle" style="font-size:3rem; color:#10b981;"></i>';
+                setTimeout(() => { window.location.href = `/mock/${examId}/build`; }, 1500);
+            } else if (data.status === 'error') {
+                clearInterval(pollInterval);
+                document.getElementById('ai_status_title').innerText = "Extraction Failed";
+                document.getElementById('ai_spinner').innerHTML = '<i class="fa-solid fa-circle-exclamation" style="font-size:3rem; color:#ef4444;"></i>';
+                setTimeout(() => { resetAIModal(); }, 3000);
+            }
+        } catch (err) {
+            console.error("Polling error:", err);
+        }
+    }, 2000);
+}
+
+function resetAIModal() {
+    clearInterval(pollInterval);
+    document.getElementById('uploadStage1').style.display = 'block';
+    document.getElementById('uploadStage2').style.display = 'none';
+    document.getElementById('ai_progress_bar').style.width = '5%';
+    document.getElementById('ai_status_title').innerText = "Processing Document...";
+}
+</script>
 {% endif %}
 {% endblock %}
+
