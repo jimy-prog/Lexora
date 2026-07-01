@@ -159,6 +159,12 @@
             display: flex; align-items: center; gap: 8px; transition: background 0.2s;
         }
         .btn-nav:hover { background: rgba(255,255,255,0.1); }
+        
+        @keyframes pulse {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
     </style>
 </head>
 <body>
@@ -213,14 +219,6 @@
                 <div class="passage-title" style="text-align:center; margin-bottom:24px; padding-bottom:12px; border-bottom:2px solid var(--accent); color:var(--text);">{{ section.section_type | upper }}</div>
             {% endif %}
             
-                {% if "Writing" in exam.test_scope %}
-                    <div style="height: 100%; display: flex; flex-direction: column; padding: 20px;">
-                        <textarea name="writing_response_{{ section.id }}" id="writing-area-{{ loop.index }}" style="flex:1; width:100%; resize:none; padding:16px; border:1px solid var(--ielts-border); border-radius:8px; font-family:var(--font-st); font-size:1.05rem; line-height:1.6;" oninput="countWords(this.value, {{ loop.index }})"></textarea>
-                        <div style="margin-top:12px; font-weight:600; color:var(--text2); display:flex; justify-content:space-between;">
-                            <span>Word Count: <span id="word-count-{{ loop.index }}" style="color:var(--text); font-size:1.1rem;">0</span></span>
-                        </div>
-                    </div>
-                {% else %}
                     {% for block in section.blocks %}
                         <div class="question-block-instruction">{{ block.instructions | safe }}</div>
                         
@@ -229,7 +227,29 @@
                             <div class="q-item" id="q-container-{{ current_q }}" onclick="focusQuestion({{ current_q }})">
                                 <div class="q-prompt"><span class="q-number">{{ q.question_number }}</span> {{ q.prompt | safe }}</div>
                                 
-                                {% if q.q_type == "MCQ" and q.options %}
+                                {% if section.section_type | lower == "writing" %}
+                                    <div style="display: flex; flex-direction: column; margin-bottom: 20px; margin-left: 36px;">
+                                        <textarea name="q{{ q.id }}" id="input-{{ current_q }}" style="width:100%; height:250px; resize:none; padding:16px; border:1px solid var(--ielts-border); border-radius:8px; font-family:inherit; font-size:1rem; line-height:1.6;" oninput="countWords(this.value, {{ current_q }}); markAnswered({{ current_q }});"></textarea>
+                                        <div style="margin-top:8px; font-weight:600; color:var(--text2); display:flex; justify-content:space-between;">
+                                            <span>Word Count: <span id="word-count-{{ current_q }}" style="color:var(--text); font-size:1.1rem;">0</span></span>
+                                        </div>
+                                    </div>
+                                {% elif section.section_type | lower == "speaking" %}
+                                    <div style="background:#f9fafb; border:1px solid var(--ielts-border); border-radius:12px; padding:20px; margin-top:12px; margin-left: 36px;">
+                                        <input type="hidden" name="q{{ q.id }}" id="input-{{ current_q }}">
+                                        <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+                                            <button type="button" class="btn" id="btn-record-{{ current_q }}" onclick="toggleRecording({{ current_q }})" style="display:flex; align-items:center; justify-content:center; gap:8px; width:auto; padding:10px 20px;">
+                                                <i class="fa-solid fa-microphone" id="mic-icon-{{ current_q }}"></i>
+                                                <span id="record-text-{{ current_q }}">Start Recording</span>
+                                            </button>
+                                            <div id="recording-status-{{ current_q }}" style="font-weight:600; color:#ef4444; display:none; align-items:center; gap:6px;">
+                                                <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#ef4444; animation: pulse 1s infinite;"></span>
+                                                Recording... <span id="timer-{{ current_q }}">00:00</span>
+                                            </div>
+                                        </div>
+                                        <audio id="audio-preview-{{ current_q }}" controls style="display:none; width:100%; margin-top:12px;"></audio>
+                                    </div>
+                                {% elif q.q_type == "MCQ" and q.options %}
                                     {% for opt in q.options %}
                                     <label class="mcq-option" onclick="selectRadio({{ current_q }}, '{{ opt.id }}'); focusQuestion({{ current_q }});">
                                         <input type="radio" name="q{{ current_q }}" value="{{ opt.id }}"> {{ opt.text }}
@@ -244,7 +264,6 @@
                         
                         <hr style="border:0; border-top:1px dashed var(--ielts-border); margin:40px 0;">
                     {% endfor %}
-                {% endif %}
             </div>
         </div>
         {% else %}
@@ -441,10 +460,78 @@
             const counterSpan = document.getElementById("word-count-" + index);
             if (counterSpan) {
                 counterSpan.innerText = count;
-                // Typically Task 1 is 150, Task 2 is 250. Simple heuristic:
                 if (index === 1 && count < 150) counterSpan.style.color = "#ef4444";
                 else if (index === 2 && count < 250) counterSpan.style.color = "#ef4444";
                 else counterSpan.style.color = "#10b981";
+            }
+        }
+
+        let mediaRecorders = {};
+        let audioChunks = {};
+        let recordingTimers = {};
+        let recordingSeconds = {};
+
+        async function toggleRecording(qId) {
+            const btn = document.getElementById('btn-record-' + qId);
+            const status = document.getElementById('recording-status-' + qId);
+            const text = document.getElementById('record-text-' + qId);
+            const micIcon = document.getElementById('mic-icon-' + qId);
+            const preview = document.getElementById('audio-preview-' + qId);
+            const hiddenInput = document.getElementById('input-' + qId);
+
+            if (!mediaRecorders[qId] || mediaRecorders[qId].state === "inactive") {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    audioChunks[qId] = [];
+                    const mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorders[qId] = mediaRecorder;
+
+                    mediaRecorder.ondataavailable = event => {
+                        audioChunks[qId].push(event.data);
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(audioChunks[qId], { type: 'audio/webm' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(blob);
+                        reader.onloadend = () => {
+                            hiddenInput.value = reader.result;
+                            const badge = document.getElementById('badge-' + qId);
+                            if (badge) badge.classList.add('answered');
+                        };
+
+                        const audioUrl = URL.createObjectURL(blob);
+                        preview.src = audioUrl;
+                        preview.style.display = "block";
+                        
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+
+                    mediaRecorder.start();
+                    btn.style.background = "#ef4444";
+                    text.innerText = "Stop Recording";
+                    micIcon.className = "fa-solid fa-stop";
+                    status.style.display = "flex";
+
+                    recordingSeconds[qId] = 0;
+                    document.getElementById('timer-' + qId).innerText = "00:00";
+                    recordingTimers[qId] = setInterval(() => {
+                        recordingSeconds[qId]++;
+                        const m = Math.floor(recordingSeconds[qId] / 60).toString().padStart(2, '0');
+                        const s = (recordingSeconds[qId] % 60).toString().padStart(2, '0');
+                        document.getElementById('timer-' + qId).innerText = `${m}:${s}`;
+                    }, 1000);
+
+                } catch (err) {
+                    alert("Microphone access denied or not available. Please allow access to record speaking sections. Details: " + err.message);
+                }
+            } else {
+                mediaRecorders[qId].stop();
+                clearInterval(recordingTimers[qId]);
+                btn.style.background = "";
+                text.innerText = "Start Recording";
+                micIcon.className = "fa-solid fa-microphone";
+                status.style.display = "none";
             }
         }
     </script>

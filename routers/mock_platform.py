@@ -511,6 +511,27 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
                         is_correct = True
                 except ValueError:
                     pass
+            elif val.startswith("data:audio/"):
+                import base64
+                import os
+                from config import UPLOADS_DIR
+                try:
+                    header, base64_data = val.split(";base64,", 1)
+                    ext = "webm"
+                    if "/" in header:
+                        subparts = header.split(";")
+                        if subparts:
+                            mime = subparts[0]
+                            if "/" in mime:
+                                ext = mime.split("/")[-1]
+                    audio_data = base64.b64decode(base64_data)
+                    filename = f"speaking_{attempt.id}_{q_id}.{ext}"
+                    filepath = os.path.join(UPLOADS_DIR, filename)
+                    with open(filepath, "wb") as f:
+                        f.write(audio_data)
+                    text_resp = f"/uploads/{filename}"
+                except Exception as e:
+                    text_resp = f"Error saving speaking response: {str(e)}"
             else:
                 # text answer
                 text_resp = val
