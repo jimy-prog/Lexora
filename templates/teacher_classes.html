@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}My Classes | Teacher{% endblock %}
+{% block page_title %}Public Classes & Invites{% endblock %}
+
+{% block content %}
+<div class="flex-between mb-6">
+    <div>
+        <h2 style="font-size:1.2rem; font-weight:600;">Manage Your Public Classes</h2>
+        <p style="color:var(--text3); font-size:.85rem;">Create classes to generate invite codes for your students.</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal('createClassModal')">
+        <i class="fa-solid fa-plus"></i> Create New Class
+    </button>
+</div>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:20px;">
+    {% for cls in classes %}
+    <div class="card p-4">
+        <div class="flex-between">
+            <h3 style="font-size:1.1rem; font-weight:600;">{{ cls.name }}</h3>
+            <span class="pill pill-blue">{{ cls.members | length }} Members</span>
+        </div>
+        <p style="color:var(--text2); font-size:.85rem; margin-top:8px; height:40px; overflow:hidden;">{{ cls.description }}</p>
+        
+        <div style="margin-top:20px; background:var(--bg3); padding:12px; border-radius:12px; text-align:center; border:1px dashed var(--accent);">
+            <div style="font-size:.65rem; text-transform:uppercase; color:var(--text3); font-weight:600; margin-bottom:4px;">Invite Code</div>
+            <div style="font-family:var(--font-m); font-size:1.4rem; font-weight:700; color:var(--accent); letter-spacing:2px;">{{ cls.invite_code }}</div>
+        </div>
+
+        <div style="margin-top:20px; display:flex; gap:10px;">
+            <button class="btn btn-ghost btn-sm" style="flex:1;"><i class="fa-solid fa-users"></i> Students</button>
+            <form action="/classes/{{ cls.id }}/delete" method="POST" onsubmit="return confirm('Delete this class? Students will lose access.');" style="display:contents;">
+                <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);"><i class="fa-solid fa-trash"></i></button>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div style="grid-column: 1/-1; text-align:center; padding:60px;">
+        <p style="color:var(--text3);">No public classes yet. Create one to start inviting students!</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Create Class Modal -->
+<div class="modal-overlay" id="createClassModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Create Public Class</div>
+            <button class="modal-close" onclick="closeModal('createClassModal')">&times;</button>
+        </div>
+        <form action="/classes/create" method="POST" class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Class Name</label>
+                <input type="text" name="name" class="form-control" placeholder="e.g. IELTS Evening Group" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea name="description" class="form-control" rows="3" placeholder="Briefly describe the class purpose..."></textarea>
+            </div>
+            <div class="mt-6 flex gap-2">
+                <button type="button" class="btn btn-ghost" style="flex:1;" onclick="closeModal('createClassModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">Create Class</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

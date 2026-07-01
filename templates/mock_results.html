@@ -169,7 +169,30 @@
             </div>
         </div>
         
-        <a href="/mock/" class="btn-anim">Return to Dashboard</a>
+        {% if teachers %}
+        <div style="margin: 30px 0; padding: 24px; background: var(--bg3); border-radius: 20px; text-align: left;">
+            <h4 style="font-size:1rem; font-weight:700; margin-bottom:12px;"><i class="fa-solid fa-paper-plane" style="color:var(--accent);"></i> Request Teacher Review</h4>
+            <p style="font-size:.85rem; color:var(--text2); margin-bottom:16px;">Send this attempt to your teacher for detailed feedback on Writing or Speaking sections.</p>
+            
+            <form action="/reviews/submit" method="POST">
+                <input type="hidden" name="attempt_id" value="{{ attempt.id }}">
+                <div style="display:flex; gap:10px;">
+                    <select name="teacher_id" class="form-control" style="flex:1;" required>
+                        <option value="" disabled selected>Select Teacher...</option>
+                        {% for t in teachers %}
+                        <option value="{{ t.id }}">{{ t.full_name or t.username }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary">Send Work</button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+        
+        <div style="display:flex; gap:12px; justify-content:center;">
+            <a href="/mock/" class="btn-anim" style="margin:0;">Return to Dashboard</a>
+            <a href="/mock/history" class="btn-anim" style="margin:0; background:var(--bg3); color:var(--text2); box-shadow:none;">View History</a>
+        </div>
     </div>
 </div>
 

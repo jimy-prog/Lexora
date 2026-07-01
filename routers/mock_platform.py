@@ -177,6 +177,21 @@ async def publish_exam(request: Request, exam_id: int, db: SessionMaster = Depen
     
     return RedirectResponse("/mock/", status_code=303)
 
+@router.post("/{exam_id}/delete")
+async def delete_exam(request: Request, exam_id: int, db: SessionMaster = Depends(get_mdb)):
+    user = get_current_user(request)
+    if not user or user.role != "owner":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+        
+    db.delete(exam)
+    db.commit()
+    
+    return RedirectResponse("/mock/manage", status_code=303)
+
 @router.get("/{exam_id}/start", response_class=HTMLResponse)
 async def take_mock_start(request: Request, exam_id: int, db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
@@ -533,10 +548,19 @@ async def mock_results(request: Request, attempt_id: int, db: SessionMaster = De
     if not attempt or (attempt.student_id != user.id and user.role != "owner"):
         raise HTTPException(status_code=404, detail="Result not found")
         
+    teachers = []
+    if user.role == "student":
+        # Get teachers from classes the student has joined
+        from master_database import ClassMember, PublicClass
+        memberships = db.query(ClassMember).filter(ClassMember.student_id == user.id).all()
+        teachers = [m.public_class.teacher for m in memberships]
+        # Also include 'Public' teachers? For now, just joined ones.
+        
     return templates.TemplateResponse("mock_results.html", {
         "request": request,
         "user": user,
         "attempt": attempt,
+        "teachers": teachers,
         "active_page": "mock"
     })
 

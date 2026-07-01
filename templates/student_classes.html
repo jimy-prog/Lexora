@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}My Classes | Student{% endblock %}
+{% block page_title %}Joined Classes{% endblock %}
+
+{% block content %}
+<div class="flex-between mb-6">
+    <div>
+        <h2 style="font-size:1.2rem; font-weight:600;">Your Learning Community</h2>
+        <p style="color:var(--text3); font-size:.85rem;">Join classes using codes provided by your teachers.</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal('joinClassModal')">
+        <i class="fa-solid fa-plus"></i> Join with Code
+    </button>
+</div>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:20px;">
+    {% for m in memberships %}
+    <div class="card p-4">
+        <h3 style="font-size:1.1rem; font-weight:600;">{{ m.public_class.name }}</h3>
+        <p style="color:var(--text2); font-size:.85rem; margin-top:4px;">Teacher: {{ m.public_class.teacher.full_name or m.public_class.teacher.username }}</p>
+        
+        <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
+            <p style="font-size:.8rem; color:var(--text3);">{{ m.public_class.description }}</p>
+        </div>
+
+        <div style="margin-top:20px; display:flex; gap:10px;">
+            <a href="/mock/" class="btn btn-primary btn-sm" style="flex:1;"><i class="fa-solid fa-laptop"></i> Take Tests</a>
+            <button class="btn btn-ghost btn-sm"><i class="fa-solid fa-message"></i> Contact</button>
+        </div>
+    </div>
+    {% else %}
+    <div style="grid-column: 1/-1; text-align:center; padding:60px;">
+        <p style="color:var(--text3);">You haven't joined any classes yet. Ask your teacher for an invite code!</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Join Class Modal -->
+<div class="modal-overlay" id="joinClassModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Join a Class</div>
+            <button class="modal-close" onclick="closeModal('joinClassModal')">&times;</button>
+        </div>
+        <form action="/classes/join" method="POST" class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Invite Code</label>
+                <input type="text" name="code" class="form-control" placeholder="e.g. AB1234" required style="text-transform:uppercase; font-family:var(--font-m); font-size:1.2rem; text-align:center; letter-spacing:4px;">
+                <p style="font-size:.7rem; color:var(--text3); margin-top:8px; text-align:center;">Enter the 6-character code given by your teacher.</p>
+            </div>
+            <div class="mt-6 flex gap-2">
+                <button type="button" class="btn btn-ghost" style="flex:1;" onclick="closeModal('joinClassModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">Join Class</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

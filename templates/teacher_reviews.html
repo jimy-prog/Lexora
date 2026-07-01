@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Review Inbox | Teacher{% endblock %}
+{% block page_title %}Student Review Requests{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">Pending & Recent Reviews</span>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Exam</th>
+                    <th>Submitted</th>
+                    <th>Status</th>
+                    <th style="text-align:right">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in review_requests %}
+                <tr>
+                    <td class="td-primary">{{ r.student.full_name or r.student.username }}</td>
+                    <td>{{ r.attempt.exam.title }}</td>
+                    <td class="mono">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        {% if r.status == 'pending' %}
+                        <span class="pill pill-yellow">Waiting</span>
+                        {% else %}
+                        <span class="pill pill-green">Graded ({{ r.score }})</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right">
+                        <a href="/reviews/{{ r.id }}" class="btn btn-xs btn-primary">
+                            {% if r.status == 'pending' %}Grade Now{% else %}View Feedback{% endif %}
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align:center; padding:40px; color:var(--text3);">No review requests found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -30,6 +30,9 @@ from routers import online as online_router
 from routers import archive as archive_router
 from routers import api_auth
 from routers import mock_platform
+from routers import owner
+from routers import classes
+from routers import reviews
 
 app = FastAPI(title=APP_NAME)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
@@ -97,6 +100,8 @@ async def login_page(request: Request, next: str = "/dashboard"):
     return templates.TemplateResponse("login.html", {
         "request": request, "next": next, "error": None
     })
+
+
 
 @app.post("/login")
 async def login_post(request: Request,
@@ -207,8 +212,6 @@ async def register_verify(request: Request, email: str = Form(...), otp: str = F
             full_name=full_name.strip(),
             password_hash=hash_pw(password),
             role="owner", # They are the owner of their own tenant
-            account_type=account_type,
-            study_focus=study_focus,
             is_active=True
         )
         db.add(new_user)
@@ -240,7 +243,7 @@ for r in [dashboard.router, students.router, groups.router, lessons.router,
           profile_router.router, monthly_report.router,
           timetable_export.router, holidays_router.router,
           online_router.router, archive_router.router,
-          mock_platform.router]:
+          mock_platform.router, owner.router, classes.router, reviews.router]:
     app.include_router(r)
 app.include_router(api_auth.router, prefix="/api")
 

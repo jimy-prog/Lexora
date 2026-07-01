@@ -39,6 +39,9 @@
         <div style="margin-top:24px; display:flex; gap:10px;">
             <a href="/mock/{{ exam.id }}/build" class="btn btn-primary" style="flex:1; border-radius:10px;"><i class="fa-solid fa-pen"></i> Edit Mock</a>
             <a href="/mock/{{ exam.id }}/take" class="btn btn-ghost" style="border-radius:10px;"><i class="fa-solid fa-eye"></i></a>
+            <form action="/mock/{{ exam.id }}/delete" method="POST" onsubmit="return confirm('Are you sure you want to delete this exam? This cannot be undone.');" style="display:inline;">
+                <button type="submit" class="btn btn-ghost" style="border-radius:10px; color:#ef4444;"><i class="fa-solid fa-trash"></i></button>
+            </form>
         </div>
     </div>
     {% else %}
@@ -83,7 +86,7 @@
                         <option value="Reading Section">Reading Section</option>
                         <option value="Listening Section">Listening Section</option>
                         <option value="Writing Section">Writing Section</option>
-                        <option value="Speaking Section" disabled>Speaking (Coming Soon)</option>
+                        <option value="Speaking Section">Speaking Section</option>
                     </select>
                 </div>
             </div>

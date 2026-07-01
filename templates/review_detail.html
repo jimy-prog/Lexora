@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Review Detail | Lexora{% endblock %}
+{% block page_title %}Mock Test Review{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Student Submission</span>
+        </div>
+        <div class="card-body">
+            <div class="mb-4">
+                <label class="form-label">Exam</label>
+                <div class="td-primary">{{ review.attempt.exam.title }}</div>
+            </div>
+            <div class="mb-4">
+                <label class="form-label">Student</label>
+                <div class="td-primary">{{ review.student.full_name or review.student.username }}</div>
+            </div>
+            
+            <div style="margin-top:20px; padding:16px; background:var(--bg3); border-radius:12px; border:1px solid var(--border);">
+                <p style="font-size:.9rem; line-height:1.6; color:var(--text);">
+                    This attempt was completed on <strong>{{ review.attempt.completed_at.strftime('%Y-%m-%d') }}</strong> 
+                    with a Reading/Listening band of <strong>{{ review.attempt.band_score }}</strong>.
+                </p>
+                <div class="mt-4">
+                    <a href="/mock/results/{{ review.attempt_id }}" class="btn btn-ghost btn-sm" target="_blank">
+                        <i class="fa-solid fa-external-link"></i> View Full Attempt Answers
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Teacher Feedback</span>
+        </div>
+        <div class="card-body">
+            {% if user.role == 'teacher' and review.status == 'pending' %}
+            <form action="/reviews/{{ review.id }}/grade" method="POST">
+                <div class="form-group">
+                    <label class="form-label">Band Score (0 - 9.0)</label>
+                    <input type="number" name="score" step="0.5" min="0" max="9" class="form-control" placeholder="e.g. 7.5" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Detailed Feedback</label>
+                    <textarea name="feedback" class="form-control" rows="8" placeholder="Provide constructive criticism, highlight strengths and weaknesses..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary w-full" style="width:100%; margin-top:12px;">Submit Feedback</button>
+            </form>
+            {% else %}
+            <div class="mb-4">
+                <label class="form-label">Final Score</label>
+                <div class="stat-value" style="color:var(--green)">{{ review.score or 'Not graded' }}</div>
+            </div>
+            <div class="mb-4">
+                <label class="form-label">Teacher's Feedback</label>
+                <div style="background:var(--bg3); padding:20px; border-radius:14px; color:var(--text); line-height:1.7; white-space:pre-wrap;">{{ review.feedback or 'No feedback provided yet.' }}</div>
+            </div>
+            {% if review.reviewed_at %}
+            <div style="font-size:.75rem; color:var(--text3); margin-top:12px;">Reviewed on {{ review.reviewed_at.strftime('%Y-%m-%d %H:%M') }}</div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

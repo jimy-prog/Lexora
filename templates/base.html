@@ -326,6 +326,14 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
     <a class="nav-link {% if active_page=='timetable' %}active{% endif %}" href="/timetable/">
       <span class="nav-icon">🗓</span> Timetable
     </a>
+    <a class="nav-link {% if active_page=='classes' %}active{% endif %}" href="/classes/">
+      <span class="nav-icon">🏫</span> My Classes
+    </a>
+    {% if request.state.current_user and request.state.current_user.role == 'teacher' %}
+    <a class="nav-link {% if active_page=='reviews' %}active{% endif %}" href="/reviews/inbox">
+      <span class="nav-icon">📬</span> Review Inbox
+    </a>
+    {% endif %}
     <a class="nav-link {% if active_page=='groups' %}active{% endif %}" href="/groups/">
       <span class="nav-icon">👥</span> Groups
     </a>
@@ -337,14 +345,18 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
     </a>
 
     <div class="nav-section">Content</div>
-    <a class="nav-link {% if active_page=='courses' %}active{% endif %}" href="/courses/">
-      <span class="nav-icon">📖</span> Courses
-    </a>
     {% if request.state.current_user and request.state.current_user.role == 'owner' %}
+    <a class="nav-link {% if active_page=='owner_dashboard' %}active{% endif %}" href="/owner/">
+      <span class="nav-icon">👑</span> Owner Home
+    </a>
+    <a class="nav-link {% if active_page=='owner_users' %}active{% endif %}" href="/owner/users">
+      <span class="nav-icon">👥</span> All Users
+    </a>
     <a class="nav-link {% if active_page=='manage_mocks' %}active{% endif %}" href="/mock/manage">
       <span class="nav-icon">⚙️</span> Manage Mocks
     </a>
     {% endif %}
+    <a class="nav-link {% if active_page=='courses' %}active{% endif %}" href="/courses/">
     <a class="nav-link {% if active_page=='mock' %}active{% endif %}" href="/mock/">
       <span class="nav-icon">💻</span> Mock Tests
     </a>

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}User Management | Owner{% endblock %}
+{% block page_title %}Platform User Directory{% endblock %}
+
+{% block content %}
+<div class="flex-between mb-4">
+    <div class="flex gap-2">
+        <a href="/owner/users" class="badge {% if not active_role %}btn-primary{% endif %}" style="text-decoration:none;">All</a>
+        <a href="/owner/users?role=teacher" class="badge {% if active_role=='teacher' %}btn-primary{% endif %}" style="text-decoration:none;">Teachers</a>
+        <a href="/owner/users?role=student" class="badge {% if active_role=='student' %}btn-primary{% endif %}" style="text-decoration:none;">Students</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Username / Email</th>
+                    <th>Full Name</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                    <th style="text-align:right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>
+                        <div class="td-primary">{{ u.username }}</div>
+                        <div style="font-size:.7rem; color:var(--text3)">{{ u.email }}</div>
+                    </td>
+                    <td>{{ u.full_name }}</td>
+                    <td><span class="pill pill-blue">{{ u.role }}</span></td>
+                    <td>
+                        {% if u.is_banned %}
+                        <span class="pill pill-red">Banned</span>
+                        {% elif not u.is_active %}
+                        <span class="pill pill-yellow">Inactive</span>
+                        {% else %}
+                        <span class="pill pill-green">Active</span>
+                        {% endif %}
+                    </td>
+                    <td class="mono">{{ u.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td style="text-align:right">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <form action="/owner/users/{{ u.id }}/ban" method="POST" style="display:inline;">
+                                <button type="submit" class="btn btn-xs {% if u.is_banned %}btn-green{% else %}btn-orange{% endif %}">
+                                    {% if u.is_banned %}Unban{% else %}Ban{% endif %}
+                                </button>
+                            </form>
+                            {% if u.id != user.id %}
+                            <form action="/owner/users/{{ u.id }}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to PERMANENTLY DELETE this user?');">
+                                <button type="submit" class="btn btn-xs btn-danger"><i class="fa-solid fa-trash"></i></button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
