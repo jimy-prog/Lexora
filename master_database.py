@@ -25,16 +25,39 @@ class User(MasterBase):
     username = Column(String, unique=True, nullable=False)
     email = Column(String, nullable=False, unique=True)
     password_hash = Column(String, nullable=False)
-    role = Column(String, default="owner")  # owner, admin
+    role = Column(String, default="student")  # owner, teacher, student
     is_active = Column(Boolean, default=True)
+    is_banned = Column(Boolean, default=False)
     full_name = Column(String, default="")
-    account_type = Column(String, default="student") # teacher or student
-    study_focus = Column(String, default="")
+    avatar_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login_at = Column(DateTime, nullable=True)
     
     tenant = relationship("PlatformTenant", back_populates="users")
     sessions = relationship("AuthSession", back_populates="user", cascade="all, delete-orphan")
+    teacher_profile = relationship("TeacherProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    student_profile = relationship("StudentProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
+class TeacherProfile(MasterBase):
+    __tablename__ = "teacher_profiles"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    phone = Column(String, default="")
+    description = Column(String, default="")
+    is_public_for_reviews = Column(Boolean, default=False)
+    rating_avg = Column(Float, default=0.0)
+    google_form_link = Column(String, default="")
+    
+    user = relationship("User", back_populates="teacher_profile")
+
+class StudentProfile(MasterBase):
+    __tablename__ = "student_profiles"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    phone = Column(String, default="")
+    parent_phone = Column(String, default="")
+    
+    user = relationship("User", back_populates="student_profile")
 
 class AuthSession(MasterBase):
     __tablename__ = "auth_sessions"
@@ -143,6 +166,45 @@ class AttemptAnswer(MasterBase):
     attempt = relationship("MockAttempt", back_populates="answers")
     question = relationship("Question")
     option = relationship("AnswerOption")
+
+
+class PublicClass(MasterBase):
+    __tablename__ = "public_classes"
+    id = Column(Integer, primary_key=True)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(String, default="")
+    invite_code = Column(String, unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    teacher = relationship("User")
+    members = relationship("ClassMember", back_populates="public_class", cascade="all, delete-orphan")
+
+class ClassMember(MasterBase):
+    __tablename__ = "class_members"
+    id = Column(Integer, primary_key=True)
+    class_id = Column(Integer, ForeignKey("public_classes.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    joined_at = Column(DateTime, default=datetime.utcnow)
+    
+    public_class = relationship("PublicClass", back_populates="members")
+    student = relationship("User")
+
+class ReviewRequest(MasterBase):
+    __tablename__ = "review_requests"
+    id = Column(Integer, primary_key=True)
+    attempt_id = Column(Integer, ForeignKey("mock_attempts.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(String, default="pending")  # pending, reviewed
+    score = Column(Float, nullable=True)
+    feedback = Column(String, nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    attempt = relationship("MockAttempt")
+    student = relationship("User", foreign_keys=[student_id])
+    teacher = relationship("User", foreign_keys=[teacher_id])
 
 
 def init_master_db():
