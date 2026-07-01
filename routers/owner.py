@@ -83,3 +83,24 @@ async def delete_user(request: Request, target_id: int, db: SessionMaster = Depe
         db.commit()
         
     return RedirectResponse("/owner/users", status_code=303)
+
+
+from fastapi import UploadFile, File
+import shutil
+import os
+from config import DATA_DIR
+
+@router.post("/database/restore")
+async def restore_database(request: Request, db_file: UploadFile = File(...)):
+    user = get_current_user(request)
+    if not user or user.role != "owner":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    tenants_dir = os.path.join(DATA_DIR, "database_tenants")
+    os.makedirs(tenants_dir, exist_ok=True)
+    target_path = os.path.join(tenants_dir, "tenant_1.db")
+    
+    with open(target_path, "wb") as buffer:
+        shutil.copyfileobj(db_file.file, buffer)
+        
+    return RedirectResponse("/owner/?restored=success", status_code=303)

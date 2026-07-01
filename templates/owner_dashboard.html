@@ -69,4 +69,26 @@
         </div>
     </div>
 </div>
+
+<div class="card mt-6">
+    <div class="card-header">
+        <span class="card-title">Database Administration</span>
+    </div>
+    <div class="card-body">
+        {% if request.query_params.get('restored') == 'success' %}
+        <div class="alert alert-success">
+            <strong>Success!</strong> Database file has been restored successfully.
+        </div>
+        {% endif %}
+        <p style="font-size: .85rem; color: var(--text2); margin-bottom: 16px;">
+            Restore your school data database (<code>tenant_1.db</code>) directly to the persistent storage.
+        </p>
+        <form action="/owner/database/restore" method="POST" enctype="multipart/form-data">
+            <div class="form-group" style="display:flex; gap:12px; align-items:center; margin-bottom:0;">
+                <input type="file" name="db_file" accept=".db" class="form-control" style="flex:1;" required>
+                <button type="submit" class="btn btn-primary" style="margin-top:0;">Upload & Restore</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
