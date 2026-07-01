@@ -92,8 +92,11 @@ def dashboard(request: Request, show_marked: int = 0, db: Session = Depends(get_
     paid_count   = len([s for s in active_sids if s in paid_ids])
     unpaid_count = len([s for s in active_sids if s not in paid_ids])
 
-    # Today's lessons - ALL groups
-    todays = db.query(Lesson).filter(Lesson.date==today).order_by(Lesson.time).all()
+    # Today's lessons - ACTIVE groups only
+    todays = db.query(Lesson).join(Group).filter(
+        Lesson.date==today,
+        Group.status == "active"
+    ).order_by(Lesson.time).all()
     todays_data = []
     for lesson in todays:
         if not lesson.group: continue
@@ -119,8 +122,9 @@ def dashboard(request: Request, show_marked: int = 0, db: Session = Depends(get_
         todays_data.append({"lesson":lesson,"students":students,"att_map":att_map,"marked":marked})
 
     notifications = db.query(Notification).filter(Notification.read==False).order_by(Notification.created_at.desc()).limit(6).all()
-    upcoming      = db.query(Lesson).filter(
-        Lesson.date>today, Lesson.date<=today+timedelta(days=7)
+    upcoming      = db.query(Lesson).join(Group).filter(
+        Lesson.date>today, Lesson.date<=today+timedelta(days=7),
+        Group.status == "active"
     ).order_by(Lesson.date, Lesson.time).all()
 
     return templates.TemplateResponse("dashboard.html", {
