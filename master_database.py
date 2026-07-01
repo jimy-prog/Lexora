@@ -210,12 +210,22 @@ class ReviewRequest(MasterBase):
 def init_master_db():
     MasterBase.metadata.create_all(bind=engine_master)
     
-    # Try to initialize the default owner if not exists
+    from sqlalchemy import text
+    with engine_master.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url STRING"))
+            conn.commit()
+        except Exception:
+            pass
+            
     db = SessionMaster()
     try:
         from config import OWNER_EMAIL, OWNER_USERNAME, OWNER_FULL_NAME, DEFAULT_ADMIN_PASSWORD
         import auth 
-        # But wait, auth depends on master_database now, we might get circular imports.
-        # We will handle default user seeding in a separate script.
     finally:
         db.close()
