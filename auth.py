@@ -186,6 +186,18 @@ def require_owner(request: Request):
         raise HTTPException(status_code=403, detail="Owner access required")
     return user
 
+def require_teacher_or_owner(request: Request):
+    user = get_current_user(request)
+    if not user or user.role not in {"owner", "teacher"}:
+        raise HTTPException(status_code=403, detail="Unauthorized access")
+    return user
+
+def require_student(request: Request):
+    user = get_current_user(request)
+    if not user or user.role != "student":
+        raise HTTPException(status_code=403, detail="Student access required")
+    return user
+
 def logout(request: Request):
     token = request.cookies.get(SESSION_KEY)
     if not token:

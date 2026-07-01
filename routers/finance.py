@@ -4,8 +4,9 @@ from sqlalchemy.orm import Session
 from datetime import date
 from database import get_db, Group, Lesson, Attendance
 from finance_rules import get_group_epl
+from auth import require_owner
 
-router = APIRouter(prefix="/finance")
+router = APIRouter(prefix="/finance", dependencies=[Depends(require_owner)])
 templates = Jinja2Templates(directory="templates")
 
 def nm(d):
