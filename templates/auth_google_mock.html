@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Sign in with Google — Lexora Simulation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: #f6f7fb;
+  background-image: radial-gradient(circle, rgba(123, 97, 255, 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 24px;
+  padding: 40px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 25px 50px -12px rgba(17, 24, 39, 0.1);
+  text-align: center;
+}
+.google-logo {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 20px;
+}
+.title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+.subtitle {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 32px;
+  line-height: 1.5;
+}
+.profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.profile-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+}
+.profile-item:hover {
+  background: #f8fafc;
+  border-color: #7b61ff;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(123, 97, 255, 0.08);
+}
+.profile-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #7b61ff;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.2rem;
+  box-shadow: 0 4px 10px rgba(123, 97, 255, 0.2);
+}
+.profile-info {
+  flex: 1;
+}
+.profile-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+.profile-email {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+.cancel-link {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 0.85rem;
+  color: #7b61ff;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+.cancel-link:hover {
+  color: #6b51ef;
+  text-decoration: underline;
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <img class="google-logo" src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google Logo">
+  <h1 class="title">Choose an account</h1>
+  <p class="subtitle">to continue to <strong>Lexora (Local Simulation)</strong></p>
+
+  <div class="profile-list">
+    <a href="/auth/google/callback?email=alice.smith@gmail.com&name=Alice Smith" class="profile-item">
+      <div class="profile-avatar" style="background:#ef4444;">A</div>
+      <div class="profile-info">
+        <div class="profile-name">Alice Smith</div>
+        <div class="profile-email">alice.smith@gmail.com</div>
+      </div>
+      <i class="fa-solid fa-angle-right" style="color:#94a3b8;"></i>
+    </a>
+
+    <a href="/auth/google/callback?email=jamshid.mahkamov@gmail.com&name=Jamshid Mahkamov" class="profile-item">
+      <div class="profile-avatar" style="background:#3b82f6;">J</div>
+      <div class="profile-info">
+        <div class="profile-name">Jamshid Mahkamov</div>
+        <div class="profile-email">jamshid.mahkamov@gmail.com</div>
+      </div>
+      <i class="fa-solid fa-angle-right" style="color:#94a3b8;"></i>
+    </a>
+
+    <a href="/auth/google/callback?email=eleanor.vance@gmail.com&name=Eleanor Vance" class="profile-item">
+      <div class="profile-avatar" style="background:#10b981;">E</div>
+      <div class="profile-info">
+        <div class="profile-name">Eleanor Vance</div>
+        <div class="profile-email">eleanor.vance@gmail.com</div>
+      </div>
+      <i class="fa-solid fa-angle-right" style="color:#94a3b8;"></i>
+    </a>
+  </div>
+
+  <a class="cancel-link" href="/register"><i class="fa-solid fa-arrow-left-long"></i> Back to registration</a>
+</div>
+</body>
+</html>

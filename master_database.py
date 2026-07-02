@@ -24,6 +24,7 @@ class User(MasterBase):
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     username = Column(String, unique=True, nullable=False)
     email = Column(String, nullable=False, unique=True)
+    phone = Column(String, nullable=True, unique=True)
     password_hash = Column(String, nullable=False)
     role = Column(String, default="student")  # owner, teacher, student
     is_active = Column(Boolean, default=True)
@@ -73,6 +74,14 @@ class EmailOTP(MasterBase):
     __tablename__ = "email_otps"
     id = Column(Integer, primary_key=True)
     email = Column(String, nullable=False)
+    code = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class PhoneOTP(MasterBase):
+    __tablename__ = "phone_otps"
+    id = Column(Integer, primary_key=True)
+    phone = Column(String, nullable=False)
     code = Column(String, nullable=False)
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -219,6 +228,11 @@ def init_master_db():
             pass
         try:
             conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url STRING"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR"))
             conn.commit()
         except Exception:
             pass

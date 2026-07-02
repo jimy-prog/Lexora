@@ -59,6 +59,7 @@ PUBLIC_PREFIXES = (
     "/images",
     "/healthz",
     "/placement/take",
+    "/auth",
 )
 
 
@@ -173,10 +174,12 @@ async def logout_route(request: Request):
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request, "step": "1"})
+    return templates.TemplateResponse("register.html", {"request": request, "step": "1", "channel": "email"})
 
 import random
-from master_database import SessionMaster, EmailOTP, PlatformTenant, User
+import secrets
+from datetime import datetime, timedelta
+from master_database import SessionMaster, EmailOTP, PhoneOTP, PlatformTenant, User
 from auth import hash_pw
 
 @app.post("/register/send-otp", response_class=HTMLResponse)
@@ -187,7 +190,7 @@ async def register_send_otp(request: Request, email: str = Form(...)):
         existing = db.query(User).filter(User.email == email.strip().lower()).first()
         if existing:
             return templates.TemplateResponse("register.html", {
-                "request": request, "step": "1", "error": "Email already in use."
+                "request": request, "step": "1", "channel": "email", "error": "Email already in use."
             })
             
         code = str(random.randint(100000, 999999))
@@ -204,38 +207,92 @@ async def register_send_otp(request: Request, email: str = Form(...)):
         db.commit()
         
         return templates.TemplateResponse("register.html", {
-            "request": request, "step": "2", "email": email.strip().lower()
+            "request": request, "step": "2", "channel": "email", "email": email.strip().lower()
+        })
+    finally:
+        db.close()
+
+@app.post("/register/send-otp-phone", response_class=HTMLResponse)
+async def register_send_otp_phone(request: Request, phone: str = Form(...)):
+    db = SessionMaster()
+    try:
+        phone_num = phone.strip()
+        # Check if user already exists
+        existing = db.query(User).filter(User.phone == phone_num).first()
+        if existing:
+            return templates.TemplateResponse("register.html", {
+                "request": request, "step": "1", "channel": "phone", "phone": phone_num, "error": "Phone number already in use."
+            })
+            
+        code = str(random.randint(100000, 999999))
+        print(f"=====================================")
+        print(f"MOCK SMS SENT TO {phone_num}: OTP IS {code}")
+        print(f"=====================================")
+        
+        otp_entry = PhoneOTP(
+            phone=phone_num,
+            code=code,
+            expires_at=datetime.utcnow() + timedelta(minutes=15)
+        )
+        db.add(otp_entry)
+        db.commit()
+        
+        return templates.TemplateResponse("register.html", {
+            "request": request, "step": "2", "channel": "phone", "phone": phone_num
         })
     finally:
         db.close()
 
 @app.post("/register/verify")
-async def register_verify(request: Request, email: str = Form(...), otp: str = Form(...), 
+async def register_verify(request: Request, email: str = Form(""), phone: str = Form(""),
+                          channel: str = Form("email"), otp: str = Form(...), 
                           full_name: str = Form(...), password: str = Form(...), 
                           account_type: str = Form(...), study_focus: str = Form(...)):
     db = SessionMaster()
     try:
-        email = email.strip().lower()
-        # Verify OTP
-        otp_entry = db.query(EmailOTP).filter(
-            EmailOTP.email == email, 
-            EmailOTP.code == otp.strip()
-        ).order_by(EmailOTP.id.desc()).first()
-        
-        if not otp_entry or otp_entry.expires_at < datetime.utcnow():
-            return templates.TemplateResponse("register.html", {
-                "request": request, "step": "2", "email": email, "error": "Invalid or expired verification code."
-            })
+        if channel == "phone":
+            phone = phone.strip()
+            # Verify OTP
+            otp_entry = db.query(PhoneOTP).filter(
+                PhoneOTP.phone == phone, 
+                PhoneOTP.code == otp.strip()
+            ).order_by(PhoneOTP.id.desc()).first()
             
-        # Check if already registered
-        existing = db.query(User).filter(User.email == email).first()
-        if existing:
-            return templates.TemplateResponse("register.html", {
-                "request": request, "step": "1", "error": "Account already exists."
-            })
+            if not otp_entry or otp_entry.expires_at < datetime.utcnow():
+                return templates.TemplateResponse("register.html", {
+                    "request": request, "step": "2", "phone": phone, "channel": "phone", "error": "Invalid or expired verification code."
+                })
+                
+            # Check if already registered
+            existing = db.query(User).filter(User.phone == phone).first()
+            if existing:
+                return templates.TemplateResponse("register.html", {
+                    "request": request, "step": "1", "channel": "phone", "error": "Account already exists."
+                })
+                
+            email = f"{phone.replace('+', '')}@phone.lexora"
+        else:
+            email = email.strip().lower()
+            # Verify OTP
+            otp_entry = db.query(EmailOTP).filter(
+                EmailOTP.email == email, 
+                EmailOTP.code == otp.strip()
+            ).order_by(EmailOTP.id.desc()).first()
+            
+            if not otp_entry or otp_entry.expires_at < datetime.utcnow():
+                return templates.TemplateResponse("register.html", {
+                    "request": request, "step": "2", "email": email, "channel": "email", "error": "Invalid or expired verification code."
+                })
+                
+            # Check if already registered
+            existing = db.query(User).filter(User.email == email).first()
+            if existing:
+                return templates.TemplateResponse("register.html", {
+                    "request": request, "step": "1", "channel": "email", "error": "Account already exists."
+                })
+            phone = ""
             
         # 1. Create a unique isolated database tenant
-        # Give it a safe slug based on email prefix + random
         slug_base = email.split("@")[0].replace(".", "_")
         tenant_slug = f"{slug_base}_{random.randint(1000,9999)}"
         tenant = PlatformTenant(
@@ -250,6 +307,7 @@ async def register_verify(request: Request, email: str = Form(...), otp: str = F
             tenant_id=tenant.id,
             username=tenant_slug, # Username is slug by default
             email=email,
+            phone=phone if phone else None,
             full_name=full_name.strip(),
             password_hash=hash_pw(password),
             role="owner", # They are the owner of their own tenant
@@ -266,6 +324,55 @@ async def register_verify(request: Request, email: str = Form(...), otp: str = F
         return response
     finally:
         db.close()
+
+@app.get("/auth/google", response_class=HTMLResponse)
+async def mock_google_oauth_page(request: Request):
+    return templates.TemplateResponse("auth_google_mock.html", {"request": request})
+
+@app.get("/auth/google/callback")
+async def mock_google_oauth_callback(
+    request: Request, 
+    email: str, 
+    name: str,
+    avatar: str = ""
+):
+    master_db = SessionMaster()
+    try:
+        email = email.strip().lower()
+        user = master_db.query(User).filter(User.email == email).first()
+        
+        if not user:
+            # Create a unique isolated database tenant
+            slug_base = email.split("@")[0].replace(".", "_")
+            tenant_slug = f"{slug_base}_{random.randint(1000, 9999)}"
+            
+            tenant = PlatformTenant(
+                slug=tenant_slug,
+                db_filename=f"tenant_{tenant_slug}.db"
+            )
+            master_db.add(tenant)
+            master_db.flush()
+            
+            user = User(
+                tenant_id=tenant.id,
+                username=tenant_slug,
+                email=email,
+                full_name=name.strip(),
+                password_hash=hash_pw(secrets.token_hex(16)),
+                role="owner",
+                avatar_url=avatar,
+                is_active=True
+            )
+            master_db.add(user)
+            master_db.commit()
+            master_db.refresh(user)
+            
+        token = create_session(user.id)
+        response = RedirectResponse("/dashboard", status_code=302)
+        response.set_cookie(SESSION_KEY, token, httponly=True, max_age=60*60*24*30, samesite="lax")
+        return response
+    finally:
+        master_db.close()
 
 @app.get("/support", response_class=HTMLResponse)
 async def support_page(request: Request):

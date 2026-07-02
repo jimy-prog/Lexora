@@ -85,9 +85,18 @@ def _find_user(db, identifier: str):
     ident = (identifier or "").strip().lower()
     if not ident:
         return None
-    return db.query(User).filter(
-        (User.username == ident) | (User.email == ident)
-    ).first()
+    import re
+    from sqlalchemy import or_
+    norm_phone = re.sub(r"\D", "", ident)
+    filters = [
+        (User.username == ident),
+        (User.email == ident)
+    ]
+    filters.append(User.phone == ident)
+    if norm_phone:
+        filters.append(User.phone == norm_phone)
+        filters.append(User.phone == f"+{norm_phone}")
+    return db.query(User).filter(or_(*filters)).first()
 
 def ensure_owner_account():
     db = SessionMaster()

@@ -49,6 +49,35 @@ body{
   margin-bottom:32px;
   font-weight:600;
 }
+.tabs {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 24px;
+}
+.tab-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 12px;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.tab-btn.active {
+  background: #fff;
+  color: #7b61ff;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
 .form-label{
   display:block;
   font-size:.7rem;
@@ -118,6 +147,8 @@ body{
 }
 .step { display: none; }
 .step.active { display: block; }
+.register-form-pane { display: none; }
+.register-form-pane.active { display: block; }
 .divider {
   display: flex;
   align-items: center;
@@ -157,15 +188,38 @@ body{
   <div class="error"><i class="fa-solid fa-circle-exclamation"></i> {{ error }}</div>
   {% endif %}
 
-  <!-- Step 1: Email Request -->
+  <!-- Step 1: Request Email or Phone -->
   <div id="step-1" class="step {% if not step or step == '1' %}active{% endif %}">
-    <form method="post" action="/register/send-otp">
-      <div class="form-group">
-        <label class="form-label">Email Address</label>
-        <input class="form-control" type="email" name="email" required placeholder="you@example.com" value="{{ email | default('') }}">
-      </div>
-      <button class="btn" type="submit">Continue with Email</button>
-    </form>
+    <div class="tabs">
+      <button class="tab-btn {% if not channel or channel == 'email' %}active{% endif %}" onclick="switchTab('email')">
+        <i class="fa-solid fa-envelope"></i> Email Address
+      </button>
+      <button class="tab-btn {% if channel == 'phone' %}active{% endif %}" onclick="switchTab('phone')">
+        <i class="fa-solid fa-phone"></i> Phone Number
+      </button>
+    </div>
+
+    <!-- Email Form -->
+    <div id="pane-email" class="register-form-pane {% if not channel or channel == 'email' %}active{% endif %}">
+      <form method="post" action="/register/send-otp">
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input class="form-control" type="email" name="email" required placeholder="you@example.com" value="{{ email | default('') }}">
+        </div>
+        <button class="btn" type="submit">Continue with Email</button>
+      </form>
+    </div>
+
+    <!-- Phone Form -->
+    <div id="pane-phone" class="register-form-pane {% if channel == 'phone' %}active{% endif %}">
+      <form method="post" action="/register/send-otp-phone">
+        <div class="form-group">
+          <label class="form-label">Phone Number</label>
+          <input class="form-control" type="tel" name="phone" required placeholder="+998 90 123 45 67" value="{{ phone | default('') }}">
+        </div>
+        <button class="btn" type="submit">Continue with Phone</button>
+      </form>
+    </div>
     
     <div class="divider">Or</div>
     
@@ -180,12 +234,21 @@ body{
   <!-- Step 2: Questionnaire & OTP -->
   <div id="step-2" class="step {% if step == '2' %}active{% endif %}">
     <form method="post" action="/register/verify">
-      <input type="hidden" name="email" value="{{ email | default('') }}">
+      <input type="hidden" name="channel" value="{{ channel | default('email') }}">
       
-      <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:12px; border-radius:12px; font-size:0.85rem; margin-bottom:24px; display:flex; gap:8px; align-items:center;">
-        <i class="fa-solid fa-envelope-circle-check"></i>
-        We've sent a 6-digit code to <strong>{{ email }}</strong>
-      </div>
+      {% if channel == 'phone' %}
+        <input type="hidden" name="phone" value="{{ phone | default('') }}">
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:12px; border-radius:12px; font-size:0.85rem; margin-bottom:24px; display:flex; gap:8px; align-items:center;">
+          <i class="fa-solid fa-mobile-screen-button"></i>
+          We've sent an SMS code to <strong>{{ phone }}</strong>
+        </div>
+      {% else %}
+        <input type="hidden" name="email" value="{{ email | default('') }}">
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:12px; border-radius:12px; font-size:0.85rem; margin-bottom:24px; display:flex; gap:8px; align-items:center;">
+          <i class="fa-solid fa-envelope-circle-check"></i>
+          We've sent an Email code to <strong>{{ email }}</strong>
+        </div>
+      {% endif %}
 
       <div class="form-group">
         <label class="form-label">Verification Code</label>
@@ -230,5 +293,22 @@ body{
     Already have an account? <a href="/login">Sign in</a>
   </div>
 </div>
+
+<script>
+function switchTab(channel) {
+  // Update tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  // Update panes
+  document.querySelectorAll('.register-form-pane').forEach(pane => pane.classList.remove('active'));
+  
+  if (channel === 'phone') {
+    document.querySelector('.tabs button:nth-child(2)').classList.add('active');
+    document.getElementById('pane-phone').classList.add('active');
+  } else {
+    document.querySelector('.tabs button:first-child').classList.add('active');
+    document.getElementById('pane-email').classList.add('active');
+  }
+}
+</script>
 </body>
 </html>
