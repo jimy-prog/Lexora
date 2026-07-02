@@ -15,6 +15,7 @@ from urllib.parse import quote, urlparse, parse_qs
 from urllib.request import urlopen, Request as UrlRequest
 from database import get_db, Base, Group, Student, Settings, PlacementSession
 from student_history import log_student_event
+from auth import get_current_user
 
 router = APIRouter(prefix="/waitlist")
 templates = Jinja2Templates(directory="templates")
@@ -203,6 +204,10 @@ def add_from_google_form(
 
 @router.get("/")
 def waitlist_view(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request)
+    if not user or user.role not in {"owner"}:
+        return RedirectResponse("/mock", status_code=302)
+
     entries = db.query(WaitlistEntry).filter(
         WaitlistEntry.status != "enrolled"
     ).order_by(WaitlistEntry.enquiry_date.desc()).all()

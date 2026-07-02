@@ -286,24 +286,36 @@ async def register_verify(request: Request, email: str = Form(""), phone: str = 
                 })
             phone = ""
             
-        # 1. Fetch the default tenant
-        tenant = db.query(PlatformTenant).filter(PlatformTenant.slug == "lexora_admin").first()
-        if not tenant:
-            tenant = PlatformTenant(
-                slug="lexora_admin",
-                db_filename="tenant_1.db"
-            )
-            db.add(tenant)
-            db.flush()
-        
         role = account_type.strip().lower()
         if role not in {"teacher", "student"}:
             role = "student"
+
+        # 1. Fetch or create the appropriate tenant database
+        if role == "teacher":
+            # Teachers get their own private isolated database tenant
+            slug_base = email.split("@")[0].replace(".", "_")
+            tenant_slug = f"{slug_base}_{random.randint(1000, 9999)}"
+            tenant = PlatformTenant(
+                slug=tenant_slug,
+                db_filename=f"tenant_{tenant_slug}.db"
+            )
+            db.add(tenant)
+            db.flush()
+        else:
+            # Students belong to the main shared lexora_admin tenant
+            tenant = db.query(PlatformTenant).filter(PlatformTenant.slug == "lexora_admin").first()
+            if not tenant:
+                tenant = PlatformTenant(
+                    slug="lexora_admin",
+                    db_filename="tenant_1.db"
+                )
+                db.add(tenant)
+                db.flush()
             
         prefix = email.split("@")[0].replace(".", "_")
         username = f"{prefix}_{random.randint(1000, 9999)}"
         
-        # 2. Create User linked to the default tenant
+        # 2. Create User linked to the appropriate tenant
         new_user = User(
             tenant_id=tenant.id,
             username=username,
@@ -325,7 +337,7 @@ async def register_verify(request: Request, email: str = Form(""), phone: str = 
             profile = StudentProfile(user_id=new_user.id, phone=phone)
             db.add(profile)
             
-            # Also add to waitlist in tenant database (tenant_1.db)
+            # Also add to waitlist in the default tenant database (tenant_1.db)
             from database import get_tenant_engine, sessionmaker as tenant_sessionmaker
             from routers.waitlist import WaitlistEntry
             try:
@@ -372,16 +384,26 @@ async def mock_google_oauth_callback(
         user = master_db.query(User).filter(User.email == email).first()
         
         if not user:
-            # Fetch the default tenant
-            tenant = master_db.query(PlatformTenant).filter(PlatformTenant.slug == "lexora_admin").first()
-            if not tenant:
-                tenant = PlatformTenant(slug="lexora_admin", db_filename="tenant_1.db")
-                master_db.add(tenant)
-                master_db.flush()
-                
             role = role.strip().lower()
             if role not in {"teacher", "student"}:
                 role = "student"
+                
+            # Fetch or create the appropriate tenant database
+            if role == "teacher":
+                slug_base = email.split("@")[0].replace(".", "_")
+                tenant_slug = f"{slug_base}_{random.randint(1000, 9999)}"
+                tenant = PlatformTenant(
+                    slug=tenant_slug,
+                    db_filename=f"tenant_{tenant_slug}.db"
+                )
+                master_db.add(tenant)
+                master_db.flush()
+            else:
+                tenant = master_db.query(PlatformTenant).filter(PlatformTenant.slug == "lexora_admin").first()
+                if not tenant:
+                    tenant = PlatformTenant(slug="lexora_admin", db_filename="tenant_1.db")
+                    master_db.add(tenant)
+                    master_db.flush()
                 
             prefix = email.split("@")[0].replace(".", "_")
             username = f"{prefix}_{random.randint(1000, 9999)}"

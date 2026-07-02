@@ -30,11 +30,21 @@ async def owner_dashboard(request: Request, db: SessionMaster = Depends(get_mdb)
     
     recent_users = db.query(User).order_by(User.created_at.desc()).limit(5).all()
     
+    from sqlalchemy import text
+    recent_otps = []
+    try:
+        p_otps = db.execute(text("SELECT phone AS target, code, expires_at, created_at, 'SMS' as channel FROM phone_otps ORDER BY id DESC LIMIT 5")).fetchall()
+        e_otps = db.execute(text("SELECT email AS target, code, expires_at, created_at, 'Email' as channel FROM email_otps ORDER BY id DESC LIMIT 5")).fetchall()
+        recent_otps = sorted(list(p_otps) + list(e_otps), key=lambda x: x.created_at, reverse=True)[:10]
+    except Exception as e:
+        print("Error fetching OTPs for owner dashboard:", e)
+        
     return templates.TemplateResponse("owner_dashboard.html", {
         "request": request,
         "user": user,
         "stats": stats,
         "recent_users": recent_users,
+        "recent_otps": recent_otps,
         "active_page": "owner_dashboard"
     })
 
