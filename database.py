@@ -1,5 +1,5 @@
 from fastapi import Request, HTTPException
-from sqlalchemy import create_engine, Column, Integer, String, Float, Date, Boolean, Text, DateTime, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Float, Date, Boolean, Text, DateTime, ForeignKey, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime, timedelta
@@ -24,6 +24,7 @@ def get_tenant_engine(db_filename: str):
         SessionTenant = sessionmaker(bind=engine)
         db = SessionTenant()
         try:
+            migrate_db(db)
             _seed_settings(db)
             _seed_placement_questions(db)
         finally:
@@ -240,7 +241,26 @@ def get_db(request: Request = None):
         db.close()
 
 def migrate_db(db=None):
-    pass
+    if db is None:
+        return
+    try:
+        res = db.execute(text("PRAGMA table_info(placement_sessions)")).fetchall()
+        existing_cols = {row[1] for row in res}
+        
+        cols_to_add = [
+            ("group_id", "INTEGER"),
+            ("phone", "VARCHAR DEFAULT ''"),
+            ("parent_phone", "VARCHAR DEFAULT ''"),
+            ("email", "VARCHAR DEFAULT ''"),
+            ("notes", "TEXT DEFAULT ''")
+        ]
+        
+        for col_name, col_type in cols_to_add:
+            if col_name not in existing_cols:
+                db.execute(text(f"ALTER TABLE placement_sessions ADD COLUMN {col_name} {col_type}"))
+        db.commit()
+    except Exception as e:
+        print(f"[Migration Error] {e}")
 
 def init_tenant_db(engine):
     Base.metadata.create_all(bind=engine)
