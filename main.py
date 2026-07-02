@@ -92,12 +92,6 @@ async def root(request: Request):
         return RedirectResponse("/dashboard", status_code=302)
     return RedirectResponse("/static/landing/index.html", status_code=302)
 
-
-@app.get("/register")
-async def register_redirect():
-    return RedirectResponse("/login", status_code=302)
-
-
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, next: str = "/dashboard"):
     return templates.TemplateResponse("login.html", {
