@@ -143,6 +143,66 @@ async def initiate_placement_session(
     
     return RedirectResponse(f"/placement/?show_pin={code}&name={student_name}", status_code=303)
 
+@router.post("/session/initiate-json")
+async def initiate_placement_json(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user = Depends(require_teacher_or_owner)
+):
+    try:
+        data = await request.json()
+    except Exception:
+        # Fallback to form parameters
+        form = await request.form()
+        data = {
+            "name": form.get("name", ""),
+            "level": form.get("level", ""),
+            "group_id": form.get("group_id", None),
+            "phone": form.get("phone", ""),
+            "parent_phone": form.get("parent_phone", ""),
+            "email": form.get("email", ""),
+            "notes": form.get("notes", "")
+        }
+        
+    student_name = data.get("name", "").strip()
+    target_level = data.get("level", "").lower().strip()
+    
+    if not student_name:
+        student_name = "New Client"
+        
+    # Generate unique 4-digit code
+    while True:
+        code = f"{random.randint(1000, 9999)}"
+        existing = db.query(PlacementSession).filter_by(access_code=code, status="pending").first()
+        if not existing:
+            break
+            
+    # Count total questions for this level
+    total_q = db.query(PlacementQuestion).filter_by(level=target_level).count()
+    
+    group_id_val = data.get("group_id")
+    try:
+        group_id = int(group_id_val) if group_id_val else None
+    except Exception:
+        group_id = None
+        
+    session = PlacementSession(
+        student_name=student_name,
+        target_level=target_level,
+        access_code=code,
+        status="pending",
+        total_questions=total_q,
+        group_id=group_id,
+        phone=data.get("phone", "").strip(),
+        parent_phone=data.get("parent_phone", "").strip(),
+        email=data.get("email", "").strip(),
+        notes=data.get("notes", "").strip()
+    )
+    db.add(session)
+    db.commit()
+    
+    return JSONResponse(content={"success": True, "pin": code})
+
 @router.post("/session/{session_id}/override")
 async def override_and_register(
     session_id: int,

@@ -114,15 +114,21 @@
         <div class="grid-2">
           <div class="form-group">
             <label class="form-label">English Level</label>
-            <select class="form-control" name="level" id="studentLevelSelect" onchange="onLevelChange(this.value)">
-              <option value="">Not set</option>
-              <option value="beginner">Beginner</option>
-              <option value="elementary">Elementary</option>
-              <option value="pre-intermediate">Pre-Intermediate</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="upper-intermediate">Upper-Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <select class="form-control" name="level" id="studentLevelSelect" onchange="onLevelChange(this.value)" style="flex:1;">
+                <option value="">Not set</option>
+                <option value="beginner">Beginner</option>
+                <option value="elementary">Elementary</option>
+                <option value="pre-intermediate">Pre-Intermediate</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="upper-intermediate">Upper-Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+              <button type="button" id="btnStartPlacementTest" class="btn btn-orange" style="display:none; width:auto; padding:10px 18px; font-weight:700; margin:0;" onclick="triggerPlacementTestAJAX()">Test</button>
+            </div>
+            <div id="placementPINDisplay" style="display:none; margin-top:8px; font-weight:700; color:#d97706; font-size:0.95rem; align-items:center; gap:8px;">
+                <span>Tablet PIN:</span> <strong style="font-size:1.15rem; letter-spacing:1px; background:#fef3c7; color:#b45309; padding:4px 10px; border-radius:6px; border:1px solid #fde68a;" id="placementPINValue">0000</strong>
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
@@ -132,10 +138,6 @@
         <div class="form-group">
           <label class="form-label">Notes</label>
           <textarea class="form-control" name="notes" rows="2"></textarea>
-        </div>
-        <div id="placementWarningCard" class="alert" style="background:#fef3c7; border:1px solid #fde68a; color:#b45309; margin-bottom:16px; display:none; flex-direction:column; gap:8px;">
-            <div style="font-weight:700;"><i class="fa-solid fa-triangle-exclamation"></i> Test Verification Required</div>
-            <div style="font-size:0.82rem;">Since you selected a level other than Beginner, this student must pass the placement test first. The button below will generate a temporary 4-digit PIN for the tablet.</div>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button type="button" class="btn btn-ghost" onclick="closeModal('addStudent')">Cancel</button>
@@ -263,23 +265,72 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function onLevelChange(val) {
-    const form = document.getElementById('addStudentForm');
-    const submitBtn = document.getElementById('addStudentSubmit');
-    const warningCard = document.getElementById('placementWarningCard');
+    const testBtn = document.getElementById('btnStartPlacementTest');
+    const pinDisplay = document.getElementById('placementPINDisplay');
+    
+    pinDisplay.style.display = 'none';
     
     if (val === "" || val === "beginner") {
-        form.action = "/students/add";
-        submitBtn.textContent = "Add Student";
-        submitBtn.classList.remove('btn-orange');
-        submitBtn.classList.add('btn-primary');
-        warningCard.style.display = 'none';
+        testBtn.style.display = 'none';
     } else {
-        form.action = "/placement/session/initiate";
-        submitBtn.textContent = "Generate PIN for Tablet";
-        submitBtn.classList.remove('btn-primary');
-        submitBtn.classList.add('btn-orange');
-        warningCard.style.display = 'flex';
+        testBtn.style.display = 'block';
     }
+}
+
+function triggerPlacementTestAJAX() {
+    const form = document.getElementById('addStudentForm');
+    const nameInput = form.querySelector('input[name="name"]');
+    const levelSelect = document.getElementById('studentLevelSelect');
+    
+    if (!nameInput.value.trim()) {
+        alert("Please enter the student's name first.");
+        nameInput.focus();
+        return;
+    }
+    
+    const groupSelect = form.querySelector('select[name="group_id"]');
+    const phoneInput = form.querySelector('input[name="phone"]');
+    const parentPhoneInput = form.querySelector('input[name="parent_phone"]');
+    const emailInput = form.querySelector('input[name="email"]');
+    const notesInput = form.querySelector('textarea[name="notes"]');
+    
+    const payload = {
+        name: nameInput.value.trim(),
+        level: levelSelect.value,
+        group_id: groupSelect ? groupSelect.value : null,
+        phone: phoneInput ? phoneInput.value.trim() : "",
+        parent_phone: parentPhoneInput ? parentPhoneInput.value.trim() : "",
+        email: emailInput ? emailInput.value.trim() : "",
+        notes: notesInput ? notesInput.value.trim() : ""
+    };
+    
+    const testBtn = document.getElementById('btnStartPlacementTest');
+    testBtn.disabled = true;
+    testBtn.textContent = "...";
+    
+    fetch('/placement/session/initiate-json', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        testBtn.disabled = false;
+        testBtn.textContent = "Test";
+        if (data.success && data.pin) {
+            document.getElementById('placementPINValue').textContent = data.pin;
+            document.getElementById('placementPINDisplay').style.display = 'flex';
+        } else {
+            alert("Error initiating test: " + (data.detail || "Unknown error"));
+        }
+    })
+    .catch(err => {
+        testBtn.disabled = false;
+        testBtn.textContent = "Test";
+        alert("Network error initiating test. Please try again.");
+    });
 }
 </script>
 {% endblock %}
