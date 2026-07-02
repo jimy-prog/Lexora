@@ -46,7 +46,7 @@ body {
 .subtitle {
   font-size: 0.85rem;
   color: #64748b;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   line-height: 1.5;
 }
 .profile-list {
@@ -113,6 +113,36 @@ body {
   color: #6b51ef;
   text-decoration: underline;
 }
+.role-container {
+  margin-bottom: 24px;
+  text-align: left;
+}
+.role-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+.role-select {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  outline: none;
+  color: #0f172a;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.role-select:focus {
+  border-color: #7b61ff;
+  background: #fff;
+}
 </style>
 </head>
 <body>
@@ -121,8 +151,16 @@ body {
   <h1 class="title">Choose an account</h1>
   <p class="subtitle">to continue to <strong>Lexora (Local Simulation)</strong></p>
 
+  <div class="role-container">
+    <label class="role-label">Select Account Role</label>
+    <select id="role-select" class="role-select">
+      <option value="student">Student learning English</option>
+      <option value="teacher">Teacher / Tutor</option>
+    </select>
+  </div>
+
   <div class="profile-list">
-    <a href="/auth/google/callback?email=alice.smith@gmail.com&name=Alice Smith" class="profile-item">
+    <a href="#" onclick="selectProfile('alice.smith@gmail.com', 'Alice Smith'); return false;" class="profile-item">
       <div class="profile-avatar" style="background:#ef4444;">A</div>
       <div class="profile-info">
         <div class="profile-name">Alice Smith</div>
@@ -131,7 +169,7 @@ body {
       <i class="fa-solid fa-angle-right" style="color:#94a3b8;"></i>
     </a>
 
-    <a href="/auth/google/callback?email=jamshid.mahkamov@gmail.com&name=Jamshid Mahkamov" class="profile-item">
+    <a href="#" onclick="selectProfile('jamshid.mahkamov@gmail.com', 'Jamshid Mahkamov'); return false;" class="profile-item">
       <div class="profile-avatar" style="background:#3b82f6;">J</div>
       <div class="profile-info">
         <div class="profile-name">Jamshid Mahkamov</div>
@@ -140,7 +178,7 @@ body {
       <i class="fa-solid fa-angle-right" style="color:#94a3b8;"></i>
     </a>
 
-    <a href="/auth/google/callback?email=eleanor.vance@gmail.com&name=Eleanor Vance" class="profile-item">
+    <a href="#" onclick="selectProfile('eleanor.vance@gmail.com', 'Eleanor Vance'); return false;" class="profile-item">
       <div class="profile-avatar" style="background:#10b981;">E</div>
       <div class="profile-info">
         <div class="profile-name">Eleanor Vance</div>
@@ -152,5 +190,12 @@ body {
 
   <a class="cancel-link" href="/register"><i class="fa-solid fa-arrow-left-long"></i> Back to registration</a>
 </div>
+
+<script>
+function selectProfile(email, name) {
+  const role = document.getElementById('role-select').value;
+  window.location.href = `/auth/google/callback?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&role=${role}`;
+}
+</script>
 </body>
 </html>

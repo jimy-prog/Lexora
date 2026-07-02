@@ -179,7 +179,7 @@ async def register_page(request: Request):
 import random
 import secrets
 from datetime import datetime, timedelta
-from master_database import SessionMaster, EmailOTP, PhoneOTP, PlatformTenant, User
+from master_database import SessionMaster, EmailOTP, PhoneOTP, PlatformTenant, User, TeacherProfile, StudentProfile
 from auth import hash_pw
 
 @app.post("/register/send-otp", response_class=HTMLResponse)
@@ -292,34 +292,69 @@ async def register_verify(request: Request, email: str = Form(""), phone: str = 
                 })
             phone = ""
             
-        # 1. Create a unique isolated database tenant
-        slug_base = email.split("@")[0].replace(".", "_")
-        tenant_slug = f"{slug_base}_{random.randint(1000,9999)}"
-        tenant = PlatformTenant(
-            slug=tenant_slug,
-            db_filename=f"tenant_{tenant_slug}.db"
-        )
-        db.add(tenant)
-        db.flush() # get tenant.id
+        # 1. Fetch the default tenant
+        tenant = db.query(PlatformTenant).filter(PlatformTenant.slug == "lexora_admin").first()
+        if not tenant:
+            tenant = PlatformTenant(
+                slug="lexora_admin",
+                db_filename="tenant_1.db"
+            )
+            db.add(tenant)
+            db.flush()
         
-        # 2. Create User linked to the tenant
+        role = account_type.strip().lower()
+        if role not in {"teacher", "student"}:
+            role = "student"
+            
+        prefix = email.split("@")[0].replace(".", "_")
+        username = f"{prefix}_{random.randint(1000, 9999)}"
+        
+        # 2. Create User linked to the default tenant
         new_user = User(
             tenant_id=tenant.id,
-            username=tenant_slug, # Username is slug by default
+            username=username,
             email=email,
             phone=phone if phone else None,
             full_name=full_name.strip(),
             password_hash=hash_pw(password),
-            role="owner", # They are the owner of their own tenant
+            role=role,
             is_active=True
         )
         db.add(new_user)
+        db.flush() # get new_user.id
+        
+        # 3. Create Profile in Master DB
+        if role == "teacher":
+            profile = TeacherProfile(user_id=new_user.id, phone=phone)
+            db.add(profile)
+        else:
+            profile = StudentProfile(user_id=new_user.id, phone=phone)
+            db.add(profile)
+            
+            # Also add to waitlist in tenant database (tenant_1.db)
+            from database import get_tenant_engine, sessionmaker as tenant_sessionmaker
+            from routers.waitlist import WaitlistEntry
+            try:
+                engine = get_tenant_engine("tenant_1.db")
+                SessionTenant = tenant_sessionmaker(bind=engine)
+                tenant_db = SessionTenant()
+                entry = WaitlistEntry(
+                    name=full_name.strip(),
+                    phone=phone,
+                    status="new"
+                )
+                tenant_db.add(entry)
+                tenant_db.commit()
+                tenant_db.close()
+            except Exception as e:
+                print("Error writing student to tenant waitlist:", e)
+                
         db.commit()
         db.refresh(new_user)
         
-        # 3. Log them in automatically
+        # 4. Log them in automatically
         token = create_session(new_user.id)
-        response = RedirectResponse("/dashboard" if account_type == "teacher" else "/mock", status_code=302)
+        response = RedirectResponse("/dashboard" if role == "teacher" else "/mock", status_code=302)
         response.set_cookie(SESSION_KEY, token, httponly=True, max_age=60*60*24*30, samesite="lax")
         return response
     finally:
@@ -334,6 +369,7 @@ async def mock_google_oauth_callback(
     request: Request, 
     email: str, 
     name: str,
+    role: str = "student",
     avatar: str = ""
 ):
     master_db = SessionMaster()
@@ -342,33 +378,63 @@ async def mock_google_oauth_callback(
         user = master_db.query(User).filter(User.email == email).first()
         
         if not user:
-            # Create a unique isolated database tenant
-            slug_base = email.split("@")[0].replace(".", "_")
-            tenant_slug = f"{slug_base}_{random.randint(1000, 9999)}"
-            
-            tenant = PlatformTenant(
-                slug=tenant_slug,
-                db_filename=f"tenant_{tenant_slug}.db"
-            )
-            master_db.add(tenant)
-            master_db.flush()
+            # Fetch the default tenant
+            tenant = master_db.query(PlatformTenant).filter(PlatformTenant.slug == "lexora_admin").first()
+            if not tenant:
+                tenant = PlatformTenant(slug="lexora_admin", db_filename="tenant_1.db")
+                master_db.add(tenant)
+                master_db.flush()
+                
+            role = role.strip().lower()
+            if role not in {"teacher", "student"}:
+                role = "student"
+                
+            prefix = email.split("@")[0].replace(".", "_")
+            username = f"{prefix}_{random.randint(1000, 9999)}"
             
             user = User(
                 tenant_id=tenant.id,
-                username=tenant_slug,
+                username=username,
                 email=email,
                 full_name=name.strip(),
                 password_hash=hash_pw(secrets.token_hex(16)),
-                role="owner",
+                role=role,
                 avatar_url=avatar,
                 is_active=True
             )
             master_db.add(user)
+            master_db.flush()
+            
+            if role == "teacher":
+                profile = TeacherProfile(user_id=user.id)
+                master_db.add(profile)
+            else:
+                profile = StudentProfile(user_id=user.id)
+                master_db.add(profile)
+                
+                # Also add student to the CRM waitlist in tenant_1.db
+                from database import get_tenant_engine, sessionmaker as tenant_sessionmaker
+                from routers.waitlist import WaitlistEntry
+                try:
+                    engine = get_tenant_engine("tenant_1.db")
+                    SessionTenant = tenant_sessionmaker(bind=engine)
+                    tenant_db = SessionTenant()
+                    entry = WaitlistEntry(
+                        name=name.strip(),
+                        status="new"
+                    )
+                    tenant_db.add(entry)
+                    tenant_db.commit()
+                    tenant_db.close()
+                except Exception as e:
+                    print("Error writing Google student to tenant waitlist:", e)
+                    
             master_db.commit()
             master_db.refresh(user)
             
         token = create_session(user.id)
-        response = RedirectResponse("/dashboard", status_code=302)
+        dest = "/dashboard" if user.role in {"owner", "teacher"} else "/mock"
+        response = RedirectResponse(dest, status_code=302)
         response.set_cookie(SESSION_KEY, token, httponly=True, max_age=60*60*24*30, samesite="lax")
         return response
     finally:
