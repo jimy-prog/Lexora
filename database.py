@@ -297,161 +297,28 @@ def _seed_settings(db):
     db.commit()
 
 def _seed_placement_questions(db):
-    if db.query(PlacementQuestion).count() > 0:
+    if db.query(PlacementQuestion).count() < 200:
+        db.query(PlacementQuestion).delete()
+        db.commit()
+    else:
         return
-    questions = [
-        PlacementQuestion(
-            level="elementary",
-            prompt="She ___ a doctor at the local hospital.",
-            option_a="am", option_b="are", option_c="is", option_d="be",
-            correct_option="C"
-        ),
-        PlacementQuestion(
-            level="elementary",
-            prompt="I ___ like sushi because I don't like raw fish.",
-            option_a="doesn't", option_b="don't", option_c="am not", option_d="no",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="elementary",
-            prompt="Where ___ you go last Sunday?",
-            option_a="do", option_b="did", option_c="were", option_d="are",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="elementary",
-            prompt="These are my ___ keys.",
-            option_a="father", option_b="fathers", option_c="father's", option_d="fathers'",
-            correct_option="C"
-        ),
-        PlacementQuestion(
-            level="elementary",
-            prompt="We ___ to the cinema next Friday.",
-            option_a="going", option_b="are going", option_c="goes", option_d="go",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="pre-intermediate",
-            prompt="While I ___ for the bus, it started to rain heavily.",
-            option_a="waited", option_b="was waiting", option_c="am waiting", option_d="had waited",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="pre-intermediate",
-            prompt="This book is ___ than the one I read last week.",
-            option_a="more good", option_b="gooder", option_c="better", option_d="best",
-            correct_option="C"
-        ),
-        PlacementQuestion(
-            level="pre-intermediate",
-            prompt="Have you ___ been to the United States?",
-            option_a="never", option_b="ever", option_c="already", option_d="yet",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="pre-intermediate",
-            prompt="If I ___ enough money, I would buy a new laptop.",
-            option_a="have", option_b="had", option_c="would have", option_d="will have",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="pre-intermediate",
-            prompt="You ___ smoke inside the building; it is strictly forbidden.",
-            option_a="don't have to", option_b="mustn't", option_c="needn't", option_d="should",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="intermediate",
-            prompt="I ___ this project for three weeks now, and it's almost done.",
-            option_a="am working", option_b="have been working", option_c="worked", option_d="had worked",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="intermediate",
-            prompt="By the time we arrived at the cinema, the movie ___.",
-            option_a="started", option_b="has started", option_c="had already started", option_d="was starting",
-            correct_option="C"
-        ),
-        PlacementQuestion(
-            level="intermediate",
-            prompt="He suggested ___ a break after working for four hours.",
-            option_a="taking", option_b="to take", option_c="we should take", option_d="take",
-            correct_option="A"
-        ),
-        PlacementQuestion(
-            level="intermediate",
-            prompt="I wish I ___ play the piano; it sounds so beautiful.",
-            option_a="can", option_b="could", option_c="will be able to", option_d="would",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="intermediate",
-            prompt="The bridge ___ repaired at the moment, so traffic is delayed.",
-            option_a="is being", option_b="is", option_c="was", option_d="has been",
-            correct_option="A"
-        ),
-        PlacementQuestion(
-            level="upper-intermediate",
-            prompt="If you ___ me earlier, I would have helped you.",
-            option_a="told", option_b="would tell", option_c="had told", option_d="have told",
-            correct_option="C"
-        ),
-        PlacementQuestion(
-            level="upper-intermediate",
-            prompt="He speaks English so well; he ___ lived in the UK for a long time.",
-            option_a="must have", option_b="should have", option_c="can have", option_d="would have",
-            correct_option="A"
-        ),
-        PlacementQuestion(
-            level="upper-intermediate",
-            prompt="I look forward to ___ from you soon.",
-            option_a="hear", option_b="hearing", option_c="be hearing", option_d="heard",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="upper-intermediate",
-            prompt="Despite ___ hard, he failed to pass the final exam.",
-            option_a="he studied", option_b="studying", option_c="of studying", option_d="his study",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="upper-intermediate",
-            prompt="She is the person ___ I was speaking about yesterday.",
-            option_a="which", option_b="whom", option_c="whose", option_d="what",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="advanced",
-            prompt="Hardly ___ entered the room when the phone started ringing.",
-            option_a="he had", option_b="had he", option_c="did he", option_d="he did",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="advanced",
-            prompt="The company's success is largely ___ to the dedication of its staff.",
-            option_a="ascribed", option_b="attributable", option_c="owing", option_d="thanks",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="advanced",
-            prompt="It is crucial that he ___ present at the meeting tomorrow.",
-            option_a="is", option_b="be", option_c="will be", option_d="was",
-            correct_option="B"
-        ),
-        PlacementQuestion(
-            level="advanced",
-            prompt="___ the weather clear up, we will go for a hike in the mountains.",
-            option_a="Should", option_b="Would", option_c="Had", option_d="Were",
-            correct_option="A"
-        ),
-        PlacementQuestion(
-            level="advanced",
-            prompt="The city council is planning to ___ the old building and build a park.",
-            option_a="demolish", option_b="devastate", option_c="dismantle", option_d="destroy",
-            correct_option="A"
+        
+    try:
+        from placement_seed_data import PLACEMENT_QUESTIONS
+    except ImportError:
+        print("[Seeding Error] Could not import PLACEMENT_QUESTIONS from placement_seed_data")
+        return
+        
+    for q_data in PLACEMENT_QUESTIONS:
+        q = PlacementQuestion(
+            level=q_data["level"],
+            prompt=q_data["prompt"],
+            option_a=q_data["option_a"],
+            option_b=q_data["option_b"],
+            option_c=q_data["option_c"],
+            option_d=q_data["option_d"],
+            correct_option=q_data["correct_option"]
         )
-    ]
-    for q in questions:
         db.add(q)
     db.commit()
 
