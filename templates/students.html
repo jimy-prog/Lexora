@@ -4,8 +4,9 @@
 
 {% block topbar_actions %}
 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-  <a href="/students/" class="btn btn-ghost btn-sm">Active</a>
+  <a href="/students/" class="btn btn-primary btn-sm" style="background:var(--accent);">Active Students</a>
   <button type="button" class="btn btn-orange btn-sm" onclick="openBannedPage()">Banned</button>
+  <a href="/placement/" class="btn btn-ghost btn-sm">Placement Tests</a>
   <div style="position:relative">
     <input id="searchBox" class="form-control" placeholder="Search student..." style="width:220px;padding:6px 12px" oninput="liveSearch(this.value)">
     <div id="searchResults" style="display:none;position:absolute;top:110%;left:0;right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-sm);z-index:300;overflow:hidden"></div>
@@ -112,9 +113,15 @@
         </div>
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label">CEFR Level</label>
-            <select class="form-control" name="level">
-              {% for lv in ['','A1','A2','B1','B2','C1','C2'] %}<option value="{{ lv }}">{{ lv or 'Not set' }}</option>{% endfor %}
+            <label class="form-label">English Level</label>
+            <select class="form-control" name="level" id="studentLevelSelect" onchange="onLevelChange(this.value)">
+              <option value="">Not set</option>
+              <option value="beginner">Beginner</option>
+              <option value="elementary">Elementary</option>
+              <option value="pre-intermediate">Pre-Intermediate</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="upper-intermediate">Upper-Intermediate</option>
+              <option value="advanced">Advanced</option>
             </select>
           </div>
           <div class="form-group">
@@ -125,6 +132,10 @@
         <div class="form-group">
           <label class="form-label">Notes</label>
           <textarea class="form-control" name="notes" rows="2"></textarea>
+        </div>
+        <div id="placementWarningCard" class="alert" style="background:#fef3c7; border:1px solid #fde68a; color:#b45309; margin-bottom:16px; display:none; flex-direction:column; gap:8px;">
+            <div style="font-weight:700;"><i class="fa-solid fa-triangle-exclamation"></i> Test Verification Required</div>
+            <div style="font-size:0.82rem;">Since you selected a level other than Beginner, this student must pass the placement test first. The button below will generate a temporary 4-digit PIN for the tablet.</div>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button type="button" class="btn btn-ghost" onclick="closeModal('addStudent')">Cancel</button>
@@ -219,5 +230,56 @@ document.addEventListener('click', e => {
     if (sr) sr.style.display = 'none';
   }
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+    {% if add_from_placement %}
+    openModal('addStudent');
+    
+    const nameInput = document.querySelector('#addStudentForm input[name="name"]');
+    if (nameInput) {
+        nameInput.value = {{ p_name | tojson }};
+    }
+    
+    const notesInput = document.querySelector('#addStudentForm textarea[name="notes"]');
+    if (notesInput) {
+        notesInput.value = {{ p_notes | tojson }};
+    }
+    
+    const levelSelect = document.querySelector('#addStudentForm select[name="level"]');
+    if (levelSelect) {
+        const targetLevel = {{ p_level | tojson }}.toLowerCase();
+        const levelMap = {
+            'elementary': 'A2',
+            'pre-intermediate': 'B1',
+            'intermediate': 'B1',
+            'upper-intermediate': 'B2',
+            'advanced': 'C1'
+        };
+        if (levelMap[targetLevel]) {
+            levelSelect.value = levelMap[targetLevel];
+        }
+    }
+    {% endif %}
+});
+
+function onLevelChange(val) {
+    const form = document.getElementById('addStudentForm');
+    const submitBtn = document.getElementById('addStudentSubmit');
+    const warningCard = document.getElementById('placementWarningCard');
+    
+    if (val === "" || val === "beginner") {
+        form.action = "/students/add";
+        submitBtn.textContent = "Add Student";
+        submitBtn.classList.remove('btn-orange');
+        submitBtn.classList.add('btn-primary');
+        warningCard.style.display = 'none';
+    } else {
+        form.action = "/placement/session/initiate";
+        submitBtn.textContent = "Generate PIN for Tablet";
+        submitBtn.classList.remove('btn-primary');
+        submitBtn.classList.add('btn-orange');
+        warningCard.style.display = 'flex';
+    }
+}
 </script>
 {% endblock %}

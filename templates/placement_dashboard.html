@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+{% block title %}Placement Tests | Lexora{% endblock %}
+{% block page_title %}Students / Placement Tests{% endblock %}
+
+{% block topbar_actions %}
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+  <a href="/students/" class="btn btn-ghost btn-sm">Active Students</a>
+  <button type="button" class="btn btn-orange btn-sm" onclick="openBannedPage()">Banned</button>
+  <a href="/placement/" class="btn btn-primary btn-sm" style="background:var(--accent);">Placement Tests</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:28px;">
+    <p style="color:var(--text2); margin:0; font-size:0.95rem;">Manage placement testing sessions for walk-in clients and analyze level test results.</p>
+    <button class="btn btn-primary btn-sm" onclick="openModal('createSessionModal')" style="margin:0; width:auto; padding:10px 20px; font-weight:600; display:flex; align-items:center; gap:8px;">
+        <i class="fa-solid fa-plus"></i> New Placement Test
+    </button>
+</div>
+
+{% if show_pin %}
+<div class="alert" style="background:#ecfdf5; border:1px solid #a7f3d0; color:#047857; padding:20px; border-radius:16px; margin-bottom:24px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px;">
+    <div style="font-size:1.1rem; font-weight:800;"><i class="fa-solid fa-circle-check"></i> Placement PIN Generated Successfully!</div>
+    <div style="font-size:0.92rem; color:#065f46;">Access PIN code for student <strong>{{ show_name }}</strong>:</div>
+    <div style="font-size:3.5rem; font-weight:900; font-family:var(--font-mono); letter-spacing:4px; margin:8px 0; color:var(--accent);">{{ show_pin }}</div>
+    <div style="font-size:0.85rem; color:#065f46; max-width:480px;">Please open <strong>/placement/take</strong> on the iPad/tablet and enter this PIN code to start the test. The client will be registered automatically if they pass.</div>
+</div>
+{% endif %}
+
+<!-- STATS GRID -->
+<div class="stats-grid mb-6">
+    <div class="stat-card">
+        <div class="stat-label">Active Testing Sessions</div>
+        <div class="stat-value" style="color:var(--accent);">{{ active_sessions | length }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Completed Evaluations</div>
+        <div class="stat-value" style="color:#10b981;">{{ completed_sessions | length }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Test Question Bank</div>
+        <div class="stat-value">{{ questions | length }}</div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- ACTIVE CODES & SESSIONS -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Live Testing Sessions</span>
+            <span class="pill pill-orange">Active</span>
+        </div>
+        <div class="card-body" style="padding:0;">
+            {% if not active_sessions %}
+            <div style="padding:40px; text-align:center; color:var(--text2);">
+                <i class="fa-solid fa-tablet-screen-button" style="font-size:2rem; margin-bottom:12px; opacity:0.5;"></i>
+                <p style="margin:0; font-size:0.9rem;">No active placement tests running right now.</p>
+            </div>
+            {% else %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Target Level</th>
+                            <th style="text-align:center;">Access PIN</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in active_sessions %}
+                        <tr>
+                            <td class="td-primary">{{ s.student_name }}</td>
+                            <td><span class="pill pill-grey">{{ s.target_level | upper }}</span></td>
+                            <td style="text-align:center;"><strong style="font-size:1.25rem; font-family:var(--font-mono); letter-spacing:1px; color:var(--accent);">{{ s.access_code }}</strong></td>
+                            <td>
+                                {% if s.status == 'pending' %}
+                                <span class="pill pill-grey">Waiting...</span>
+                                {% else %}
+                                <span class="pill pill-orange" style="animation: pulse 1.5s infinite;">Testing</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form action="/placement/session/{{ s.id }}/delete" method="POST" style="margin:0;" onsubmit="return confirm('Cancel this session?');">
+                                    <button type="submit" class="btn btn-xs btn-ghost" style="color:#ef4444; width:auto; display:inline-flex; align-items:center; gap:4px; padding:4px 8px;">
+                                        <i class="fa-solid fa-trash-can"></i> Cancel
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- QUICK INSTRUCTIONS -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">iPad / Tablet Integration Guide</span>
+        </div>
+        <div class="card-body">
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px;">
+                <h5 style="margin-top:0; margin-bottom:8px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-tablet" style="color:var(--accent);"></i> Tablet URL Address
+                </h5>
+                <p style="font-size:0.85rem; margin-bottom:8px; color:var(--text2);">Open the following URL on your iPad mini or tablet browser:</p>
+                <code style="display:block; background:#e2e8f0; padding:8px 12px; border-radius:6px; font-size:0.9rem; font-weight:700; color:var(--text);">https://teacher-admin.onrender.com/placement/take</code>
+            </div>
+            <ol style="margin:0; padding-left:20px; font-size:0.88rem; line-height:1.6; color:var(--text2);">
+                <li>Click <strong>New Placement Test</strong>, choose a target level, and enter the client's name.</li>
+                <li>Write down or show the <strong>Access PIN</strong> (e.g. 5829) on the screen.</li>
+                <li>Enter the PIN on your iPad / tablet to unlock the quiz for the client.</li>
+                <li>The test will automatically score itself and appear in the results ledger below.</li>
+            </ol>
+        </div>
+    </div>
+</div>
+
+<!-- COMPLETED RESULTS LEDGER -->
+<div class="card mt-6">
+    <div class="card-header">
+        <span class="card-title">Placement Test Results</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+        {% if not completed_sessions %}
+        <div style="padding:40px; text-align:center; color:var(--text2);">
+            <i class="fa-solid fa-receipt" style="font-size:2rem; margin-bottom:12px; opacity:0.5;"></i>
+            <p style="margin:0; font-size:0.9rem;">No completed placement tests yet.</p>
+        </div>
+        {% else %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Student Name</th>
+                        <th>Target Level</th>
+                        <th>Score</th>
+                        <th>Result</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in completed_sessions %}
+                    <tr>
+                        <td class="mono" style="font-size:0.85rem;">{{ s.completed_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td class="td-primary">{{ s.student_name }}</td>
+                        <td><span class="pill pill-grey">{{ s.target_level | upper }}</span></td>
+                        <td class="mono"><strong>{{ s.score }} / {{ s.total_questions }}</strong></td>
+                        <td>
+                            {% if s.passed %}
+                            <span class="pill pill-green">Passed Level</span>
+                            {% else %}
+                            <span class="pill pill-orange">Needs Lower Level</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if s.passed and s.group_id %}
+                            <span class="pill pill-green" style="font-weight:700; padding:6px 12px; display:inline-flex; align-items:center; gap:6px;">
+                                <i class="fa-solid fa-user-check"></i> Registered
+                            </span>
+                            {% else %}
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <a href="/students/?add_from_placement=1&name={{ s.student_name | urlencode }}&notes={{ ('Completed placement test for ' + s.target_level + ' level with score ' + (s.score | string) + '/' + (s.total_questions | string) + ' (' + ('Passed' if s.passed else 'Failed') + ')') | urlencode }}&level={{ s.target_level | urlencode }}" class="btn btn-xs btn-primary" style="width:auto; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; font-weight:600; margin:0;">
+                                    <i class="fa-solid fa-user-plus"></i> Create Profile
+                                </a>
+                                {% if not s.passed and s.group_id %}
+                                <form action="/placement/session/{{ s.id }}/override" method="POST" style="margin:0;">
+                                    <button type="submit" class="btn btn-xs btn-orange" style="width:auto; display:inline-flex; align-items:center; gap:4px; padding:6px 12px; font-weight:600; margin:0;" onclick="return confirm('Register this student despite failing the placement test?');">
+                                        <i class="fa-solid fa-user-shield"></i> Register Anyway
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- QUESTIONS BANK SECTION -->
+<div class="card mt-6">
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="card-title">Placement Questions Bank</span>
+        <button class="btn btn-ghost btn-xs" onclick="openModal('addQuestionModal')" style="width:auto; padding:6px 12px; display:flex; align-items:center; gap:6px; color:var(--accent);">
+            <i class="fa-solid fa-plus"></i> Add Question
+        </button>
+    </div>
+    <div class="card-body">
+        {% if not questions %}
+        <div style="padding:20px; text-align:center; color:var(--text2);">No questions added yet.</div>
+        {% else %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Level</th>
+                        <th>Question Prompt</th>
+                        <th>Options (Correct)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for q in questions %}
+                    <tr>
+                        <td><span class="pill pill-grey">{{ q.level | upper }}</span></td>
+                        <td style="font-weight:500; font-size:0.92rem; color:var(--text);">{{ q.prompt }}</td>
+                        <td style="font-size:0.85rem; color:var(--text2); max-width:300px;">
+                            A: {{ q.option_a }} | B: {{ q.option_b }} | C: {{ q.option_c }} | D: {{ q.option_d }}  
+                            <span class="pill pill-green" style="margin-left:6px; font-weight:bold;">{{ q.correct_option }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- CREATE SESSION MODAL -->
+<div class="modal-overlay" id="createSessionModal" onclick="if(event.target===this)closeModal('createSessionModal')">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">Start New Placement Test</span>
+            <button class="modal-close" onclick="closeModal('createSessionModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <form action="/placement/session/create" method="POST">
+                <div class="form-group">
+                    <label class="form-label">Student Name</label>
+                    <input class="form-control" type="text" name="student_name" required placeholder="Enter client's full name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Target Level to Test</label>
+                    <select class="form-control" name="target_level" required>
+                        <option value="elementary">Elementary</option>
+                        <option value="pre-intermediate">Pre-Intermediate</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="upper-intermediate">Upper-Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                    </select>
+                </div>
+                <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('createSessionModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="width:auto; margin:0;">Generate Access PIN</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ADD QUESTION MODAL -->
+<div class="modal-overlay" id="addQuestionModal" onclick="if(event.target===this)closeModal('addQuestionModal')">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">Add Placement Question</span>
+            <button class="modal-close" onclick="closeModal('addQuestionModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <form action="/placement/question/add" method="POST">
+                <div class="form-group">
+                    <label class="form-label">Level</label>
+                    <select class="form-control" name="level" required>
+                        <option value="elementary">Elementary</option>
+                        <option value="pre-intermediate">Pre-Intermediate</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="upper-intermediate">Upper-Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Prompt / Question Text</label>
+                    <textarea class="form-control" name="prompt" rows="2" required placeholder="Type question here..."></textarea>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Option A</label>
+                        <input class="form-control" type="text" name="option_a" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Option B</label>
+                        <input class="form-control" type="text" name="option_b" required>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Option C</label>
+                        <input class="form-control" type="text" name="option_c" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Option D</label>
+                        <input class="form-control" type="text" name="option_d" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Correct Option</label>
+                    <select class="form-control" name="correct_option" required>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                    </select>
+                </div>
+                <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('addQuestionModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="width:auto; margin:0;">Save Question</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes pulse {
+        0% { opacity: 0.5; }
+        50% { opacity: 1; }
+        100% { opacity: 0.5; }
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lexora Placement Testing Center</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #7b61ff;
+            --primary-hover: #6b51ef;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --bg-light: #f8fafc;
+            --border: #e2e8f0;
+            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            background: #ffffff;
+            border-radius: 28px;
+            padding: 40px;
+            width: 100%;
+            max-width: 650px;
+            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            letter-spacing: -0.03em;
+        }
+        .logo span { color: var(--primary); }
+        .subtitle {
+            font-size: 0.88rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-bottom: 32px;
+        }
+
+        /* Access PIN Pad */
+        .pin-input {
+            width: 200px;
+            font-size: 2.5rem;
+            font-weight: 800;
+            text-align: center;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 24px;
+            outline: none;
+            color: var(--primary);
+            letter-spacing: 4px;
+            background: var(--bg-light);
+        }
+        .pin-input:focus {
+            border-color: var(--primary);
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 70px);
+            gap: 16px;
+            justify-content: center;
+            margin-bottom: 32px;
+        }
+        .key {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: 1.5px solid var(--border);
+            background: #ffffff;
+            font-size: 1.6rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-dark);
+            transition: all 0.15s;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .key:active {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+            transform: scale(0.92);
+        }
+
+        /* General Button style */
+        .btn {
+            background: var(--primary);
+            color: #ffffff;
+            border: none;
+            border-radius: 999px;
+            padding: 16px 36px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.15s, transform 0.1s;
+        }
+        .btn:hover { background: var(--primary-hover); }
+        .btn:active { transform: scale(0.99); }
+
+        .error-box {
+            background: #fef2f2;
+            border: 1px solid #fee2e2;
+            color: #ef4444;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+            font-weight: 500;
+        }
+
+        /* Test Section styles */
+        .test-header {
+            text-align: left;
+            margin-bottom: 28px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid var(--border);
+        }
+        .test-title { font-size: 1.4rem; font-weight: 800; margin-bottom: 4px; }
+        .test-sub { font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
+
+        .q-card {
+            text-align: left;
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .q-text { font-size: 1.08rem; font-weight: 700; margin-bottom: 16px; line-height: 1.5; }
+        
+        .opt-label {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: #ffffff;
+            border: 1.5px solid var(--border);
+            padding: 14px 20px;
+            border-radius: 14px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.98rem;
+            transition: all 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .opt-label:hover {
+            border-color: var(--primary);
+            background: #fdfcff;
+        }
+        .opt-label.selected {
+            border-color: var(--primary);
+            background: #f5f3ff;
+            color: var(--primary);
+        }
+        .opt-label input[type="radio"] {
+            transform: scale(1.25);
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        /* Success screen */
+        .success-icon {
+            font-size: 5rem;
+            color: #10b981;
+            margin-bottom: 24px;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" style="max-width: {% if step == 'test' %}750px{% else %}550px{% endif %};">
+        <div class="logo">Lex<span>ora</span></div>
+        <div class="subtitle">Placement Testing Portal</div>
+
+        {% if step == 'enter_code' %}
+            <p style="color: var(--text-muted); margin-bottom: 24px; font-weight: 500;">Enter the 4-digit Access PIN provided by the administrator to begin your English test.</p>
+            
+            {% if error %}
+            <div class="error-box">
+                <i class="fa-solid fa-circle-exclamation" style="margin-right:6px;"></i> {{ error }}
+            </div>
+            {% endif %}
+
+            <form action="/placement/take/start" method="POST" id="codeForm">
+                <input type="text" name="code" id="pinCode" class="pin-input" readonly maxlength="4" placeholder="0000" required>
+            </form>
+
+            <div class="keypad">
+                <div class="key" onclick="pressNum(1)">1</div>
+                <div class="key" onclick="pressNum(2)">2</div>
+                <div class="key" onclick="pressNum(3)">3</div>
+                <div class="key" onclick="pressNum(4)">4</div>
+                <div class="key" onclick="pressNum(5)">5</div>
+                <div class="key" onclick="pressNum(6)">6</div>
+                <div class="key" onclick="pressNum(7)">7</div>
+                <div class="key" onclick="pressNum(8)">8</div>
+                <div class="key" onclick="pressNum(9)">9</div>
+                <div class="key" onclick="clearNum()" style="font-size:1.1rem; color:#ef4444;"><i class="fa-solid fa-trash-can"></i></div>
+                <div class="key" onclick="pressNum(0)">0</div>
+                <div class="key" onclick="submitCode()" style="font-size:1.1rem; color:#10b981;"><i class="fa-solid fa-circle-check"></i></div>
+            </div>
+
+        {% elif step == 'test' %}
+            <div class="test-header">
+                <div class="test-title">Level Assessment: {{ session.target_level | upper }}</div>
+                <div class="test-sub">Candidate: <strong>{{ session.student_name }}</strong> &nbsp;&bull;&nbsp; Please read carefully and select the best answer.</div>
+            </div>
+
+            <form action="/placement/take/submit" method="POST" id="testForm" onsubmit="return confirm('Submit your test answers?');">
+                <input type="hidden" name="session_id" value="{{ session.id }}">
+                
+                {% for q in questions %}
+                <div class="q-card">
+                    <div class="q-text">{{ loop.index }}. {{ q.prompt }}</div>
+                    
+                    <label class="opt-label" id="lbl-{{ q.id }}-A">
+                        <input type="radio" name="q_{{ q.id }}" value="A" required onclick="highlightOption({{ q.id }}, 'A')">
+                        <span>A. {{ q.option_a }}</span>
+                    </label>
+                    <label class="opt-label" id="lbl-{{ q.id }}-B">
+                        <input type="radio" name="q_{{ q.id }}" value="B" onclick="highlightOption({{ q.id }}, 'B')">
+                        <span>B. {{ q.option_b }}</span>
+                    </label>
+                    <label class="opt-label" id="lbl-{{ q.id }}-C">
+                        <input type="radio" name="q_{{ q.id }}" value="C" onclick="highlightOption({{ q.id }}, 'C')">
+                        <span>C. {{ q.option_c }}</span>
+                    </label>
+                    <label class="opt-label" id="lbl-{{ q.id }}-D">
+                        <input type="radio" name="q_{{ q.id }}" value="D" onclick="highlightOption({{ q.id }}, 'D')">
+                        <span>D. {{ q.option_d }}</span>
+                    </label>
+                </div>
+                {% endfor %}
+
+                <button type="submit" class="btn" style="margin-top:20px; font-size:1.15rem; padding:18px;">Submit Assessment</button>
+            </form>
+
+        {% elif step == 'done' %}
+            {% if session.passed %}
+                <i class="fa-solid fa-circle-check success-icon" style="color:#10b981;"></i>
+                <h2 style="font-size:1.8rem; font-weight:800; margin-bottom:12px; color:var(--text-dark);">Assessment Passed!</h2>
+                <p style="font-size:1.1rem; color:var(--text-muted); margin-bottom:28px; line-height:1.6;">
+                    Congratulations, <strong>{{ session.student_name }}</strong>! You successfully passed the placement test for <strong>{{ session.target_level | upper }}</strong>.
+                    {% if was_registered %}
+                    <br><span style="color:#10b981; font-weight:600;">Your registration profile has been automatically created!</span>
+                    {% endif %}
+                </p>
+            {% else %}
+                <i class="fa-solid fa-circle-info success-icon" style="color:#f59e0b;"></i>
+                <h2 style="font-size:1.8rem; font-weight:800; margin-bottom:12px; color:var(--text-dark);">Assessment Completed</h2>
+                <p style="font-size:1.1rem; color:var(--text-muted); margin-bottom:28px; line-height:1.6;">
+                    Thank you, <strong>{{ session.student_name }}</strong>. You have completed the placement assessment.
+                </p>
+            {% endif %}
+            <div style="background:var(--bg-light); border:1px dashed var(--border); border-radius:16px; padding:20px; margin-bottom:32px;">
+                <p style="font-size:0.92rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Next Steps</p>
+                <p style="font-size:1.05rem; font-weight:600; color:var(--text-dark);">Please hand the tablet back to the administrator.</p>
+            </div>
+        {% endif %}
+
+    </div>
+
+    <script>
+        function pressNum(num) {
+            const input = document.getElementById('pinCode');
+            if (input && input.value.length < 4) {
+                input.value += num;
+            }
+        }
+        function clearNum() {
+            const input = document.getElementById('pinCode');
+            if (input) {
+                input.value = "";
+            }
+        }
+        function submitCode() {
+            const input = document.getElementById('pinCode');
+            if (input && input.value.length === 4) {
+                document.getElementById('codeForm').submit();
+            } else {
+                alert("Please enter a 4-digit PIN code.");
+            }
+        }
+        
+        function highlightOption(qId, option) {
+            // Remove selected classes
+            ['A', 'B', 'C', 'D'].forEach(opt => {
+                const lbl = document.getElementById(`lbl-${qId}-${opt}`);
+                if (lbl) lbl.classList.remove('selected');
+            });
+            // Add to chosen
+            const target = document.getElementById(`lbl-${qId}-${option}`);
+            if (target) target.classList.add('selected');
+        }
+    </script>
+</body>
+</html>

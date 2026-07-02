@@ -38,6 +38,11 @@ def list_students(request: Request, db: Session = Depends(get_db)):
     err = request.query_params.get("error", "")
     warn = request.query_params.get("warn", "")
     msg_name = request.query_params.get("name", "")
+    
+    add_from_placement = request.query_params.get("add_from_placement", "")
+    p_name = request.query_params.get("name", "") if add_from_placement else ""
+    p_notes = request.query_params.get("notes", "") if add_from_placement else ""
+    p_level = request.query_params.get("level", "") if add_from_placement else ""
 
     return templates.TemplateResponse("students.html", {
         "request": request,
@@ -47,6 +52,10 @@ def list_students(request: Request, db: Session = Depends(get_db)):
         "error_code": err,
         "warn_code": warn,
         "message_name": msg_name,
+        "add_from_placement": add_from_placement,
+        "p_name": p_name,
+        "p_notes": p_notes,
+        "p_level": p_level,
     })
 
 
