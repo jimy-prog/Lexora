@@ -103,23 +103,62 @@ async def login_page(request: Request, next: str = "/dashboard"):
 
 
 
+from fastapi.responses import JSONResponse
+
 @app.post("/login")
-async def login_post(request: Request,
-                     identifier: str = Form(...),
-                     password: str = Form(...),
-                     next: str = Form("/dashboard")):
+async def login_post(request: Request):
+    content_type = request.headers.get("content-type", "")
+    
+    identifier = None
+    password = None
+    next_url = "/dashboard"
+    
+    if "application/json" in content_type:
+        try:
+            data = await request.json()
+            identifier = data.get("identifier")
+            password = data.get("password")
+            next_url = data.get("next", "/dashboard")
+        except Exception:
+            pass
+    else:
+        try:
+            form = await request.form()
+            identifier = form.get("identifier")
+            password = form.get("password")
+            next_url = form.get("next", "/dashboard")
+        except Exception:
+            pass
+            
+    if not identifier or not password:
+        if "application/json" in content_type:
+            return JSONResponse(status_code=422, content={"detail": "Missing identifier or password"})
+        return templates.TemplateResponse("login.html", {
+            "request": request, "next": next_url,
+            "error": "Username/Email and Password are required."
+        })
+        
     user = authenticate_user(identifier, password)
     if user:
         token = create_session(user.id)
-        dest = next if next.startswith("/") else "/dashboard"
+        dest = next_url if next_url.startswith("/") else "/dashboard"
         if dest == "/":
             dest = "/dashboard"
-        response = RedirectResponse(dest, status_code=302)
+            
+        if "application/json" in content_type:
+            response = JSONResponse(content={"success": True, "redirect": dest})
+        else:
+            response = RedirectResponse(dest, status_code=302)
+            
         response.set_cookie(SESSION_KEY, token, httponly=True,
                             max_age=60*60*24*30, samesite="lax")
         return response
+        
+    if "application/json" in content_type:
+        return JSONResponse(status_code=401, content={"detail": "Incorrect login or password. Try again."})
+        
     return templates.TemplateResponse("login.html", {
-        "request": request, "next": next,
+        "request": request, "next": next_url,
         "error": "Incorrect login or password. Try again."
     })
 
