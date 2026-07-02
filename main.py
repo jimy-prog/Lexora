@@ -183,7 +183,7 @@ from master_database import SessionMaster, EmailOTP, PhoneOTP, PlatformTenant, U
 from auth import hash_pw
 
 @app.post("/register/send-otp", response_class=HTMLResponse)
-async def register_send_otp(request: Request, email: str = Form(...)):
+async def register_send_otp(request: Request, email: str = Form(...), account_type: str = Form("student")):
     db = SessionMaster()
     try:
         # Check if user already exists
@@ -207,13 +207,13 @@ async def register_send_otp(request: Request, email: str = Form(...)):
         db.commit()
         
         return templates.TemplateResponse("register.html", {
-            "request": request, "step": "2", "channel": "email", "email": email.strip().lower()
+            "request": request, "step": "2", "channel": "email", "email": email.strip().lower(), "account_type": account_type
         })
     finally:
         db.close()
 
 @app.post("/register/send-otp-phone", response_class=HTMLResponse)
-async def register_send_otp_phone(request: Request, phone: str = Form(...)):
+async def register_send_otp_phone(request: Request, phone: str = Form(...), account_type: str = Form("student")):
     db = SessionMaster()
     try:
         phone_num = phone.strip()
@@ -238,7 +238,7 @@ async def register_send_otp_phone(request: Request, phone: str = Form(...)):
         db.commit()
         
         return templates.TemplateResponse("register.html", {
-            "request": request, "step": "2", "channel": "phone", "phone": phone_num
+            "request": request, "step": "2", "channel": "phone", "phone": phone_num, "account_type": account_type
         })
     finally:
         db.close()

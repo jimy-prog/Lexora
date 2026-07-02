@@ -46,7 +46,7 @@ body{
   color:#64748b;
   letter-spacing:.1em;
   text-transform:uppercase;
-  margin-bottom:32px;
+  margin-bottom:28px;
   font-weight:600;
 }
 .tabs {
@@ -190,6 +190,16 @@ body{
 
   <!-- Step 1: Request Email or Phone -->
   <div id="step-1" class="step {% if not step or step == '1' %}active{% endif %}">
+    
+    <!-- Account type selection shown immediately in Step 1 -->
+    <div class="form-group">
+      <label class="form-label">I want to register as a...</label>
+      <select id="main-role-select" onchange="syncRoleSelect(this.value)" required>
+        <option value="student">Student learning English</option>
+        <option value="teacher">Teacher / Tutor</option>
+      </select>
+    </div>
+
     <div class="tabs">
       <button class="tab-btn {% if not channel or channel == 'email' %}active{% endif %}" onclick="switchTab('email')">
         <i class="fa-solid fa-envelope"></i> Email Address
@@ -202,6 +212,7 @@ body{
     <!-- Email Form -->
     <div id="pane-email" class="register-form-pane {% if not channel or channel == 'email' %}active{% endif %}">
       <form method="post" action="/register/send-otp">
+        <input type="hidden" name="account_type" id="email-role-hidden" value="student">
         <div class="form-group">
           <label class="form-label">Email Address</label>
           <input class="form-control" type="email" name="email" required placeholder="you@example.com" value="{{ email | default('') }}">
@@ -213,6 +224,7 @@ body{
     <!-- Phone Form -->
     <div id="pane-phone" class="register-form-pane {% if channel == 'phone' %}active{% endif %}">
       <form method="post" action="/register/send-otp-phone">
+        <input type="hidden" name="account_type" id="phone-role-hidden" value="student">
         <div class="form-group">
           <label class="form-label">Phone Number</label>
           <input class="form-control" type="tel" name="phone" required placeholder="+998 90 123 45 67" value="{{ phone | default('') }}">
@@ -269,9 +281,9 @@ body{
 
       <div class="form-group">
         <label class="form-label">I am a...</label>
-        <select name="account_type" required>
-          <option value="student">Student learning English</option>
-          <option value="teacher">Teacher/Tutor</option>
+        <select name="account_type" id="step2-role-select" required>
+          <option value="student" {% if account_type == 'student' %}selected{% endif %}>Student learning English</option>
+          <option value="teacher" {% if account_type == 'teacher' %}selected{% endif %}>Teacher/Tutor</option>
         </select>
       </div>
 
@@ -296,9 +308,7 @@ body{
 
 <script>
 function switchTab(channel) {
-  // Update tabs
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  // Update panes
   document.querySelectorAll('.register-form-pane').forEach(pane => pane.classList.remove('active'));
   
   if (channel === 'phone') {
@@ -309,6 +319,21 @@ function switchTab(channel) {
     document.getElementById('pane-email').classList.add('active');
   }
 }
+
+function syncRoleSelect(val) {
+  document.getElementById('email-role-hidden').value = val;
+  document.getElementById('phone-role-hidden').value = val;
+  const step2Select = document.getElementById('step2-role-select');
+  if (step2Select) {
+    step2Select.value = val;
+  }
+}
+
+// Preset initially
+window.addEventListener('DOMContentLoaded', () => {
+  const currentVal = document.getElementById('main-role-select').value;
+  syncRoleSelect(currentVal);
+});
 </script>
 </body>
 </html>
