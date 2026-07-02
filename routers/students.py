@@ -109,7 +109,7 @@ def check_phone(phone: str = "", db: Session = Depends(get_db)):
 @router.post("/add")
 def add_student(
     name: str = Form(...),
-    group_id: int = Form(...),
+    group_id: int = Form(None),
     phone: str = Form(""),
     parent_phone: str = Form(""),
     email: str = Form(""),
@@ -117,8 +117,9 @@ def add_student(
     notes: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    from routers.waitlist import WaitlistEntry
+
     np = _norm_phone(phone)
-    known_match = None
     if np:
         banned_match = db.query(Student).filter(
             Student.banned == True,
@@ -128,51 +129,31 @@ def add_student(
             )
         ).first()
         if banned_match:
-            return RedirectResponse(f"/students/?error=banned_phone&name={banned_match.name}", status_code=303)
+            return RedirectResponse(f"/waitlist/?err=banned_phone&name={banned_match.name}", status_code=303)
 
-        known_match = db.query(Student).filter(
-            or_(
-                Student.phone.like(f"%{np}%"),
-                Student.parent_phone.like(f"%{np}%")
-            )
-        ).first()
-        if known_match:
-            log_student_event(
-                db,
-                student=known_match,
-                event_type="reused_phone_detected",
-                source="students",
-                details=f"New registration attempted with same phone for '{name}'",
-            )
+    level_map = {
+        'beginner': 'Beginner',
+        'elementary': 'A2',
+        'pre-intermediate': 'B1',
+        'intermediate': 'B1',
+        'upper-intermediate': 'B2',
+        'advanced': 'C1'
+    }
+    cefr_level = level_map.get(level.lower(), level) if level else ""
 
-    s = Student(
-        name=name,
-        group_id=group_id,
-        phone=phone,
-        parent_phone=parent_phone,
-        email=email,
-        notes=notes,
-        level=level,
-        start_date=date.today(),
-        active=True,
-        archived=False,
-        banned=False,
+    entry = WaitlistEntry(
+        name=name.strip(),
+        phone=phone.strip(),
+        parent_phone=parent_phone.strip(),
+        notes=f"{notes.strip()}\nEmail: {email.strip()}".strip() if email else notes.strip(),
+        level=cefr_level,
+        status="new",
+        desired_group_id=None
     )
-    db.add(s)
-    db.flush()
-    log_student_event(
-        db,
-        student=s,
-        event_type="created",
-        source="manual",
-        details=f"Registered manually into group_id={group_id}",
-    )
+    db.add(entry)
     db.commit()
 
-    if np and known_match:
-        return RedirectResponse(f"/students/?warn=known_phone&name={known_match.name}", status_code=303)
-
-    return RedirectResponse("/students/", status_code=303)
+    return RedirectResponse("/waitlist/?added=success", status_code=303)
 
 
 @router.post("/{sid}/archive")

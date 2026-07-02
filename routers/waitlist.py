@@ -13,7 +13,7 @@ import io
 import re
 from urllib.parse import quote, urlparse, parse_qs
 from urllib.request import urlopen, Request as UrlRequest
-from database import get_db, Base, Group, Student, Settings
+from database import get_db, Base, Group, Student, Settings, PlacementSession
 from student_history import log_student_event
 
 router = APIRouter(prefix="/waitlist")
@@ -38,6 +38,7 @@ class WaitlistEntry(Base):
     enquiry_date       = Column(Date, default=date.today)
     created_at         = Column(DateTime, default=datetime.utcnow)
     desired_group      = relationship("Group")
+    level              = Column(String, default="")
 
 
 
@@ -212,6 +213,14 @@ def waitlist_view(request: Request, db: Session = Depends(get_db)):
     sheet_gid = _get_setting(db, "waitlist_sheet_gid", DEFAULT_WAITLIST_SHEET_GID)
     last_import_error = _get_setting(db, "waitlist_sheet_last_error", "")
     sheet_csv_url = _get_setting(db, "waitlist_sheet_csv_url", "")
+    
+    active_sessions = db.query(PlacementSession).filter(
+        PlacementSession.status.in_(["pending", "active"])
+    ).order_by(PlacementSession.id.desc()).all()
+    completed_sessions = db.query(PlacementSession).filter(
+        PlacementSession.status == "completed"
+    ).order_by(PlacementSession.completed_at.desc()).all()
+
     return templates.TemplateResponse("waitlist.html", {
         "request": request, "entries": entries,
         "groups": groups, "status_labels": STATUS_LABELS,
@@ -222,7 +231,9 @@ def waitlist_view(request: Request, db: Session = Depends(get_db)):
         "sheet_gid": sheet_gid,
         "last_import_error": last_import_error,
         "sheet_csv_url": sheet_csv_url,
-        "active_page": "waitlist"
+        "active_page": "waitlist",
+        "active_sessions": active_sessions,
+        "completed_sessions": completed_sessions
     })
 
 @router.post("/import-google-sheet")

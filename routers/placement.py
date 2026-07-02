@@ -12,9 +12,11 @@ from auth import require_teacher_or_owner
 router = APIRouter(prefix="/placement", tags=["placement"])
 templates = Jinja2Templates(directory="templates")
 
-# Helper to register student upon passing or manual override
-def create_student_from_session(db: Session, session: PlacementSession) -> Student:
+# Helper to register student on the Waitlist upon passing or manual override
+def create_waitlist_from_session(db: Session, session: PlacementSession):
+    from routers.waitlist import WaitlistEntry
     level_map = {
+        'beginner': 'Beginner',
         'elementary': 'A2',
         'pre-intermediate': 'B1',
         'intermediate': 'B1',
@@ -23,25 +25,23 @@ def create_student_from_session(db: Session, session: PlacementSession) -> Stude
     }
     cefr_level = level_map.get(session.target_level.lower(), session.target_level.upper())
     
-    existing = db.query(Student).filter_by(name=session.student_name, group_id=session.group_id).first()
+    existing = db.query(WaitlistEntry).filter_by(name=session.student_name, phone=session.phone).first()
     if existing:
         return existing
         
-    s = Student(
+    entry = WaitlistEntry(
         name=session.student_name,
-        group_id=session.group_id,
         phone=session.phone,
         parent_phone=session.parent_phone,
-        email=session.email,
         level=cefr_level,
         notes=f"{session.notes}\n[Passed placement test for {session.target_level.upper()} level with score {session.score}/{session.total_questions} on {datetime.utcnow().date()}]".strip(),
-        start_date=datetime.utcnow().date(),
-        active=True
+        status="new",
+        desired_group_id=None
     )
-    db.add(s)
+    db.add(entry)
     db.commit()
-    db.refresh(s)
-    return s
+    db.refresh(entry)
+    return entry
 
 # -------------------------------------------------------------
 # ADMIN ROUTERS (Restricted to Teacher or Owner)
@@ -213,15 +213,15 @@ async def override_and_register(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
         
-    # Manually register the student
-    create_student_from_session(db, session)
+    # Manually register the student on the Waitlist
+    create_waitlist_from_session(db, session)
     
     session.passed = True
     session.status = "completed"
     session.completed_at = datetime.utcnow()
     db.commit()
     
-    return RedirectResponse("/placement/?override=success", status_code=303)
+    return RedirectResponse("/waitlist/?override=success", status_code=303)
 
 @router.post("/question/add")
 async def add_placement_question(
@@ -329,26 +329,74 @@ async def submit_placement_test(
         if answer == q.correct_option:
             correct_count += 1
             
-    # Calculate score & pass threshold (>= 60%)
     session.score = correct_count
     session.total_questions = len(questions)
     
     pct = (correct_count / len(questions)) if len(questions) > 0 else 0
-    session.passed = (pct >= 0.60)
-    session.status = "completed"
-    session.completed_at = datetime.utcnow()
+    passed = (pct >= 0.60)
     
-    # Auto-register if passed and registration fields are present
-    was_registered = False
-    if session.passed and session.group_id:
-        create_student_from_session(db, session)
-        was_registered = True
+    if passed:
+        # Candidate passed the current target level!
+        session.passed = True
+        session.status = "completed"
+        session.completed_at = datetime.utcnow()
         
-    db.commit()
-    
-    return templates.TemplateResponse("placement_take.html", {
-        "request": request,
-        "step": "done",
-        "session": session,
-        "was_registered": was_registered
-    })
+        # Auto-create Waitlist Entry
+        create_waitlist_from_session(db, session)
+        db.commit()
+        
+        return templates.TemplateResponse("placement_take.html", {
+            "request": request,
+            "step": "done",
+            "session": session,
+            "passed": True,
+            "was_registered": True
+        })
+    else:
+        # Candidate failed. Let's find the next lower level:
+        level_order = ["advanced", "upper-intermediate", "intermediate", "pre-intermediate", "elementary"]
+        try:
+            curr_idx = level_order.index(session.target_level.lower())
+        except ValueError:
+            curr_idx = len(level_order) # not in order
+            
+        if curr_idx < len(level_order) - 1:
+            # There is a lower level test available!
+            next_level = level_order[curr_idx + 1]
+            
+            # Update session to use the next lower level
+            session.target_level = next_level
+            session.score = 0
+            session.total_questions = db.query(PlacementQuestion).filter_by(level=next_level).count()
+            session.status = "active"
+            db.commit()
+            
+            next_questions = db.query(PlacementQuestion).filter_by(level=next_level).all()
+            
+            return templates.TemplateResponse("placement_take.html", {
+                "request": request,
+                "step": "test",
+                "session": session,
+                "questions": next_questions,
+                "failed_previous": True,
+                "previous_level": level_order[curr_idx].upper()
+            })
+        else:
+            # Failed even Elementary! So they are Beginner.
+            session.target_level = "beginner"
+            session.passed = True # Beginner doesn't need to pass a test, so they are marked as completed/passed beginner
+            session.status = "completed"
+            session.completed_at = datetime.utcnow()
+            
+            # Auto-create Waitlist Entry at Beginner level
+            create_waitlist_from_session(db, session)
+            db.commit()
+            
+            return templates.TemplateResponse("placement_take.html", {
+                "request": request,
+                "step": "done",
+                "session": session,
+                "passed": False,
+                "is_beginner": True,
+                "was_registered": True
+            })

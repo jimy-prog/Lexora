@@ -244,9 +244,9 @@ def migrate_db(db=None):
     if db is None:
         return
     try:
+        # 1. Migrate placement_sessions table
         res = db.execute(text("PRAGMA table_info(placement_sessions)")).fetchall()
         existing_cols = {row[1] for row in res}
-        
         cols_to_add = [
             ("group_id", "INTEGER"),
             ("phone", "VARCHAR DEFAULT ''"),
@@ -254,10 +254,16 @@ def migrate_db(db=None):
             ("email", "VARCHAR DEFAULT ''"),
             ("notes", "TEXT DEFAULT ''")
         ]
-        
         for col_name, col_type in cols_to_add:
             if col_name not in existing_cols:
                 db.execute(text(f"ALTER TABLE placement_sessions ADD COLUMN {col_name} {col_type}"))
+        
+        # 2. Migrate waitlist table
+        res_wl = db.execute(text("PRAGMA table_info(waitlist)")).fetchall()
+        existing_cols_wl = {row[1] for row in res_wl}
+        if "level" not in existing_cols_wl:
+            db.execute(text("ALTER TABLE waitlist ADD COLUMN level VARCHAR DEFAULT ''"))
+            
         db.commit()
     except Exception as e:
         print(f"[Migration Error] {e}")
