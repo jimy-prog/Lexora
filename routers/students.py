@@ -8,9 +8,9 @@ import re
 
 from database import get_db, Student, Group, Attendance, Lesson, TestResult, StudentEvent
 from student_history import log_student_event
-from auth import require_teacher_or_owner
+from auth import require_owner
 
-router = APIRouter(prefix="/students", dependencies=[Depends(require_teacher_or_owner)])
+router = APIRouter(prefix="/students", dependencies=[Depends(require_owner)])
 templates = Jinja2Templates(directory="templates")
 
 

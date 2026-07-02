@@ -4,8 +4,9 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from datetime import date
 from database import get_db, Group, Student, Lesson, Attendance
+from auth import require_owner
 
-router = APIRouter(prefix="/archive")
+router = APIRouter(prefix="/archive", dependencies=[Depends(require_owner)])
 templates = Jinja2Templates(directory="templates")
 
 @router.get("/")

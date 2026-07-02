@@ -4,9 +4,9 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from datetime import date
 from database import get_db, Group, Student, Payment
-from auth import require_teacher_or_owner
+from auth import require_owner
 
-router = APIRouter(prefix="/payments", dependencies=[Depends(require_teacher_or_owner)])
+router = APIRouter(prefix="/payments", dependencies=[Depends(require_owner)])
 templates = Jinja2Templates(directory="templates")
 
 def get_month_data(db, month_str):
