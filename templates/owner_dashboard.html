@@ -99,8 +99,8 @@
                             {{ o.code }}
                         </strong>
                     </td>
-                    <td class="mono">{{ o.created_at.strftime('%Y-%m-%d %H:%M:%S') if o.created_at else '' }}</td>
-                    <td class="mono">{{ o.expires_at.strftime('%Y-%m-%d %H:%M:%S') if o.expires_at else '' }}</td>
+                    <td class="mono">{{ o.created_at[:19] if o.created_at else '' }}</td>
+                    <td class="mono">{{ o.expires_at[:19] if o.expires_at else '' }}</td>
                 </tr>
                 {% endfor %}
                 {% if not recent_otps %}
