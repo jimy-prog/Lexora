@@ -325,8 +325,9 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
     {% set _u = request.state.current_user %}
     {% set _is_owner = _u and _u.role == 'owner' %}
     {% set _is_teacher = _u and _u.role == 'teacher' %}
+    {% set _is_staff = _is_owner or _is_teacher %}
 
-    {% if _is_owner %}
+    {% if _is_staff %}
     <div class="nav-section">Teaching</div>
     <a class="nav-link {% if active_page=='timetable' %}active{% endif %}" href="/timetable/">
       <span class="nav-icon">🗓</span> Timetable
@@ -334,6 +335,11 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
     <a class="nav-link {% if active_page=='classes' %}active{% endif %}" href="/classes/">
       <span class="nav-icon">🏫</span> My Classes
     </a>
+    {% if _is_teacher %}
+    <a class="nav-link {% if active_page=='reviews' %}active{% endif %}" href="/reviews/inbox">
+      <span class="nav-icon">📬</span> Review Inbox
+    </a>
+    {% endif %}
     <a class="nav-link {% if active_page=='groups' %}active{% endif %}" href="/groups/">
       <span class="nav-icon">👥</span> Groups
     </a>
@@ -342,19 +348,6 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
     </a>
     <a class="nav-link {% if active_page=='waitlist' %}active{% endif %}" href="/waitlist/">
       <span class="nav-icon">⏳</span> Waitlist
-    </a>
-    {% endif %}
-
-    {% if _is_teacher %}
-    <div class="nav-section">My Work</div>
-    <a class="nav-link {% if active_page=='timetable' %}active{% endif %}" href="/timetable/">
-      <span class="nav-icon">🗓</span> My Timetable
-    </a>
-    <a class="nav-link {% if active_page=='classes' %}active{% endif %}" href="/classes/">
-      <span class="nav-icon">🏫</span> My Classes
-    </a>
-    <a class="nav-link {% if active_page=='reviews' %}active{% endif %}" href="/reviews/inbox">
-      <span class="nav-icon">📬</span> Review Inbox
     </a>
     {% endif %}
 
@@ -386,7 +379,7 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
       <span class="nav-icon">📈</span> Performance
     </a>
 
-    {% if _is_owner %}
+    {% if _is_staff %}
     <div class="nav-section">Finance</div>
     <a class="nav-link {% if active_page=='finance' %}active{% endif %}" href="/finance/">
       <span class="nav-icon">💰</span> Finance

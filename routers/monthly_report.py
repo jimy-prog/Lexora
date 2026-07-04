@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from datetime import date
 from database import get_db, Group, Student, Lesson, Attendance, WeeklyPerformance
 from finance_rules import get_group_epl
-from auth import require_owner
+from auth import require_teacher_or_owner
 
-router = APIRouter(prefix="/monthly-report", dependencies=[Depends(require_owner)])
+router = APIRouter(prefix="/monthly-report", dependencies=[Depends(require_teacher_or_owner)])
 templates = Jinja2Templates(directory="templates")
 
 def nm(d):

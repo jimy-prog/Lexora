@@ -19,11 +19,7 @@ def dashboard(request: Request, show_marked: int = 0, db: Session = Depends(get_
     user = get_current_user(request)
     if not user:
         return RedirectResponse("/login")
-    
-    # Teachers have their own private tenant DB - redirect them to their content area.
-    # The full CRM dashboard (groups, students, finance) is owner-only.
-    if user.role == "teacher":
-        return RedirectResponse("/mock", status_code=302)
+
 
     today = date.today()
     ms = today.replace(day=1)

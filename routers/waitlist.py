@@ -205,7 +205,7 @@ def add_from_google_form(
 @router.get("/")
 def waitlist_view(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request)
-    if not user or user.role not in {"owner"}:
+    if not user or user.role not in {"owner", "teacher"}:
         return RedirectResponse("/mock", status_code=302)
 
     entries = db.query(WaitlistEntry).filter(
