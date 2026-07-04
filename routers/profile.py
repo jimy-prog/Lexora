@@ -15,32 +15,60 @@ os.makedirs("./uploads/profile", exist_ok=True)
 class TeacherProfile(Base):
     __tablename__ = "teacher_profile"
     __table_args__ = {"extend_existing": True}
-    id=Column(Integer,primary_key=True); name=Column(String,default="Jamshid")
-    title=Column(String,default="English Teacher"); bio=Column(Text,default="")
+    id=Column(Integer,primary_key=True); name=Column(String,default="")
+    title=Column(String,default=""); bio=Column(Text,default="")
     phone=Column(String,default=""); email=Column(String,default="")
-    school_name=Column(String,default="Language Vision")
+    school_name=Column(String,default="")
     bank_details=Column(Text,default=""); photo_path=Column(String,default="")
     created_at=Column(DateTime,default=datetime.utcnow)
 
 
 
-def get_profile(db):
+def get_profile(db, current_user=None):
     p = db.query(TeacherProfile).first()
     if not p:
-        p = TeacherProfile(); db.add(p); db.commit(); db.refresh(p)
+        p = TeacherProfile(
+            name=current_user.full_name if current_user else "",
+            title="",
+            school_name=""
+        )
+        db.add(p)
+        db.commit()
+        db.refresh(p)
+    else:
+        # Clean up legacy placeholders if they exist
+        modified = False
+        if p.name == "Jamshid" and current_user:
+            p.name = current_user.full_name
+            modified = True
+        elif not p.name and current_user:
+            p.name = current_user.full_name
+            modified = True
+            
+        if p.title == "English Teacher":
+            p.title = ""
+            modified = True
+        if p.school_name == "Language Vision":
+            p.school_name = ""
+            modified = True
+            
+        if modified:
+            db.commit()
+            db.refresh(p)
     return p
 
 @router.get("/")
 def profile_page(request: Request, db: Session = Depends(get_db)):
-    profile  = get_profile(db)
+    current_user = getattr(request.state, "current_user", None)
+    profile  = get_profile(db, current_user)
     settings = {s.key: s for s in db.query(Settings).all()}
     groups   = db.query(Group).order_by(Group.name).all()
     
     users = []
-    if getattr(request.state, "current_user", None):
+    if current_user:
         mdb = SessionMaster()
         try:
-            users_list = mdb.query(User).filter_by(tenant_id=request.state.current_user.tenant_id).order_by(User.created_at.asc()).all()
+            users_list = mdb.query(User).filter_by(tenant_id=current_user.tenant_id).order_by(User.created_at.asc()).all()
             for u in users_list: mdb.expunge(u)
             users = users_list
         finally:
@@ -50,21 +78,23 @@ def profile_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("settings_page.html", {
         "request":request, "profile":profile, "settings":settings,
         "groups":groups, "users":users, "tab":tab, "active_page":"settings",
-        "current_user": getattr(request.state, "current_user", None),
+        "current_user": current_user,
     })
 
 @router.post("/update")
 async def update_profile(request: Request, db: Session = Depends(get_db)):
+    current_user = getattr(request.state, "current_user", None)
     form = await request.form()
-    p = get_profile(db)
+    p = get_profile(db, current_user)
     for f in ["name","title","bio","phone","email","school_name","bank_details"]:
         if f in form: setattr(p, f, form[f])
     db.commit()
     return RedirectResponse("/profile/?tab=profile&saved=1", status_code=303)
 
 @router.post("/upload-photo")
-async def upload_photo(photo: UploadFile = File(...), db: Session = Depends(get_db)):
-    p = get_profile(db)
+async def upload_photo(request: Request, photo: UploadFile = File(...), db: Session = Depends(get_db)):
+    current_user = getattr(request.state, "current_user", None)
+    p = get_profile(db, current_user)
     if photo.filename:
         ext = photo.filename.rsplit(".",1)[-1]
         path = f"./uploads/profile/teacher_photo.{ext}"
