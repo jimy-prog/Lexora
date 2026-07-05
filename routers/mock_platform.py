@@ -452,6 +452,19 @@ async def upload_image(request: Request, exam_id: int, image_file: UploadFile = 
         import shutil
         shutil.copyfileobj(image_file.file, buffer)
         
+    # Auto-link image to first writing block for Writing exams
+    exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
+    if exam and exam.test_scope and "Writing" in exam.test_scope:
+        first_section = next((s for s in exam.sections if "writing" in s.section_type.lower()), None)
+        if first_section:
+            block = db.query(QuestionBlock).filter(QuestionBlock.section_id == first_section.id).first()
+            if not block:
+                block = QuestionBlock(section_id=first_section.id, passage_text="", instructions="", media_url=f"/{file_path}")
+                db.add(block)
+            else:
+                block.media_url = f"/{file_path}"
+            db.commit()
+            
     return RedirectResponse(f"/mock/{exam_id}/build?uploaded_img=/{file_path}", status_code=303)
 
 @router.post("/{exam_id}/upload-section-graph/{section_id}")
