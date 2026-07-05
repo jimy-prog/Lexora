@@ -559,12 +559,13 @@ async def bulk_answers(request: Request, exam_id: int, bulk_text: str = Form(...
         raise HTTPException(status_code=404, detail="Exam not found")
         
     import re
-    # Matches "1. NOT GIVEN" or "1) NOT GIVEN" or "1 NOT GIVEN"
-    matches = re.finditer(r'(\d+)[\.\)]?\s+([^\r\n]+)', bulk_text)
+    lines = [l.strip() for l in bulk_text.split("\n") if l.strip()]
     
-    count = 0
-    
-    for match in matches:
+    for line in lines:
+        match = re.match(r'^(\d+)(?:[\.\)\s-]*)\s*(.+)$', line)
+        if not match:
+            continue
+            
         try:
             q_num = int(match.group(1))
             ans_text = match.group(2).strip()
