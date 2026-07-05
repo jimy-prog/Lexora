@@ -99,7 +99,7 @@ class MockExam(MasterBase):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     sections = relationship("ExamSection", back_populates="exam", cascade="all, delete-orphan")
-    attempts = relationship("MockAttempt", back_populates="exam")
+    attempts = relationship("MockAttempt", back_populates="exam", cascade="all, delete-orphan")
 
 class ExamSection(MasterBase):
     __tablename__ = "mock_exam_sections"
@@ -167,6 +167,7 @@ class MockAttempt(MasterBase):
     exam = relationship("MockExam", back_populates="attempts")
     answers = relationship("AttemptAnswer", back_populates="attempt", cascade="all, delete-orphan")
     teacher = relationship("User", foreign_keys=[teacher_id])
+    reviews = relationship("ReviewRequest", back_populates="attempt", cascade="all, delete-orphan")
 
 class AttemptAnswer(MasterBase):
     __tablename__ = "mock_attempt_answers"
@@ -216,7 +217,7 @@ class ReviewRequest(MasterBase):
     reviewed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    attempt = relationship("MockAttempt")
+    attempt = relationship("MockAttempt", back_populates="reviews")
     student = relationship("User", foreign_keys=[student_id])
     teacher = relationship("User", foreign_keys=[teacher_id])
 
