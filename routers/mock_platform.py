@@ -454,6 +454,58 @@ async def upload_image(request: Request, exam_id: int, image_file: UploadFile = 
         
     return RedirectResponse(f"/mock/{exam_id}/build?uploaded_img=/{file_path}", status_code=303)
 
+@router.post("/{exam_id}/upload-section-graph/{section_id}")
+async def upload_section_graph(
+    request: Request,
+    exam_id: int,
+    section_id: int,
+    graph_file: UploadFile = File(...),
+    db: SessionMaster = Depends(get_mdb)
+):
+    user = get_current_user(request)
+    if not user or user.role != "owner":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    section = db.query(ExamSection).filter(ExamSection.id == section_id, ExamSection.exam_id == exam_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+        
+    os.makedirs("uploads/images", exist_ok=True)
+    import time
+    filename = f"graph_{int(time.time())}_{graph_file.filename}"
+    file_path = f"uploads/images/{filename}"
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(graph_file.file, buffer)
+        
+    # Get or create the first block in the section
+    block = db.query(QuestionBlock).filter(QuestionBlock.section_id == section.id).first()
+    if not block:
+        block = QuestionBlock(section_id=section.id, passage_text="", instructions="", media_url=f"/{file_path}")
+        db.add(block)
+    else:
+        block.media_url = f"/{file_path}"
+        
+    db.commit()
+    return RedirectResponse(f"/mock/{exam_id}/build", status_code=303)
+
+@router.post("/{exam_id}/delete-block-media/{block_id}")
+async def delete_block_media(
+    request: Request,
+    exam_id: int,
+    block_id: int,
+    db: SessionMaster = Depends(get_mdb)
+):
+    user = get_current_user(request)
+    if not user or user.role != "owner":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    block = db.query(QuestionBlock).filter(QuestionBlock.id == block_id).first()
+    if block:
+        block.media_url = ""
+        db.commit()
+        
+    return RedirectResponse(f"/mock/{exam_id}/build", status_code=303)
+
 @router.post("/{exam_id}/save-answers")
 async def save_answers(request: Request, exam_id: int, db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)

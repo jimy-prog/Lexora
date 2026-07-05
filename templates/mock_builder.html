@@ -256,6 +256,34 @@
                     </div>
                     
                     <div class="builder-body" style="padding:16px; background:#f8fafc;">
+                        {% if "writing" in section.section_type | lower %}
+                        <div style="margin-bottom: 16px; padding: 16px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <i class="fa-solid fa-chart-line" style="font-size: 1.35rem; color: var(--accent);"></i>
+                                <div>
+                                    <strong style="font-size: 0.9rem; display: block; color: var(--text);">Writing Graph Image</strong>
+                                    <span style="font-size: 0.75rem; color: var(--text2);">Upload the diagram, chart, or map image for this task</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                {% set block = section.blocks[0] if section.blocks else None %}
+                                {% if block and block.media_url %}
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <img src="{{ block.media_url }}" style="height: 40px; max-width: 80px; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: contain;">
+                                        <form action="/mock/{{ exam.id }}/delete-block-media/{{ block.id }}" method="POST" style="margin:0;">
+                                            <button type="submit" class="btn btn-sm" style="background:transparent; border:none; color:#ef4444; padding: 4px 8px; cursor:pointer;" title="Delete graph image"><i class="fa-solid fa-trash"></i> Delete</button>
+                                        </form>
+                                    </div>
+                                {% else %}
+                                    <form action="/mock/{{ exam.id }}/upload-section-graph/{{ section.id }}" method="POST" enctype="multipart/form-data" style="display:flex; align-items:center; gap:8px; margin:0;">
+                                        <input type="file" name="graph_file" accept="image/*" required style="font-size:0.8rem; max-width: 180px;">
+                                        <button type="submit" class="btn btn-sm btn-ghost border" style="padding:6px 12px; font-size:0.8rem; background:#fff;"><i class="fa-solid fa-upload"></i> Upload</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
                         {% for block in section.blocks %}
                             {% for q in block.questions %}
                             <div class="question-item">
