@@ -2,9 +2,11 @@ from fastapi import APIRouter, Request, Depends, HTTPException, Form, UploadFile
 import shutil
 import os
 import sys
+import threading
+from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from services.ai_extractor import extract_ielts_exam_from_pdf
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from master_database import SessionMaster, MockExam, ExamSection, QuestionBlock, Question, AnswerOption, MockAttempt, AttemptAnswer, User, ClassMember, ReviewRequest
 from auth import get_current_user
@@ -775,51 +777,118 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
                 status="pending"
             )
             db.add(new_req)
-            attempt.band_score = None # pending review
+            attempt.band_score = None  # pending review
+            db.commit()
         else:
-            # AI Agent grading
-            from services.ai_grader import grade_writing_submission, grade_speaking_submission
-            ai_scores = []
-            feedback_parts = []
-            
-            # Grade Writing responses
-            for prompt_text, essay_text in writing_responses:
-                res = grade_writing_submission(prompt_text, essay_text)
-                if res.get("overall_band"):
-                    ai_scores.append(res.get("overall_band"))
-                feedback_parts.append(f"### Writing Task Feedback\n\n{res.get('feedback_markdown', '')}")
-                
-            # Grade Speaking responses
-            for prompt_text, audio_path in speaking_responses:
-                res = grade_speaking_submission(prompt_text, audio_path)
-                if res.get("overall_band"):
-                    ai_scores.append(res.get("overall_band"))
-                feedback_parts.append(f"### Speaking Task Feedback\n\n{res.get('feedback_markdown', '')}")
-                
-            overall_band = 0.0
-            if ai_scores:
-                overall_band = round(sum(ai_scores) / len(ai_scores) * 2) / 2 # round to nearest 0.5
-                
-            combined_feedback = "\n\n---\n\n".join(feedback_parts)
-            
+            # AI Agent grading — run in background, redirect immediately
             db.query(ReviewRequest).filter_by(attempt_id=attempt.id, student_id=user.id).delete()
-            new_req = ReviewRequest(
+            placeholder_req = ReviewRequest(
                 attempt_id=attempt.id,
                 student_id=user.id,
-                teacher_id=1, # Use owner ID (1) to satisfy NOT NULL constraint for AI reviews
-                status="reviewed",
-                score=overall_band,
-                feedback=combined_feedback,
-                reviewed_at=datetime.utcnow()
+                teacher_id=1,
+                status="grading",
+                feedback=None,
+                score=None,
             )
-            db.add(new_req)
-            attempt.band_score = overall_band
+            db.add(placeholder_req)
+            attempt.band_score = None
+            db.commit()
+            
+            # Capture IDs needed for background thread
+            _attempt_id = attempt.id
+            _writing = list(writing_responses)
+            _speaking = list(speaking_responses)
+            
+            def _run_ai_grading(attempt_id, writing_list, speaking_list):
+                """Runs AI grading in a separate thread and updates the DB when done."""
+                bg_db = SessionMaster()
+                try:
+                    from services.ai_grader import grade_writing_submission, grade_speaking_submission
+                    ai_scores = []
+                    feedback_parts = []
+                    
+                    for prompt_text, essay_text in writing_list:
+                        res = grade_writing_submission(prompt_text, essay_text)
+                        band = res.get("overall_band", 0)
+                        if band:
+                            ai_scores.append(band)
+                        feedback_parts.append(f"### Writing Task Feedback\n\n{res.get('feedback_markdown', '')}")
+                    
+                    for prompt_text, audio_path in speaking_list:
+                        res = grade_speaking_submission(prompt_text, audio_path)
+                        band = res.get("overall_band", 0)
+                        if band:
+                            ai_scores.append(band)
+                        feedback_parts.append(f"### Speaking Task Feedback\n\n{res.get('feedback_markdown', '')}")
+                    
+                    overall_band = 0.0
+                    if ai_scores:
+                        overall_band = round(sum(ai_scores) / len(ai_scores) * 2) / 2
+                    
+                    combined_feedback = "\n\n---\n\n".join(feedback_parts)
+                    
+                    review_row = bg_db.query(ReviewRequest).filter_by(attempt_id=attempt_id).first()
+                    if review_row:
+                        review_row.status = "reviewed"
+                        review_row.score = overall_band
+                        review_row.feedback = combined_feedback
+                        review_row.reviewed_at = datetime.utcnow()
+                    
+                    attempt_row = bg_db.query(MockAttempt).filter_by(id=attempt_id).first()
+                    if attempt_row:
+                        attempt_row.band_score = overall_band
+                    
+                    bg_db.commit()
+                    print(f"[AI Grader] Attempt {attempt_id} grading complete. Band: {overall_band}")
+                except Exception as e:
+                    print(f"[AI Grader] Background grading error for attempt {attempt_id}: {e}")
+                    try:
+                        review_row = bg_db.query(ReviewRequest).filter_by(attempt_id=attempt_id).first()
+                        if review_row:
+                            review_row.status = "reviewed"
+                            review_row.score = 0.0
+                            review_row.feedback = f"**AI Grading Error**\n\nAn error occurred during grading. Please contact support.\n\nDetails: {str(e)}"
+                            review_row.reviewed_at = datetime.utcnow()
+                        bg_db.commit()
+                    except Exception:
+                        pass
+                finally:
+                    bg_db.close()
+            
+            t = threading.Thread(target=_run_ai_grading, args=(_attempt_id, _writing, _speaking), daemon=True)
+            t.start()
+            
+            return RedirectResponse(f"/mock/results/{_attempt_id}", status_code=303)
     else:
         # Standard Listening/Reading exam auto-calculated
         attempt.band_score = calculate_band(raw_score, exam.test_scope)
         
     db.commit()
     return RedirectResponse(f"/mock/results/{attempt.id}", status_code=303)
+
+@router.get("/results/{attempt_id}/status")
+async def mock_results_status(request: Request, attempt_id: int, db: SessionMaster = Depends(get_mdb)):
+    """Polling endpoint: returns JSON status of AI grading for a given attempt."""
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"status": "error", "message": "not authenticated"})
+    
+    attempt = db.query(MockAttempt).filter(MockAttempt.id == attempt_id).first()
+    if not attempt or attempt.student_id != user.id:
+        return JSONResponse({"status": "error", "message": "not found"})
+    
+    review = db.query(ReviewRequest).filter(ReviewRequest.attempt_id == attempt_id).first()
+    if not review:
+        return JSONResponse({"status": "no_review"})
+    
+    if review.status == "grading":
+        return JSONResponse({"status": "grading"})
+    
+    return JSONResponse({
+        "status": review.status,
+        "band_score": attempt.band_score,
+        "feedback": review.feedback or ""
+    })
 
 @router.get("/results/{attempt_id}", response_class=HTMLResponse)
 async def mock_results(request: Request, attempt_id: int, db: SessionMaster = Depends(get_mdb)):

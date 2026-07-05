@@ -157,7 +157,7 @@
             <p style="color: var(--text2); font-size: 1.2rem;">{{ attempt.exam.title }}</p>
         </div>
         
-        <div class="scores-container">
+        <div class="scores-container" id="scoresContainer">
             <div class="score-block">
                 <div class="score-label">Raw Score</div>
                 <div class="score-val">{{ attempt.total_score }}<span style="font-size: 1.5rem; color: var(--text2); background:none; -webkit-text-fill-color:var(--text2);">/40</span></div>
@@ -165,11 +165,13 @@
             <div style="width: 2px; background: var(--border);"></div>
             <div class="score-block">
                 <div class="score-label">Overall Band</div>
-                <div class="band-val">
+                <div class="band-val" id="bandScoreDisplay">
                     {% if attempt.reviewer_type == "teacher" and review and review.status == "pending" %}
                         <span style="font-size: 1.25rem; color: #f59e0b; font-weight:700;">Pending</span>
+                    {% elif review and review.status == "grading" %}
+                        <span style="font-size: 1.1rem; color: #6366f1; font-weight:700;">Checking...</span>
                     {% else %}
-                        {{ attempt.band_score or 0.0 }}
+                        {{ attempt.band_score or "—" }}
                     {% endif %}
                 </div>
             </div>
@@ -186,6 +188,26 @@
                 </p>
             </div>
         </div>
+        
+        {% elif review and review.status == "grading" %}
+        <!-- AI is actively grading — show live status panel, poll for result -->
+        <div id="aiGradingPanel" style="margin: 30px 0; padding: 32px; background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%); border: 1px solid #c7d2fe; border-radius: 24px; text-align: center;">
+            <div style="font-size: 2.8rem; margin-bottom: 16px; animation: spin 3s linear infinite; display:inline-block;">🤖</div>
+            <h3 style="font-size: 1.2rem; font-weight: 800; color: #3730a3; margin-bottom: 8px;">AI is Reviewing Your Work</h3>
+            <p style="color: #6366f1; font-size: 0.9rem; margin-bottom: 20px;">Analysing your essay against official IELTS Band Descriptors. This usually takes 20–45 seconds.</p>
+            <div style="height: 6px; background: #e0e7ff; border-radius: 10px; overflow: hidden; width: 280px; margin: 0 auto 16px;">
+                <div id="gradingProgressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #6366f1, #8b5cf6); border-radius: 10px; transition: width 0.8s ease;"></div>
+            </div>
+            <p id="gradingStatusMsg" style="font-size: 0.8rem; color: #818cf8; font-weight: 600;">Initialising grader...</p>
+        </div>
+        <!-- This div will be populated when grading completes -->
+        <div id="aiFeedbackPanel" style="display:none; margin: 30px 0; padding: 24px; background: #fff; border: 1px solid var(--border); border-radius: 20px; text-align: left; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
+            <h4 style="font-size:1.05rem; font-weight:800; margin-bottom:16px; color: var(--text); display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-comment-dots" style="color:var(--accent);"></i> AI Evaluation & Analysis
+            </h4>
+            <div id="aiFeedbackText" style="font-size:.95rem; color:var(--text); line-height: 1.6; border-top: 1px solid var(--border); padding-top: 16px;"></div>
+        </div>
+        
         {% elif review and review.feedback %}
         <div style="margin: 30px 0; padding: 24px; background: #fff; border: 1px solid var(--border); border-radius: 20px; text-align: left; box-shadow: 0 4px 20px rgba(0,0,0,0.01);">
             <h4 style="font-size:1.05rem; font-weight:800; margin-bottom:16px; color: var(--text); display:flex; align-items:center; gap:8px;">
@@ -236,6 +258,10 @@
     </div>
 </div>
 
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
 <script>
     // Confetti generator
     function createConfetti() {
@@ -249,38 +275,112 @@
                 confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
                 confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
                 document.body.appendChild(confetti);
-                
-                // Cleanup
                 setTimeout(() => confetti.remove(), 5000);
             }, i * 40);
         }
     }
-    
-    // Trigger confetti on load
     window.addEventListener('load', createConfetti);
 
-    {% if review and review.feedback %}
-    // Simple client-side Markdown parser for the feedback text
+    // Markdown parser (shared)
     function parseMarkdown(text) {
         if (!text) return "";
         let html = text
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;");
-        
-        // Bold
         html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-        // Headers
         html = html.replace(/^### (.*?)$/gm, "<h5 style='font-size: 1rem; font-weight: 700; margin-top: 16px; margin-bottom: 8px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 4px;'>$1</h5>");
         html = html.replace(/^## (.*?)$/gm, "<h4 style='font-size: 1.15rem; font-weight: 800; margin-top: 20px; margin-bottom: 8px; color: var(--text);'>$1</h4>");
         html = html.replace(/^# (.*?)$/gm, "<h3 style='font-size: 1.3rem; font-weight: 900; margin-top: 24px; margin-bottom: 12px; color: var(--text);'>$1</h3>");
-        // Bullet points
         html = html.replace(/^\- (.*?)$/gm, "<li style='margin-left: 20px; margin-bottom: 6px;'>$1</li>");
-        // Linebreaks
         html = html.split('\n').join('<br>');
         return html;
     }
+
+    {% if review and review.status == "grading" %}
+    // ─── LIVE GRADING POLL ───────────────────────────────────────────────────
+    const ATTEMPT_ID = {{ attempt.id }};
+    const statusMessages = [
+        "Reading your submission...",
+        "Analysing task achievement...",
+        "Checking coherence & cohesion...",
+        "Evaluating lexical resource...",
+        "Assessing grammatical accuracy...",
+        "Computing your band score...",
+        "Finalising detailed feedback...",
+        "Almost done — preparing your report..."
+    ];
+    let msgIdx = 0;
+    let progress = 0;
     
+    const progressBar = document.getElementById('gradingProgressBar');
+    const statusMsg = document.getElementById('gradingStatusMsg');
+    
+    // Animate the progress bar slowly up to ~90% while waiting
+    const progressInterval = setInterval(() => {
+        if (progress < 88) {
+            progress += (Math.random() * 3 + 0.5);
+            progressBar.style.width = Math.min(progress, 88) + '%';
+        }
+        msgIdx = (msgIdx + 1) % statusMessages.length;
+        statusMsg.textContent = statusMessages[msgIdx];
+    }, 3500);
+    
+    // Poll /status every 5 seconds
+    async function pollGradingStatus() {
+        try {
+            const res = await fetch(`/mock/results/${ATTEMPT_ID}/status`);
+            const data = await res.json();
+            
+            if (data.status === 'reviewed') {
+                clearInterval(progressInterval);
+                // Rush progress to 100%
+                progressBar.style.transition = 'width 0.4s ease';
+                progressBar.style.width = '100%';
+                statusMsg.textContent = '✅ Grading complete!';
+                
+                // Update band score display
+                const bandEl = document.getElementById('bandScoreDisplay');
+                if (bandEl && data.band_score !== null) {
+                    bandEl.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                    bandEl.style.webkitBackgroundClip = 'text';
+                    bandEl.style.webkitTextFillColor = 'transparent';
+                    bandEl.textContent = data.band_score;
+                }
+                
+                setTimeout(() => {
+                    // Hide spinner panel
+                    document.getElementById('aiGradingPanel').style.display = 'none';
+                    
+                    // Show feedback panel with animation
+                    const fbPanel = document.getElementById('aiFeedbackPanel');
+                    const fbText = document.getElementById('aiFeedbackText');
+                    fbText.innerHTML = parseMarkdown(data.feedback);
+                    fbPanel.style.display = 'block';
+                    fbPanel.style.opacity = '0';
+                    fbPanel.style.transform = 'translateY(20px)';
+                    fbPanel.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+                    setTimeout(() => {
+                        fbPanel.style.opacity = '1';
+                        fbPanel.style.transform = 'translateY(0)';
+                    }, 50);
+                }, 600);
+                
+                return; // Stop polling
+            }
+            // Still grading — check again in 5s
+            setTimeout(pollGradingStatus, 5000);
+        } catch (e) {
+            console.warn('[Poll] Error:', e);
+            setTimeout(pollGradingStatus, 8000);
+        }
+    }
+    
+    // Start polling after 3 seconds (give AI time to start)
+    setTimeout(pollGradingStatus, 3000);
+    {% endif %}
+    
+    {% if review and review.feedback and review.status != "grading" %}
     document.getElementById("feedbackText").innerHTML = parseMarkdown({{ review.feedback | tojson }});
     {% endif %}
 </script>
