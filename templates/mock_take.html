@@ -175,11 +175,30 @@
             {{ user.full_name or user.username }} &nbsp;&bull;&nbsp; {{ exam.title }}
         </div>
         
-        {% if "Listening" in exam.test_scope and exam.audio_url %}
-            <div style="flex:1; display:flex; justify-content:center; align-items:center;">
-                <audio id="examAudio" src="{{ exam.audio_url }}" controls style="height: 36px; {% if exam.test_mode == 'Exam Mode' %}pointer-events: none; opacity:0.8;{% endif %}"></audio>
-                {% if exam.test_mode == 'Exam Mode' %}
-                    <button class="btn btn-sm" id="startExamAudio" onclick="startExamAudio()" style="background:#e11b22; color:white; border:none; padding:8px 16px; border-radius:20px; font-weight:bold; margin-left:12px;">Start Audio</button>
+        {% if exam.audio_url %}
+            <!-- Hidden audio element always present when audio exists -->
+            <audio id="examAudio" src="{{ exam.audio_url }}" {% if exam.test_mode != 'Training Mode' %}style="display:none;"{% endif %}></audio>
+            
+            <div style="flex:1; display:flex; justify-content:center; align-items:center; gap:12px;">
+                {% if exam.test_mode == 'Training Mode' %}
+                    <!-- Training Mode: Full interactive player -->
+                    <div style="display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--ielts-border); border-radius:30px; padding:6px 16px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                        <button type="button" onclick="toggleAudioPlay()" id="audioPlayBtn" style="background:var(--ielts-red); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <i class="fa-solid fa-play" id="audioPlayIcon" style="font-size:0.75rem;"></i>
+                        </button>
+                        <span style="font-size:0.75rem; font-weight:700; color:#6b7280; white-space:nowrap;" id="audioTimeLabel">0:00 / 0:00</span>
+                        <input type="range" id="audioSeekBar" min="0" value="0" step="0.1"
+                            oninput="seekAudio(this.value)"
+                            style="width:140px; height:4px; accent-color:var(--ielts-red); cursor:pointer;">
+                        <span style="font-size:0.7rem; font-weight:700; color:var(--ielts-red); letter-spacing:0.05em;">TRAINING</span>
+                    </div>
+                {% else %}
+                    <!-- Exam Mode: Locked indicator, audio auto-plays on load -->
+                    <div id="audioStatusBar" style="display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--ielts-border); border-radius:30px; padding:6px 18px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                        <span style="width:10px; height:10px; border-radius:50%; background:#e11d48; display:inline-block; animation: pulse 1.2s ease-in-out infinite;"></span>
+                        <span style="font-size:0.8rem; font-weight:700; color:#374151;" id="audioStatusLabel">Audio Starting...</span>
+                        <span style="font-size:0.7rem; font-weight:700; color:#9ca3af; letter-spacing:0.05em;">EXAM MODE · NO REPLAY</span>
+                    </div>
                 {% endif %}
             </div>
         {% endif %}
@@ -528,16 +547,77 @@
             }
         }
         
-        function startExamAudio() {
-            const audio = document.getElementById("examAudio");
-            if (audio) {
-                audio.play().then(() => {
-                    document.getElementById("startExamAudio").style.display = "none";
-                }).catch(e => {
-                    alert("Audio playback failed. Please check the audio file format or your browser permissions. Error: " + e.message);
-                });
+        // ─── AUDIO LOGIC ───────────────────────────────────────────────────
+        const examAudio = document.getElementById('examAudio');
+        
+        {% if exam.test_mode == 'Training Mode' %}
+        // Training Mode: Interactive controls
+        if (examAudio) {
+            examAudio.addEventListener('loadedmetadata', () => {
+                document.getElementById('audioSeekBar').max = examAudio.duration;
+                updateAudioTimeLabel();
+            });
+            examAudio.addEventListener('timeupdate', () => {
+                document.getElementById('audioSeekBar').value = examAudio.currentTime;
+                updateAudioTimeLabel();
+            });
+            examAudio.addEventListener('ended', () => {
+                document.getElementById('audioPlayIcon').className = 'fa-solid fa-play';
+            });
+        }
+        function toggleAudioPlay() {
+            if (!examAudio) return;
+            if (examAudio.paused) {
+                examAudio.play();
+                document.getElementById('audioPlayIcon').className = 'fa-solid fa-pause';
+            } else {
+                examAudio.pause();
+                document.getElementById('audioPlayIcon').className = 'fa-solid fa-play';
             }
         }
+        function seekAudio(val) {
+            if (examAudio) examAudio.currentTime = parseFloat(val);
+        }
+        function updateAudioTimeLabel() {
+            const fmt = t => `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
+            const total = isNaN(examAudio.duration) ? '0:00' : fmt(examAudio.duration);
+            document.getElementById('audioTimeLabel').textContent = `${fmt(examAudio.currentTime)} / ${total}`;
+        }
+        {% else %}
+        // Exam Mode: Auto-play on load, no controls
+        function startExamAudio() {}
+        if (examAudio) {
+            const tryPlay = () => {
+                examAudio.play().then(() => {
+                    document.getElementById('audioStatusLabel').textContent = '🔊 Audio Playing';
+                }).catch(() => {
+                    // Browser blocked autoplay — show a one-time click overlay
+                    showAudioUnlockOverlay();
+                });
+                examAudio.addEventListener('ended', () => {
+                    document.getElementById('audioStatusLabel').textContent = 'Audio Ended';
+                    const dot = document.querySelector('#audioStatusBar span:first-child');
+                    if (dot) dot.style.background = '#9ca3af';
+                });
+            };
+            if (examAudio.readyState >= 2) { tryPlay(); }
+            else { examAudio.addEventListener('canplay', tryPlay, { once: true }); }
+        }
+        function showAudioUnlockOverlay() {
+            const overlay = document.createElement('div');
+            overlay.id = 'audioUnlockOverlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.85);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;';
+            overlay.innerHTML = `
+                <div style="background:#fff;border-radius:24px;padding:40px;text-align:center;max-width:420px;">
+                    <div style="font-size:3rem;margin-bottom:16px;">🎧</div>
+                    <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:8px;">Ready to Begin?</h2>
+                    <p style="color:#6b7280;margin-bottom:24px;font-size:0.95rem;">Your browser requires a user interaction before audio can play. Click below to start the exam audio immediately.</p>
+                    <button onclick="document.getElementById('audioUnlockOverlay').remove(); examAudio.play().then(()=>{ document.getElementById('audioStatusLabel').textContent='🔊 Audio Playing'; });" 
+                        style="background:#e11d48;color:#fff;border:none;padding:14px 36px;border-radius:30px;font-size:1.1rem;font-weight:700;cursor:pointer;">▶ Start Listening</button>
+                </div>`;
+            document.body.appendChild(overlay);
+        }
+        {% endif %}
         
         function countWords(text, index) {
             let count = 0;
