@@ -477,11 +477,42 @@ for r in [dashboard.router, students.router, groups.router, lessons.router,
     app.include_router(r)
 app.include_router(api_auth.router, prefix="/api")
 
+def repair_teacher_tenant_mappings():
+    import random
+    from master_database import SessionMaster, User, PlatformTenant
+    db = SessionMaster()
+    try:
+        admin_tenant = db.query(PlatformTenant).filter_by(slug="lexora_admin").first()
+        if not admin_tenant:
+            return
+        
+        # Find teachers mapped to the admin tenant
+        teachers = db.query(User).filter(User.role == "teacher", User.tenant_id == admin_tenant.id).all()
+        for t in teachers:
+            slug_base = t.email.split("@")[0].replace(".", "_")
+            tenant_slug = f"{slug_base}_{random.randint(1000, 9999)}"
+            new_tenant = PlatformTenant(
+                slug=tenant_slug,
+                db_filename=f"tenant_{tenant_slug}.db"
+            )
+            db.add(new_tenant)
+            db.flush()
+            
+            t.tenant_id = new_tenant.id
+            print(f"[Self-Healing] Migrated teacher '{t.email}' from admin tenant to private tenant '{new_tenant.db_filename}'")
+        db.commit()
+    except Exception as e:
+        print(f"[Self-Healing Error] {e}")
+        db.rollback()
+    finally:
+        db.close()
+
 @app.on_event("startup")
 def startup():
     from master_database import init_master_db
     init_master_db()
     ensure_owner_account()
+    repair_teacher_tenant_mappings()
     run_backup()
 
 if __name__ == "__main__":
