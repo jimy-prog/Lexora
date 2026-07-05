@@ -28,6 +28,48 @@ def convert_pdf_to_images(pdf_path: str, progress_callback=None) -> list[Image.I
         images.append(Image.open(io.BytesIO(img_data)))
     return images
 
+def crop_pdf_media(pdf_path: str, page_num: int, box_2d: list[int]) -> str:
+    """
+    Crops a specific bounding box [ymin, xmin, ymax, xmax] from a PDF page (0-indexed).
+    Saves the cropped image to uploads/images/ and returns the relative URL.
+    """
+    try:
+        import time
+        doc = fitz.open(pdf_path)
+        if page_num < 0 or page_num >= len(doc):
+            return ""
+            
+        page = doc.load_page(page_num)
+        pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))  # High-quality render
+        img_data = pix.tobytes("png")
+        img = Image.open(io.BytesIO(img_data))
+        
+        width, height = img.size
+        ymin, xmin, ymax, xmax = box_2d
+        
+        left = int((xmin / 1000) * width)
+        top = int((ymin / 1000) * height)
+        right = int((xmax / 1000) * width)
+        bottom = int((ymax / 1000) * height)
+        
+        # Safeguards
+        left = max(0, min(left, width - 1))
+        top = max(0, min(top, height - 1))
+        right = max(left + 1, min(right, width))
+        bottom = max(top + 1, min(bottom, height))
+        
+        cropped_img = img.crop((left, top, right, bottom))
+        
+        os.makedirs("uploads/images", exist_ok=True)
+        filename = f"extracted_media_{int(time.time())}_{page_num}.png"
+        dest_path = f"uploads/images/{filename}"
+        cropped_img.save(dest_path, "PNG")
+        
+        return f"/uploads/images/{filename}"
+    except Exception as e:
+        print(f"Error cropping media from PDF page {page_num}: {e}")
+        return ""
+
 def extract_ielts_exam_from_pdf(pdf_path: str, test_scope: str = "Reading Section", progress_callback=None) -> dict:
     """
     Extracts an IELTS exam structure from a PDF document.
@@ -48,12 +90,15 @@ def extract_ielts_exam_from_pdf(pdf_path: str, test_scope: str = "Reading Sectio
                         {
                             "instructions": "Questions 1-3: Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage.",
                             "passage_text": "<p>The Great Library of Alexandria was one of the largest and most significant libraries of the ancient world. It was dedicated to the Muses, the nine goddesses of the arts.</p><p>It flourished under the patronage of the Ptolemaic dynasty and functioned as a major center of scholarship from its creation in the third century BC until the Roman conquest of Egypt in 30 BC.</p>",
+                            "layout_style": "default",
+                            "media_box": None,
                             "questions": [
                                 {
                                     "q_type": "GAP_FILL",
                                     "question_number": 1,
                                     "prompt": "The Library of Alexandria was dedicated to the ______.",
                                     "correct_answer_text": "Muses",
+                                    "low_confidence": False,
                                     "options": []
                                 },
                                 {
@@ -61,6 +106,7 @@ def extract_ielts_exam_from_pdf(pdf_path: str, test_scope: str = "Reading Sectio
                                     "question_number": 2,
                                     "prompt": "The library flourished under the ______ dynasty.",
                                     "correct_answer_text": "Ptolemaic",
+                                    "low_confidence": False,
                                     "options": []
                                 }
                             ]
@@ -101,6 +147,11 @@ def extract_ielts_exam_from_pdf(pdf_path: str, test_scope: str = "Reading Sectio
         """
 
     prompt += """
+    CRITICAL MEDIA & LAYOUT DETECTION INSTRUCTIONS:
+    1. For every question block, detect if it contains a diagram, map, flowchart, office plan, or illustration. If it does, specify the `"media_box"` containing the page index (0-indexed) and normalized bounding box coordinates `[ymin, xmin, ymax, xmax]` on a 0-1000 scale.
+    2. Classify `"layout_style"` as `"default"`, `"two_column"` (for reading passages), or `"map_split"` (for map/diagram labeling tasks).
+    3. If any text element, number, or word is blurry or ambiguous, flag the question with `"low_confidence": true`.
+    
     You must output ONLY valid JSON matching this schema exactly. DO NOT wrap the output in markdown code blocks like ```json ... ```:
     {
       "sections": [
@@ -110,12 +161,18 @@ def extract_ielts_exam_from_pdf(pdf_path: str, test_scope: str = "Reading Sectio
             {
               "instructions": "Instruction text for this specific question group (e.g. 'Questions 1-4 Complete the sentences below')",
               "passage_text": "The full text of the reading passage if it appears here (or empty for listening tests). Use simple HTML <p> tags for paragraphs.",
+              "layout_style": "default",
+              "media_box": {
+                 "page_number": 0,
+                 "box_2d": [ymin, xmin, ymax, xmax]
+              },
               "questions": [
                 {
                   "q_type": "GAP_FILL",
                   "question_number": 1,
                   "prompt": "The question prompt text",
                   "correct_answer_text": "Extract correct answer here if an Answer Key exists in the document, otherwise leave empty.",
+                  "low_confidence": false,
                   "options": [
                     {"text": "Option A text", "is_correct": false}
                   ]

@@ -286,14 +286,24 @@
                         
                         {% for block in section.blocks %}
                             {% for q in block.questions %}
-                            <div class="question-item">
+                            <div class="question-item" style="{% if q.low_confidence %}border-color: #f59e0b; background: rgba(245, 158, 11, 0.02);{% endif %}">
                                 <div class="question-header">
                                     <div>
                                         <strong style="font-size:1.05rem;">Question {{ q.question_number }}</strong>
                                         <span class="q-badge" style="margin-left:8px;">{{ q.q_type }}</span>
+                                        {% if q.low_confidence %}
+                                        <span class="q-badge" style="background:#fef3c7; color:#b45309; margin-left:8px;"><i class="fa-solid fa-triangle-exclamation"></i> Low OCR Confidence</span>
+                                        {% endif %}
                                     </div>
                                     <button type="button" onclick="if(confirm('Delete question?')) { const f = document.createElement('form'); f.method='POST'; f.action='/mock/{{ exam.id }}/delete-question/{{ q.id }}'; document.body.appendChild(f); f.submit(); }" class="btn btn-xs" style="background:transparent; border:none; color:#ef4444; font-size:1rem; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
                                 </div>
+                                
+                                {% if q.low_confidence %}
+                                <div style="background: rgba(245, 158, 11, 0.08); color: #b45309; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; border: 1px solid rgba(245, 158, 11, 0.2);">
+                                    <i class="fa-solid fa-triangle-exclamation"></i> Low OCR Confidence: Please verify the question prompt text and answer key.
+                                </div>
+                                {% endif %}
+                                
                                 <div style="font-size:0.95rem; color:var(--text); line-height:1.5; padding:12px; background:#fff; border:1px solid #e2e8f0; border-radius:8px;">
                                     {{ q.prompt | safe }}
                                 </div>
@@ -321,22 +331,38 @@
         </form>
     </div>
 
-    <!-- RIGHT SIDE: Live Preview -->
-    <div style="flex:1; position:sticky; top:32px; height:calc(100vh - 64px);">
-        <div class="builder-card" style="height:100%; display:flex; flex-direction:column; margin-bottom:0; box-shadow:0 24px 64px rgba(0,0,0,0.08);">
-            <div class="builder-header" style="background:#1e293b; color:#fff; border-bottom:none;">
-                <h3 style="font-size:1rem; font-weight:700; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-mobile-screen"></i> Student Simulator</h3>
-                <a href="/mock/{{ exam.id }}/start" target="_blank" class="btn btn-xs" style="background:rgba(255,255,255,0.1); color:#fff; border:none;">Open Fullscreen</a>
+    <!-- RIGHT SIDE: Dual-Pane Tabs (Simulator & PDF View) -->
+    <div style="flex:1; position:sticky; top:32px; height:calc(100vh - 64px); display:flex; flex-direction:column; gap:0;">
+        <div style="display:flex; background:#e2e8f0; border-radius:12px 12px 0 0; padding:4px; gap:4px; border: 1px solid var(--border); border-bottom: none;">
+            <button type="button" onclick="switchRightTab('simulator')" id="tab-btn-simulator" class="btn btn-xs" style="flex:1; border-radius:8px; border:none; padding:8px; font-weight:700; cursor:pointer; background:#fff; color:var(--text);">
+                <i class="fa-solid fa-desktop"></i> Student Simulator
+            </button>
+            {% if exam.original_pdf_url %}
+            <button type="button" onclick="switchRightTab('pdf')" id="tab-btn-pdf" class="btn btn-xs" style="flex:1; border-radius:8px; border:none; padding:8px; font-weight:700; cursor:pointer; background:transparent; color:var(--text2);">
+                <i class="fa-solid fa-file-pdf"></i> Original PDF
+            </button>
+            {% endif %}
+        </div>
+        
+        <div class="builder-card" style="flex:1; display:flex; flex-direction:column; border-radius:0 0 16px 16px; margin-bottom:0; box-shadow:0 24px 64px rgba(0,0,0,0.08); overflow:hidden;">
+            <!-- Simulator Content -->
+            <div id="tab-content-simulator" style="flex:1; background:#f1f5f9; position:relative; overflow:hidden; display:flex; flex-direction:column;">
+                <div style="flex:1; position:relative;">
+                    <iframe id="previewIframe" src="/mock/{{ exam.id }}/start" style="width:125%; height:125%; border:none; transform: scale(0.8); transform-origin: top left; position:absolute; top:0; left:0;"></iframe>
+                    <div style="position:absolute; top:0; left:0; right:0; bottom:0; background:transparent; z-index:10; pointer-events:none;"></div>
+                </div>
+                <div style="padding:12px 24px; background:#fff; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.8rem; color:var(--text2); font-weight:600;"><i class="fa-solid fa-rotate"></i> Auto-refreshes on save</span>
+                    <button type="button" onclick="document.getElementById('previewIframe').src = document.getElementById('previewIframe').src" class="btn btn-xs btn-ghost border">Refresh Preview</button>
+                </div>
             </div>
-            <div style="flex:1; background:#f1f5f9; position:relative; overflow:hidden;">
-                <!-- We simulate a zoomed out view -->
-                <iframe id="previewIframe" src="/mock/{{ exam.id }}/start" style="width:125%; height:125%; border:none; transform: scale(0.8); transform-origin: top left; position:absolute; top:0; left:0;"></iframe>
-                <div style="position:absolute; top:0; left:0; right:0; bottom:0; background:transparent; z-index:10; pointer-events:none;"></div>
+            
+            {% if exam.original_pdf_url %}
+            <!-- PDF Content -->
+            <div id="tab-content-pdf" style="flex:1; background:#f1f5f9; display:none; flex-direction:column; height:100%;">
+                <iframe src="{{ exam.original_pdf_url }}" style="width:100%; height:100%; border:none; flex:1;"></iframe>
             </div>
-            <div style="padding:12px 24px; background:#fff; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:0.8rem; color:var(--text2); font-weight:600;"><i class="fa-solid fa-rotate"></i> Auto-refreshes on save</span>
-                <button type="button" onclick="document.getElementById('previewIframe').src = document.getElementById('previewIframe').src" class="btn btn-xs btn-ghost border">Refresh Preview</button>
-            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -418,6 +444,37 @@
 function openQuestionModal(sectionId) {
     document.getElementById("targetSectionId").value = sectionId;
     document.getElementById("addQuestionModal").style.display = "flex";
+}
+
+function switchRightTab(tab) {
+    const simTab = document.getElementById('tab-content-simulator');
+    const pdfTab = document.getElementById('tab-content-pdf');
+    const simBtn = document.getElementById('tab-btn-simulator');
+    const pdfBtn = document.getElementById('tab-btn-pdf');
+    
+    if (tab === 'simulator') {
+        if (simTab) simTab.style.display = 'flex';
+        if (pdfTab) pdfTab.style.display = 'none';
+        if (simBtn) {
+            simBtn.style.background = '#fff';
+            simBtn.style.color = 'var(--text)';
+        }
+        if (pdfBtn) {
+            pdfBtn.style.background = 'transparent';
+            pdfBtn.style.color = 'var(--text2)';
+        }
+    } else {
+        if (simTab) simTab.style.display = 'none';
+        if (pdfTab) pdfTab.style.display = 'flex';
+        if (simBtn) {
+            simBtn.style.background = 'transparent';
+            simBtn.style.color = 'var(--text2)';
+        }
+        if (pdfBtn) {
+            pdfBtn.style.background = '#fff';
+            pdfBtn.style.color = 'var(--text)';
+        }
+    }
 }
 </script>
 {% endblock %}

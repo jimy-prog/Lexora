@@ -96,6 +96,7 @@ class MockExam(MasterBase):
     test_mode = Column(String, default="Exam Mode")
     is_published = Column(Boolean, default=False)
     audio_url = Column(String, nullable=True)
+    original_pdf_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     sections = relationship("ExamSection", back_populates="exam", cascade="all, delete-orphan")
@@ -120,6 +121,7 @@ class QuestionBlock(MasterBase):
     instructions = Column(String, default="")
     passage_text = Column(String, default="")
     media_url = Column(String, default="")
+    layout_style = Column(String, default="default")
     
     section = relationship("ExamSection", back_populates="blocks")
     questions = relationship("Question", back_populates="block", cascade="all, delete-orphan")
@@ -133,6 +135,7 @@ class Question(MasterBase):
     prompt = Column(String, default="")
     correct_answer_text = Column(String, default="")
     points = Column(Integer, default=1)
+    low_confidence = Column(Boolean, default=False)
     
     block = relationship("QuestionBlock", back_populates="questions")
     options = relationship("AnswerOption", back_populates="question", cascade="all, delete-orphan")
@@ -249,6 +252,21 @@ def init_master_db():
             pass
         try:
             conn.execute(text("ALTER TABLE mock_attempts ADD COLUMN teacher_id INTEGER"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE mock_exams ADD COLUMN original_pdf_url VARCHAR"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE mock_question_blocks ADD COLUMN layout_style VARCHAR DEFAULT 'default'"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE mock_questions ADD COLUMN low_confidence BOOLEAN DEFAULT 0"))
             conn.commit()
         except Exception:
             pass

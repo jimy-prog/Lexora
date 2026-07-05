@@ -339,6 +339,17 @@ def process_pdf_background(temp_path: str, exam_id: int, test_scope: str):
         update_progress(95, "Building internal database structures...")
         db = SessionMaster()
         try:
+            # Save original PDF permanently for preview mode
+            pdf_dir = "uploads/pdf"
+            os.makedirs(pdf_dir, exist_ok=True)
+            perm_pdf_path = f"{pdf_dir}/{exam_id}_original.pdf"
+            import shutil
+            shutil.copy2(temp_path, perm_pdf_path)
+            
+            exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
+            if exam:
+                exam.original_pdf_url = f"/{perm_pdf_path}"
+                
             if "sections" in result:
                 for s_data in result["sections"]:
                     section = ExamSection(
@@ -350,10 +361,21 @@ def process_pdf_background(temp_path: str, exam_id: int, test_scope: str):
                     db.flush()
                     
                     for b_data in s_data.get("blocks", []):
+                        # Extract and crop media from PDF if requested
+                        media_url = ""
+                        m_box = b_data.get("media_box")
+                        if m_box and "box_2d" in m_box:
+                            page_num = m_box.get("page_number", 0)
+                            box_2d = m_box.get("box_2d")
+                            from services.ai_extractor import crop_pdf_media
+                            media_url = crop_pdf_media(perm_pdf_path, page_num, box_2d)
+                            
                         block = QuestionBlock(
                             section_id=section.id,
                             instructions=b_data.get("instructions", ""),
-                            passage_text=b_data.get("passage_text", "")
+                            passage_text=b_data.get("passage_text", ""),
+                            media_url=media_url or b_data.get("media_url", ""),
+                            layout_style=b_data.get("layout_style", "default")
                         )
                         db.add(block)
                         db.flush()
@@ -364,7 +386,8 @@ def process_pdf_background(temp_path: str, exam_id: int, test_scope: str):
                                 q_type=q_data.get("q_type", "GAP_FILL"),
                                 question_number=q_data.get("question_number", idx+1),
                                 prompt=q_data.get("prompt", ""),
-                                correct_answer_text=q_data.get("correct_answer_text", "")
+                                correct_answer_text=q_data.get("correct_answer_text", ""),
+                                low_confidence=q_data.get("low_confidence", False)
                             )
                             db.add(question)
                             db.flush()
