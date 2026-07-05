@@ -8,7 +8,11 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+# Configure Gemini if the key is present
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 def convert_pdf_to_images(pdf_path: str, progress_callback=None) -> list[Image.Image]:
     doc = fitz.open(pdf_path)
@@ -25,6 +29,47 @@ def convert_pdf_to_images(pdf_path: str, progress_callback=None) -> list[Image.I
     return images
 
 def extract_ielts_exam_from_pdf(pdf_path: str, test_scope: str = "Reading Section", progress_callback=None) -> dict:
+    """
+    Extracts an IELTS exam structure from a PDF document.
+    Falls back to sandbox mock extraction if GEMINI_API_KEY is not set.
+    """
+    if not GEMINI_API_KEY:
+        print("[AI Extractor] WARNING: GEMINI_API_KEY is not set. Running in Sandbox Mode.")
+        if progress_callback:
+            progress_callback(30, "Sandbox Ingestion: Reading PDF pages...")
+            progress_callback(60, "Sandbox Ingestion: Parsing mock exam template...")
+            progress_callback(100, "Sandbox Ingestion: Done!")
+            
+        return {
+            "sections": [
+                {
+                    "section_type": f"{test_scope} (AI Sandbox Mode)",
+                    "blocks": [
+                        {
+                            "instructions": "Questions 1-3: Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage.",
+                            "passage_text": "<p>The Great Library of Alexandria was one of the largest and most significant libraries of the ancient world. It was dedicated to the Muses, the nine goddesses of the arts.</p><p>It flourished under the patronage of the Ptolemaic dynasty and functioned as a major center of scholarship from its creation in the third century BC until the Roman conquest of Egypt in 30 BC.</p>",
+                            "questions": [
+                                {
+                                    "q_type": "GAP_FILL",
+                                    "question_number": 1,
+                                    "prompt": "The Library of Alexandria was dedicated to the ______.",
+                                    "correct_answer_text": "Muses",
+                                    "options": []
+                                },
+                                {
+                                    "q_type": "GAP_FILL",
+                                    "question_number": 2,
+                                    "prompt": "The library flourished under the ______ dynasty.",
+                                    "correct_answer_text": "Ptolemaic",
+                                    "options": []
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+
     if progress_callback:
         progress_callback(5, "Opening PDF Document...")
         
