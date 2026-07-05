@@ -149,22 +149,19 @@
                         {% endif %}
                     </div>
 
-                    <!-- Audio Upload -->
-                    {% if "Listening" in exam.test_scope %}
+                    <!-- Audio Upload - always visible -->
                     <div style="flex:1;">
                         <label class="form-label"><i class="fa-solid fa-music"></i> Upload Audio</label>
                         {% if exam.audio_url %}
-                            <div style="padding:12px; background:#dcfce7; border:1px solid #86efac; border-radius:10px; color:#166534; font-size:0.9rem; font-weight:600; display:flex; align-items:center; gap:8px;">
+                            <div style="padding:12px; background:#dcfce7; border:1px solid #86efac; border-radius:10px; color:#166534; font-size:0.9rem; font-weight:600; display:flex; align-items:center; gap:8px; margin-bottom:8px;">
                                 <i class="fa-solid fa-check-circle"></i> Audio Track Linked
                             </div>
-                        {% else %}
-                            <form action="/mock/{{ exam.id }}/upload-audio" method="POST" enctype="multipart/form-data" style="display:flex; gap:8px;">
-                                <input type="file" name="audio_file" accept="audio/mp3,audio/mpeg" required class="input-clean" style="padding:8px;">
-                                <button type="submit" class="btn btn-ghost border">Upload MP3</button>
-                            </form>
                         {% endif %}
+                        <form action="/mock/{{ exam.id }}/upload-audio" method="POST" enctype="multipart/form-data" style="display:flex; gap:8px;">
+                            <input type="file" name="audio_file" accept="audio/mp3,audio/mpeg" {% if not exam.audio_url %}required{% endif %} class="input-clean" style="padding:8px;">
+                            <button type="submit" class="btn btn-ghost border">{% if exam.audio_url %}Replace{% else %}Upload MP3{% endif %}</button>
+                        </form>
                     </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -342,6 +339,9 @@
                 <i class="fa-solid fa-file-pdf"></i> Original PDF
             </button>
             {% endif %}
+            <a href="/mock/{{ exam.id }}/start" target="_blank" class="btn btn-xs" style="border-radius:8px; border:1px solid var(--border); padding:8px 12px; font-weight:700; color:var(--text2); text-decoration:none; white-space:nowrap;">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Fullscreen
+            </a>
         </div>
         
         <div class="builder-card" style="flex:1; display:flex; flex-direction:column; border-radius:0 0 16px 16px; margin-bottom:0; box-shadow:0 24px 64px rgba(0,0,0,0.08); overflow:hidden;">
@@ -349,7 +349,6 @@
             <div id="tab-content-simulator" style="flex:1; background:#f1f5f9; position:relative; overflow:hidden; display:flex; flex-direction:column;">
                 <div style="flex:1; position:relative;">
                     <iframe id="previewIframe" src="/mock/{{ exam.id }}/start" style="width:125%; height:125%; border:none; transform: scale(0.8); transform-origin: top left; position:absolute; top:0; left:0;"></iframe>
-                    <div style="position:absolute; top:0; left:0; right:0; bottom:0; background:transparent; z-index:10; pointer-events:none;"></div>
                 </div>
                 <div style="padding:12px 24px; background:#fff; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-size:0.8rem; color:var(--text2); font-weight:600;"><i class="fa-solid fa-rotate"></i> Auto-refreshes on save</span>
@@ -360,7 +359,7 @@
             {% if exam.original_pdf_url %}
             <!-- PDF Content -->
             <div id="tab-content-pdf" style="flex:1; background:#f1f5f9; display:none; flex-direction:column; height:100%;">
-                <iframe src="{{ exam.original_pdf_url }}" style="width:100%; height:100%; border:none; flex:1;"></iframe>
+                <iframe src="{{ exam.original_pdf_url }}" style="width:100%; height:100%; border:none; flex:1; pointer-events:auto;"></iframe>
             </div>
             {% endif %}
         </div>

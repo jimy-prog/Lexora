@@ -191,7 +191,7 @@
             <form id="submitExamForm" action="/mock/{{ exam.id }}/submit" method="POST" style="display: contents;">
                 <input type="hidden" name="attempt_id" value="{{ attempt.id }}">
                 <button type="button" onclick="confirmSubmit()" class="btn btn-sm" style="background:#4B5563; color:#fff; border:none; padding:8px 16px; border-radius:20px; font-weight:600; margin-right:8px;">Submit</button>
-            
+            </form>
             <button class="icon-btn" onclick="toggleFullscreen()" title="Fullscreen"><i class="fa-solid fa-compress"></i></button>
         </div>
     </div>
@@ -364,7 +364,7 @@
     <div class="bottom-bar">
         <div class="nav-sections">
             {% for section in exam.sections %}
-            <button class="nav-section-btn {% if loop.first %}active{% endif %}" id="btn-part-{{ loop.index }}" onclick="switchPart({{ loop.index }})">Part {{ loop.index }}</button>
+            <button type="button" class="nav-section-btn {% if loop.first %}active{% endif %}" id="btn-part-{{ loop.index }}" onclick="switchPart({{ loop.index }})">Part {{ loop.index }}</button>
             {% endfor %}
         </div>
         
@@ -373,10 +373,9 @@
         </div>
 
         <div class="action-buttons">
-            <button class="btn-nav" onclick="navArrow(-1)"><i class="fa-solid fa-arrow-left"></i></button>
-            <button class="btn-nav" onclick="navArrow(1)"><i class="fa-solid fa-arrow-right"></i></button>
+            <button type="button" class="btn-nav" onclick="navArrow(-1)"><i class="fa-solid fa-arrow-left"></i></button>
+            <button type="button" class="btn-nav" onclick="navArrow(1)"><i class="fa-solid fa-arrow-right"></i></button>
         </div>
-    </form>
     </div>
 
     <script>
