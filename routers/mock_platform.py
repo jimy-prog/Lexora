@@ -738,12 +738,18 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
                 expected = normalize_text(question.correct_answer_text)
                 provided = normalize_text(text_resp)
                 
-                # Check if it is a writing section task
-                is_writing = False
-                if question.block and question.block.section:
+                # Check if it is a writing section task (by q_type OR section name)
+                is_writing = (question.q_type == "WRITING")
+                if not is_writing and question.block and question.block.section:
                     is_writing = "writing" in question.block.section.section_type.lower()
+                
+                # Also detect speaking by q_type
+                is_speaking = (question.q_type == "SPEAKING")
                     
                 if is_writing:
+                    writing_responses.append((question.prompt, text_resp))
+                elif is_speaking:
+                    # Speaking typed as text (rare) — treat as writing
                     writing_responses.append((question.prompt, text_resp))
                 else:
                     if expected and provided == expected:
