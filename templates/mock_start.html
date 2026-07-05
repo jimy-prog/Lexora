@@ -60,14 +60,89 @@
             </li>
         </ul>
         
-        <div style="margin-top: 40px; padding-top: 32px; border-top: 1px solid var(--border); text-align:center;">
-            <a href="/mock/{{ exam.id }}/take" class="btn btn-primary" style="font-size:1.2rem; padding:16px 40px; display:inline-flex; align-items:center; gap:12px; box-shadow:0 10px 25px rgba(123, 97, 255, 0.3);">
-                <i class="fa-solid fa-play"></i> Start Exam
-            </a>
-            <p style="font-size:0.8rem; color:var(--text2); margin-top:16px;">Good luck! Stay focused and do your best.</p>
+        {% if has_graded_sections %}
+        <div style="margin-top: 32px; padding: 24px; background: rgba(123, 97, 255, 0.03); border: 1px dashed #7b61ff; border-radius: 16px; text-align: left;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 12px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-user-graduate" style="color: #7b61ff;"></i> Obligatory: Select Evaluator
+            </h3>
+            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 16px; line-height: 1.45;">
+                This exam contains Writing or Speaking sections. Please select who should review and grade your essay/speech submissions.
+            </p>
+            <form action="/mock/{{ exam.id }}/start" method="POST" id="startExamForm">
+                <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                    <label style="flex: 1; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <input type="radio" name="reviewer_type" value="ai" checked onchange="toggleTeacherSelect(false)" style="transform: scale(1.25);">
+                        <div>
+                            <strong style="font-size: 0.95rem; display: block; color: #1e293b;">AI Agent</strong>
+                            <span style="font-size: 0.75rem; color: #64748b;">Scored in 10-30 seconds</span>
+                        </div>
+                    </label>
+                    <label style="flex: 1; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <input type="radio" name="reviewer_type" value="teacher" onchange="toggleTeacherSelect(true)" style="transform: scale(1.25);">
+                        <div>
+                            <strong style="font-size: 0.95rem; display: block; color: #1e293b;">Teacher</strong>
+                            <span style="font-size: 0.75rem; color: #64748b;">Human review & feedback</span>
+                        </div>
+                    </label>
+                </div>
+
+                <div id="teacherSelectContainer" style="display: none; margin-bottom: 20px;">
+                    <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 8px; color: #334155;">Select Teacher</label>
+                    <select name="teacher_id" id="teacherSelect" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; outline: none; background: #fff; font-size: 0.9rem; color: #334155;">
+                        <option value="">-- Choose a teacher --</option>
+                        {% if class_teachers %}
+                        <optgroup label="My Class Teachers">
+                            {% for t in class_teachers %}
+                            <option value="{{ t.id }}">{{ t.full_name or t.username }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endif %}
+                        {% if public_teachers %}
+                        <optgroup label="Public Teachers">
+                            {% for t in public_teachers %}
+                            <option value="{{ t.id }}">{{ t.full_name or t.username }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <div style="text-align: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid #e2e8f0;">
+                    <button type="submit" class="btn btn-primary" style="font-size: 1.15rem; padding: 14px 40px; display: inline-flex; align-items: center; gap: 12px; border: none; box-shadow: 0 10px 25px rgba(123, 97, 255, 0.3);">
+                        <i class="fa-solid fa-play"></i> Start Exam
+                    </button>
+                    <p style="font-size: 0.8rem; color: #64748b; margin-top: 12px;">Good luck! Stay focused and do your best.</p>
+                </div>
+            </form>
         </div>
+        {% else %}
+        <form action="/mock/{{ exam.id }}/start" method="POST" id="startExamForm">
+            <input type="hidden" name="reviewer_type" value="ai">
+            <div style="margin-top: 40px; padding-top: 32px; border-top: 1px solid #e2e8f0; text-align:center;">
+                <button type="submit" class="btn btn-primary" style="font-size:1.2rem; padding:16px 40px; display:inline-flex; align-items:center; gap:12px; border: none; box-shadow:0 10px 25px rgba(123, 97, 255, 0.3);">
+                    <i class="fa-solid fa-play"></i> Start Exam
+                </button>
+                <p style="font-size:0.8rem; color:#64748b; margin-top:16px;">Good luck! Stay focused and do your best.</p>
+            </div>
+        </form>
+        {% endif %}
     </div>
 </div>
 </div>
+
+<script>
+function toggleTeacherSelect(show) {
+    const container = document.getElementById('teacherSelectContainer');
+    const select = document.getElementById('teacherSelect');
+    if (show) {
+        container.style.display = 'block';
+        select.required = true;
+    } else {
+        container.style.display = 'none';
+        select.required = false;
+        select.value = '';
+    }
+}
+</script>
 </body>
 </html>

@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from services.ai_extractor import extract_ielts_exam_from_pdf
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from master_database import SessionMaster, MockExam, ExamSection, QuestionBlock, Question, AnswerOption, MockAttempt, AttemptAnswer
+from master_database import SessionMaster, MockExam, ExamSection, QuestionBlock, Question, AnswerOption, MockAttempt, AttemptAnswer, User, ClassMember, ReviewRequest
 from auth import get_current_user
 
 router = APIRouter(prefix="/mock", tags=["mock"])
@@ -202,15 +202,99 @@ async def take_mock_start(request: Request, exam_id: int, db: SessionMaster = De
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
         
+    # Check if exam has writing or speaking sections that require review
+    has_graded_sections = any(
+        s.section_type.lower() in {"writing", "speaking", "writing task 1", "writing task 2"}
+        for s in exam.sections
+    )
+    
+    class_teachers = []
+    public_teachers = []
+    
+    if has_graded_sections:
+        # Get teachers from classes the student has joined
+        if user.role == "student":
+            memberships = db.query(ClassMember).filter(ClassMember.student_id == user.id).all()
+            # Deduplicate class teachers
+            seen_ids = set()
+            for m in memberships:
+                if m.public_class and m.public_class.teacher:
+                    t = m.public_class.teacher
+                    if t.id not in seen_ids:
+                        class_teachers.append(t)
+                        seen_ids.add(t.id)
+            
+            # Get public teachers (all registered teachers except class teachers)
+            all_teachers = db.query(User).filter(User.role == "teacher").all()
+            for t in all_teachers:
+                if t.id not in seen_ids:
+                    public_teachers.append(t)
+        else:
+            # Fallback for admins/teachers taking exams
+            public_teachers = db.query(User).filter(User.role == "teacher").all()
+            
     return templates.TemplateResponse("mock_start.html", {
         "request": request,
         "user": user,
         "exam": exam,
+        "has_graded_sections": has_graded_sections,
+        "class_teachers": class_teachers,
+        "public_teachers": public_teachers,
         "active_page": "mock"
     })
 
+@router.post("/{exam_id}/start")
+async def start_mock_post(
+    request: Request,
+    exam_id: int,
+    reviewer_type: str = Form("ai"),
+    teacher_id: str = Form(""),
+    db: SessionMaster = Depends(get_mdb)
+):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+        
+    exam = db.query(MockExam).filter(MockExam.id == exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+        
+    # Check for existing in-progress attempt to resume it
+    attempt = db.query(MockAttempt).filter(
+        MockAttempt.student_id == user.id,
+        MockAttempt.exam_id == exam.id,
+        MockAttempt.status == "in_progress"
+    ).order_by(MockAttempt.started_at.desc()).first()
+    
+    t_id = None
+    if reviewer_type == "teacher" and teacher_id:
+        try:
+            t_id = int(teacher_id)
+        except ValueError:
+            pass
+
+    if not attempt:
+        attempt = MockAttempt(
+            tenant_id=user.tenant_id,
+            student_id=user.id,
+            exam_id=exam.id,
+            status="in_progress",
+            started_at=datetime.utcnow(),
+            reviewer_type=reviewer_type,
+            teacher_id=t_id
+        )
+        db.add(attempt)
+        db.commit()
+        db.refresh(attempt)
+    else:
+        attempt.reviewer_type = reviewer_type
+        attempt.teacher_id = t_id
+        db.commit()
+        
+    return RedirectResponse(f"/mock/{exam_id}/take?attempt_id={attempt.id}", status_code=303)
+
 @router.get("/{exam_id}/take", response_class=HTMLResponse)
-async def mock_take(request: Request, exam_id: int, db: SessionMaster = Depends(get_mdb)):
+async def mock_take(request: Request, exam_id: int, attempt_id: int = None, db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(f"/login?next=/mock/{exam_id}/take", status_code=302)
@@ -219,10 +303,18 @@ async def mock_take(request: Request, exam_id: int, db: SessionMaster = Depends(
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
         
+    if not attempt_id:
+        return RedirectResponse(f"/mock/{exam_id}/start", status_code=302)
+        
+    attempt = db.query(MockAttempt).filter(MockAttempt.id == attempt_id, MockAttempt.student_id == user.id).first()
+    if not attempt:
+        raise HTTPException(status_code=403, detail="Attempt not found or unauthorized")
+        
     return templates.TemplateResponse("mock_take.html", {
         "request": request,
         "user": user,
-        "exam": exam
+        "exam": exam,
+        "attempt": attempt
     })
 
 
@@ -477,22 +569,38 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
         
     form = await request.form()
     
-    # 1. Create Attempt
-    attempt = MockAttempt(
-        tenant_id=user.tenant_id,
-        student_id=user.id,
-        exam_id=exam.id,
-        status="completed",
-        completed_at=datetime.utcnow()
-    )
-    db.add(attempt)
-    db.flush()
-    
-    # 2. Grade
+    # 1. Fetch existing attempt
+    attempt_id_val = form.get("attempt_id")
+    if attempt_id_val:
+        attempt = db.query(MockAttempt).filter(
+            MockAttempt.id == int(attempt_id_val),
+            MockAttempt.student_id == user.id
+        ).first()
+    else:
+        attempt = None
+        
+    if not attempt:
+        # Fallback if no attempt was created at start
+        attempt = MockAttempt(
+            tenant_id=user.tenant_id,
+            student_id=user.id,
+            exam_id=exam.id,
+            status="completed",
+            completed_at=datetime.utcnow()
+        )
+        db.add(attempt)
+        db.flush()
+    else:
+        attempt.status = "completed"
+        attempt.completed_at = datetime.utcnow()
+        
+    # 2. Grade MCQ/Gap-fills & save answers
     raw_score = 0
+    writing_responses = [] # list of (question_prompt, student_essay)
+    speaking_responses = [] # list of (question_prompt, audio_file_path)
+    
     for key, val in form.items():
         if key.startswith("q"):
-            # Could be GAP_FILL or MCQ
             q_id = int(key[1:])
             question = db.query(Question).filter(Question.id == q_id).first()
             if not question:
@@ -503,7 +611,6 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
             text_resp = ""
             
             if question.q_type == "MCQ":
-                # val is the option_id chosen
                 try:
                     option_id = int(val)
                     opt = db.query(AnswerOption).filter(AnswerOption.id == option_id).first()
@@ -530,16 +637,27 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
                     with open(filepath, "wb") as f:
                         f.write(audio_data)
                     text_resp = f"/uploads/{filename}"
+                    
+                    # Store for AI/Teacher grading
+                    speaking_responses.append((question.prompt, filepath))
                 except Exception as e:
                     text_resp = f"Error saving speaking response: {str(e)}"
             else:
-                # text answer
                 text_resp = val
                 expected = normalize_text(question.correct_answer_text)
                 provided = normalize_text(text_resp)
-                if expected and provided == expected:
-                    is_correct = True
+                
+                # Check if it is a writing section task
+                is_writing = False
+                if question.block and question.block.section:
+                    is_writing = "writing" in question.block.section.section_type.lower()
                     
+                if is_writing:
+                    writing_responses.append((question.prompt, text_resp))
+                else:
+                    if expected and provided == expected:
+                        is_correct = True
+                        
             if is_correct:
                 raw_score += question.points
                 
@@ -552,11 +670,66 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
             )
             db.add(ans)
             
-    # 3. Finalize Score
     attempt.total_score = raw_score
-    attempt.band_score = calculate_band(raw_score, exam.test_scope)
-    db.commit()
     
+    # 3. Handle Grading Reviewer Types (AI vs. Teacher)
+    has_graded_content = len(writing_responses) > 0 or len(speaking_responses) > 0
+    
+    if has_graded_content:
+        if attempt.reviewer_type == "teacher" and attempt.teacher_id:
+            # Create a ReviewRequest for the selected teacher
+            db.query(ReviewRequest).filter_by(attempt_id=attempt.id, student_id=user.id).delete()
+            new_req = ReviewRequest(
+                attempt_id=attempt.id,
+                student_id=user.id,
+                teacher_id=attempt.teacher_id,
+                status="pending"
+            )
+            db.add(new_req)
+            attempt.band_score = None # pending review
+        else:
+            # AI Agent grading
+            from services.ai_grader import grade_writing_submission, grade_speaking_submission
+            ai_scores = []
+            feedback_parts = []
+            
+            # Grade Writing responses
+            for prompt_text, essay_text in writing_responses:
+                res = grade_writing_submission(prompt_text, essay_text)
+                if res.get("overall_band"):
+                    ai_scores.append(res.get("overall_band"))
+                feedback_parts.append(f"### Writing Task Feedback\n\n{res.get('feedback_markdown', '')}")
+                
+            # Grade Speaking responses
+            for prompt_text, audio_path in speaking_responses:
+                res = grade_speaking_submission(prompt_text, audio_path)
+                if res.get("overall_band"):
+                    ai_scores.append(res.get("overall_band"))
+                feedback_parts.append(f"### Speaking Task Feedback\n\n{res.get('feedback_markdown', '')}")
+                
+            overall_band = 0.0
+            if ai_scores:
+                overall_band = round(sum(ai_scores) / len(ai_scores) * 2) / 2 # round to nearest 0.5
+                
+            combined_feedback = "\n\n---\n\n".join(feedback_parts)
+            
+            db.query(ReviewRequest).filter_by(attempt_id=attempt.id, student_id=user.id).delete()
+            new_req = ReviewRequest(
+                attempt_id=attempt.id,
+                student_id=user.id,
+                teacher_id=1, # Use owner ID (1) to satisfy NOT NULL constraint for AI reviews
+                status="reviewed",
+                score=overall_band,
+                feedback=combined_feedback,
+                reviewed_at=datetime.utcnow()
+            )
+            db.add(new_req)
+            attempt.band_score = overall_band
+    else:
+        # Standard Listening/Reading exam auto-calculated
+        attempt.band_score = calculate_band(raw_score, exam.test_scope)
+        
+    db.commit()
     return RedirectResponse(f"/mock/results/{attempt.id}", status_code=303)
 
 @router.get("/results/{attempt_id}", response_class=HTMLResponse)
@@ -566,22 +739,20 @@ async def mock_results(request: Request, attempt_id: int, db: SessionMaster = De
         return RedirectResponse("/login", status_code=302)
         
     attempt = db.query(MockAttempt).filter(MockAttempt.id == attempt_id).first()
-    if not attempt or (attempt.student_id != user.id and user.role != "owner"):
+    if not attempt:
         raise HTTPException(status_code=404, detail="Result not found")
         
-    teachers = []
-    if user.role == "student":
-        # Get teachers from classes the student has joined
-        from master_database import ClassMember, PublicClass
-        memberships = db.query(ClassMember).filter(ClassMember.student_id == user.id).all()
-        teachers = [m.public_class.teacher for m in memberships]
-        # Also include 'Public' teachers? For now, just joined ones.
+    is_auth = (attempt.student_id == user.id) or (user.role == "owner") or (user.role == "teacher" and attempt.teacher_id == user.id)
+    if not is_auth:
+        raise HTTPException(status_code=404, detail="Result not found")
         
+    review = db.query(ReviewRequest).filter(ReviewRequest.attempt_id == attempt.id).first()
+    
     return templates.TemplateResponse("mock_results.html", {
         "request": request,
         "user": user,
         "attempt": attempt,
-        "teachers": teachers,
+        "review": review,
         "active_page": "mock"
     })
 

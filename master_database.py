@@ -159,9 +159,14 @@ class MockAttempt(MasterBase):
     total_score = Column(Integer, default=0)
     band_score = Column(Float, nullable=True)
     
+    # Reviewer tracking
+    reviewer_type = Column(String, default="ai")  # ai, teacher
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
     tenant = relationship("PlatformTenant")
     exam = relationship("MockExam", back_populates="attempts")
     answers = relationship("AttemptAnswer", back_populates="attempt", cascade="all, delete-orphan")
+    teacher = relationship("User", foreign_keys=[teacher_id])
 
 class AttemptAnswer(MasterBase):
     __tablename__ = "mock_attempt_answers"
@@ -233,6 +238,16 @@ def init_master_db():
             pass
         try:
             conn.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE mock_attempts ADD COLUMN reviewer_type VARCHAR DEFAULT 'ai'"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE mock_attempts ADD COLUMN teacher_id INTEGER"))
             conn.commit()
         except Exception:
             pass

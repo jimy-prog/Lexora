@@ -79,6 +79,8 @@ async def grade_review(request: Request, review_id: int, score: float = Form(...
         req.feedback = feedback
         req.status = "reviewed"
         req.reviewed_at = datetime.utcnow()
+        if req.attempt:
+            req.attempt.band_score = score
         db.commit()
         
     return RedirectResponse("/reviews/inbox", status_code=303)
