@@ -8,24 +8,75 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 
-def _get_api_key() -> str:
-    """Read the Gemini API key fresh from the environment each time it's needed."""
-    load_dotenv(override=True)
-    return os.environ.get("GEMINI_API_KEY", "").strip()
+class APIKeyManager:
+    _keys = []
+    _current_idx = 0
+
+    @classmethod
+    def get_keys(cls):
+        load_dotenv(override=True)
+        raw = os.environ.get("GEMINI_API_KEY", "").strip()
+        cls._keys = [k.strip() for k in raw.split(",") if k.strip()]
+        return cls._keys
+
+    @classmethod
+    def get_current_key(cls):
+        keys = cls.get_keys()
+        if not keys:
+            return None
+        cls._current_idx = cls._current_idx % len(keys)
+        return keys[cls._current_idx]
+
+    @classmethod
+    def rotate_to_next(cls):
+        keys = cls.get_keys()
+        if keys:
+            cls._current_idx = (cls._current_idx + 1) % len(keys)
+            print(f"[APIKeyManager] Rotated to key index {cls._current_idx}")
 
 
 def _get_model():
-    key = _get_api_key()
+    key = APIKeyManager.get_current_key()
     if not key:
         return None
     genai.configure(api_key=key)
     return genai.GenerativeModel("gemini-2.5-flash")
 
 
-def _generate_content_with_retry(model, contents, generation_config=None):
+def _log_platform_error(attempt_id: int, error_type: str, message: str, details: str):
+    from master_database import SessionMaster, PlatformErrorLog
+    db = SessionMaster()
+    try:
+        log_entry = PlatformErrorLog(
+            attempt_id=attempt_id,
+            error_type=error_type,
+            message=message,
+            details=details
+        )
+        db.add(log_entry)
+        db.commit()
+        print(f"[AI Grader Error Logged] Attempt {attempt_id}: {message}")
+    except Exception as e:
+        print(f"[AI Grader Log Error] Failed to write to database: {e}")
+    finally:
+        db.close()
+
+
+STUDENT_FRIENDLY_AI_FALLBACK = (
+    "**Evaluation in Progress**\n\n"
+    "AI evaluation is taking slightly longer than expected. "
+    "Our team has been notified and is reviewing your test. "
+    "Please check back shortly."
+)
+
+
+def _generate_content_with_retry(contents, generation_config=None, attempt_id=None):
     import time
     import re
-    for attempt in range(5):
+    for attempt in range(6):
+        model = _get_model()
+        if not model:
+            raise ValueError("No API keys configured.")
         try:
             if generation_config:
                 return model.generate_content(contents, generation_config=generation_config)
@@ -34,6 +85,13 @@ def _generate_content_with_retry(model, contents, generation_config=None):
         except Exception as e:
             err_str = str(e).lower()
             if "429" in err_str or "quota" in err_str or "rate limit" in err_str:
+                keys = APIKeyManager.get_keys()
+                if len(keys) > 1:
+                    APIKeyManager.rotate_to_next()
+                    print(f"[AI Grader] Rotated API Key due to 429. Attempt {attempt+1}/6...")
+                    time.sleep(2)
+                    continue
+
                 delay = 15
                 if "retry in" in err_str:
                     try:
@@ -42,10 +100,12 @@ def _generate_content_with_retry(model, contents, generation_config=None):
                             delay = int(float(match.group(1))) + 2
                     except Exception:
                         pass
-                print(f"[AI Grader] Hit 429 Rate Limit. Waiting {delay} seconds (attempt {attempt+1}/5)...")
+                print(f"[AI Grader] Hit 429 Rate Limit. Waiting {delay} seconds (attempt {attempt+1}/6)...")
                 time.sleep(delay)
             else:
                 raise e
+
+    model = _get_model()
     if generation_config:
         return model.generate_content(contents, generation_config=generation_config)
     else:
@@ -55,7 +115,7 @@ def _generate_content_with_retry(model, contents, generation_config=None):
 # ─────────────────────────────────────────────────────────────────────────────
 # WRITING GRADER
 # ─────────────────────────────────────────────────────────────────────────────
-def grade_writing_submission(question_prompt: str, student_essay: str) -> dict:
+def grade_writing_submission(question_prompt: str, student_essay: str, attempt_id: int = None) -> dict:
     """
     Evaluates an IELTS writing essay response using Gemini 2.5 Flash.
     Returns a score of 0 with critical feedback for very short / empty submissions.
@@ -129,9 +189,9 @@ You must output ONLY valid JSON matching this schema. DO NOT wrap in markdown co
 
     try:
         response = _generate_content_with_retry(
-            model,
             prompt,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            attempt_id=attempt_id
         )
         raw = response.text.strip()
         # Strip any accidental markdown fences
@@ -143,6 +203,13 @@ You must output ONLY valid JSON matching this schema. DO NOT wrap in markdown co
         return data
     except Exception as e:
         print(f"[AI Writing Grader Error] {e}")
+        if attempt_id:
+            _log_platform_error(
+                attempt_id=attempt_id,
+                error_type="writing_grading",
+                message=f"Writing grading failed: {str(e)}",
+                details=f"Prompt: {question_prompt[:200]}\nEssay: {student_essay[:200]}"
+            )
         return {
             "overall_band": 0.0,
             "criteria_scores": {
@@ -151,17 +218,14 @@ You must output ONLY valid JSON matching this schema. DO NOT wrap in markdown co
                 "lexical_resource": 0.0,
                 "grammar_accuracy": 0.0
             },
-            "feedback_markdown": (
-                f"**AI Grading Error**\n\nThe AI grader encountered an error while processing this submission.\n\n"
-                f"Technical details: {str(e)}"
-            )
+            "feedback_markdown": STUDENT_FRIENDLY_AI_FALLBACK
         }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SPEAKING GRADER
 # ─────────────────────────────────────────────────────────────────────────────
-def grade_speaking_submission(question_prompt: str, audio_file_path: str) -> dict:
+def grade_speaking_submission(question_prompt: str, audio_file_path: str, attempt_id: int = None) -> dict:
     """
     Transcribes and evaluates an IELTS speaking audio submission using Gemini 2.5 Flash.
     """
@@ -248,9 +312,9 @@ You must output ONLY valid JSON. DO NOT wrap in markdown code blocks:
 }}"""
 
         response = _generate_content_with_retry(
-            model,
             [audio_file, prompt],
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            attempt_id=attempt_id
         )
 
         try:
@@ -268,6 +332,13 @@ You must output ONLY valid JSON. DO NOT wrap in markdown code blocks:
 
     except Exception as e:
         print(f"[AI Speaking Grader Error] {e}")
+        if attempt_id:
+            _log_platform_error(
+                attempt_id=attempt_id,
+                error_type="speaking_single_grading",
+                message=f"Single speaking grading failed: {str(e)}",
+                details=f"Prompt: {question_prompt[:200]}"
+            )
         return {
             "overall_band": 0.0,
             "criteria_scores": {
@@ -276,14 +347,11 @@ You must output ONLY valid JSON. DO NOT wrap in markdown code blocks:
                 "grammar_accuracy": 0.0,
                 "pronunciation": 0.0
             },
-            "feedback_markdown": (
-                f"**AI Grading Error**\n\nThe AI grader encountered an error.\n\n"
-                f"Technical details: {str(e)}"
-            )
+            "feedback_markdown": STUDENT_FRIENDLY_AI_FALLBACK
         }
 
 
-def grade_speaking_exam_consolidated(speaking_list: list) -> dict:
+def grade_speaking_exam_consolidated(speaking_list: list, attempt_id: int = None) -> dict:
     """
     Consolidates and grades an entire IELTS speaking test in a single Gemini API call.
     Uploads all audio files, waits for them to become active concurrently,
@@ -393,9 +461,9 @@ You must output ONLY valid JSON matching this schema exactly. DO NOT wrap in mar
 
         # 4. Generate evaluation in a single call
         response = _generate_content_with_retry(
-            model,
             content_parts,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            attempt_id=attempt_id
         )
 
         # 5. Clean up files on Gemini servers
@@ -421,6 +489,13 @@ You must output ONLY valid JSON matching this schema exactly. DO NOT wrap in mar
                 file_obj.delete()
             except Exception:
                 pass
+        if attempt_id:
+            _log_platform_error(
+                attempt_id=attempt_id,
+                error_type="speaking_consolidated_grading",
+                message=f"Consolidated speaking grading failed: {str(e)}",
+                details=f"File count: {len(speaking_list)}"
+            )
         return {
             "overall_band": 0.0,
             "criteria_scores": {
@@ -429,5 +504,5 @@ You must output ONLY valid JSON matching this schema exactly. DO NOT wrap in mar
                 "grammar_accuracy": 0.0,
                 "pronunciation": 0.0
             },
-            "feedback_markdown": f"**AI Consolidated Grading Error**\n\nTechnical details: {str(e)}"
+            "feedback_markdown": STUDENT_FRIENDLY_AI_FALLBACK
         }

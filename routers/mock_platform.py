@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from services.ai_extractor import extract_ielts_exam_from_pdf
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from master_database import SessionMaster, MockExam, ExamSection, QuestionBlock, Question, AnswerOption, MockAttempt, AttemptAnswer, User, ClassMember, ReviewRequest
+from master_database import SessionMaster, MockExam, ExamSection, QuestionBlock, Question, AnswerOption, MockAttempt, AttemptAnswer, User, ClassMember, ReviewRequest, PlatformErrorLog
 from auth import get_current_user
 
 router = APIRouter(prefix="/mock", tags=["mock"])
@@ -822,14 +822,14 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
                     feedback_parts = []
                     
                     for prompt_text, essay_text in writing_list:
-                        res = grade_writing_submission(prompt_text, essay_text)
+                        res = grade_writing_submission(prompt_text, essay_text, attempt_id=attempt_id)
                         band = res.get("overall_band", 0)
                         if band:
                             ai_scores.append(band)
                         feedback_parts.append(f"### Writing Task Feedback\n\n{res.get('feedback_markdown', '')}")
                     
                     if speaking_list:
-                        res = grade_speaking_exam_consolidated(speaking_list)
+                        res = grade_speaking_exam_consolidated(speaking_list, attempt_id=attempt_id)
                         band = res.get("overall_band", 0)
                         if band:
                             ai_scores.append(band)
@@ -966,14 +966,14 @@ async def mock_recheck(attempt_id: int, request: Request, db: SessionMaster = De
             feedback_parts = []
             
             for prompt_text, essay_text in writing_list:
-                res = grade_writing_submission(prompt_text, essay_text)
+                res = grade_writing_submission(prompt_text, essay_text, attempt_id=attempt_id)
                 band = res.get("overall_band", 0)
                 if band:
                     ai_scores.append(band)
                 feedback_parts.append(f"### Writing Task Feedback\n\n{res.get('feedback_markdown', '')}")
             
             if speaking_list:
-                res = grade_speaking_exam_consolidated(speaking_list)
+                res = grade_speaking_exam_consolidated(speaking_list, attempt_id=attempt_id)
                 band = res.get("overall_band", 0)
                 if band:
                     ai_scores.append(band)
@@ -1060,3 +1060,45 @@ async def mock_history(request: Request, db: SessionMaster = Depends(get_mdb)):
         "attempts": attempts,
         "active_page": "history"
     })
+
+
+@router.get("/admin/notifications/unread-count")
+async def get_unread_count(request: Request, db: SessionMaster = Depends(get_mdb)):
+    user = get_current_user(request)
+    if not user or user.role != "owner":
+        return JSONResponse({"count": 0})
+    count = db.query(PlatformErrorLog).filter(PlatformErrorLog.is_resolved == False).count()
+    return JSONResponse({"count": count})
+
+
+@router.get("/admin/notifications/list")
+async def get_notifications_list(request: Request, db: SessionMaster = Depends(get_mdb)):
+    user = get_current_user(request)
+    if not user or user.role != "owner":
+        return JSONResponse({"notifications": []})
+    
+    logs = db.query(PlatformErrorLog).filter(PlatformErrorLog.is_resolved == False).order_by(PlatformErrorLog.created_at.desc()).all()
+    results = []
+    for log in logs:
+        results.append({
+            "id": log.id,
+            "attempt_id": log.attempt_id,
+            "error_type": log.error_type,
+            "message": log.message,
+            "details": log.details or "",
+            "created_at": log.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        })
+    return JSONResponse({"notifications": results})
+
+
+@router.post("/admin/notifications/{notification_id}/resolve")
+async def resolve_notification(notification_id: int, request: Request, db: SessionMaster = Depends(get_mdb)):
+    user = get_current_user(request)
+    if not user or user.role != "owner":
+        raise HTTPException(status_code=403, detail="Forbidden")
+        
+    log = db.query(PlatformErrorLog).filter(PlatformErrorLog.id == notification_id).first()
+    if log:
+        log.is_resolved = True
+        db.commit()
+    return JSONResponse({"status": "success"})

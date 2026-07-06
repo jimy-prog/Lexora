@@ -223,6 +223,15 @@ class ReviewRequest(MasterBase):
     attempt = relationship("MockAttempt", back_populates="reviews")
     student = relationship("User", foreign_keys=[student_id])
     teacher = relationship("User", foreign_keys=[teacher_id])
+class PlatformErrorLog(MasterBase):
+    __tablename__ = "platform_error_logs"
+    id = Column(Integer, primary_key=True)
+    attempt_id = Column(Integer, nullable=True)
+    error_type = Column(String, default="ai_grading")
+    message = Column(String, nullable=False)
+    details = Column(String, nullable=True)
+    is_resolved = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 def init_master_db():

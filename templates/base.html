@@ -438,7 +438,28 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
       <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">☰</button>
       <div class="topbar-title">{% block page_title %}{% endblock %}</div>
     </div>
-    <div class="topbar-right">{% block topbar_actions %}{% endblock %}</div>
+    <div class="topbar-right" style="display: flex; align-items: center; gap: 12px;">
+      {% if user is defined and user and user.role == 'owner' %}
+      <div style="position: relative; display: inline-block;">
+          <button id="ownerNotificationBtn" onclick="toggleOwnerNotifications()" style="background: none; border: none; color: var(--text); font-size: 1.25rem; cursor: pointer; padding: 6px; position: relative; border-radius: 50%; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; transition: background 0.2s;">
+              <span style="font-family: inherit;">🔔</span>
+              <span id="ownerNotificationBadge" style="display: none; position: absolute; top: 0; right: 0; background: var(--red); color: white; font-size: 0.65rem; font-weight: 700; padding: 2px 5px; border-radius: 10px; line-height: 1;">0</span>
+          </button>
+          
+          <!-- Dropdown Panel -->
+          <div id="ownerNotificationDropdown" style="display: none; position: absolute; right: 0; top: 100%; margin-top: 10px; width: 360px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-card); z-index: 1000; max-height: 420px; overflow-y: auto; padding: 14px;">
+              <div style="font-weight: 700; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                  <span style="color: var(--text); font-family: var(--font-d);">Platform Diagnostics</span>
+                  <span id="ownerNotificationTotal" style="font-size: 0.75rem; color: var(--text2); font-weight: normal;">0 unresolved issues</span>
+              </div>
+              <div id="ownerNotificationList" style="display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto;">
+                  <!-- Dynamically populated -->
+              </div>
+          </div>
+      </div>
+      {% endif %}
+      {% block topbar_actions %}{% endblock %}
+    </div>
   </div>
   <div class="page-content">
     {% block content %}{% endblock %}
@@ -509,6 +530,119 @@ document.addEventListener('DOMContentLoaded', () => {
     sel.value = (stored && PAL[stored]) ? stored : 'lexora';
   }
 });
+
+{% if user is defined and user and user.role == 'owner' %}
+document.addEventListener("DOMContentLoaded", function() {
+    updateNotificationBadge();
+    setInterval(updateNotificationBadge, 20000);
+});
+
+async function updateNotificationBadge() {
+    const badge = document.getElementById("ownerNotificationBadge");
+    const totalText = document.getElementById("ownerNotificationTotal");
+    if (!badge) return;
+    try {
+        const res = await fetch("/mock/admin/notifications/unread-count");
+        const data = await res.json();
+        if (data.count > 0) {
+            badge.style.display = "inline-block";
+            badge.textContent = data.count;
+            if (totalText) totalText.textContent = data.count + " unresolved issues";
+        } else {
+            badge.style.display = "none";
+            if (totalText) totalText.textContent = "0 unresolved issues";
+        }
+    } catch (e) {
+        console.error("Error fetching notification badge:", e);
+    }
+}
+
+async function toggleOwnerNotifications() {
+    const dropdown = document.getElementById("ownerNotificationDropdown");
+    if (!dropdown) return;
+    if (dropdown.style.display === "none") {
+        await loadOwnerNotifications();
+        dropdown.style.display = "block";
+    } else {
+        dropdown.style.display = "none";
+    }
+}
+
+document.addEventListener("click", function(event) {
+    const dropdown = document.getElementById("ownerNotificationDropdown");
+    const btn = document.getElementById("ownerNotificationBtn");
+    if (dropdown && dropdown.style.display === "block" && !dropdown.contains(event.target) && !btn.contains(event.target)) {
+        dropdown.style.display = "none";
+    }
+});
+
+async function loadOwnerNotifications() {
+    const listContainer = document.getElementById("ownerNotificationList");
+    if (!listContainer) return;
+    listContainer.innerHTML = '<div style="text-align: center; color: var(--text2); padding: 12px;">Loading...</div>';
+    
+    try {
+        const res = await fetch("/mock/admin/notifications/list");
+        const data = await res.json();
+        if (!data.notifications || data.notifications.length === 0) {
+            listContainer.innerHTML = '<div style="text-align: center; color: var(--text2); padding: 16px; font-style: italic;">No platform errors detected. System fully healthy!</div>';
+            return;
+        }
+        
+        listContainer.innerHTML = "";
+        data.notifications.forEach(log => {
+            const item = document.createElement("div");
+            item.style.padding = "10px";
+            item.style.background = "var(--bg3)";
+            item.style.borderRadius = "8px";
+            item.style.border = "1px solid var(--border)";
+            item.style.fontSize = "0.85rem";
+            
+            let detailsHtml = "";
+            if (log.details) {
+                detailsHtml = `
+                    <div id="details-${log.id}" style="display: none; background: var(--bg4); font-family: var(--font-m); font-size: 0.72rem; padding: 8px; border-radius: 6px; margin-top: 8px; white-space: pre-wrap; overflow-x: auto; color: var(--red); max-height: 120px;">
+                        ${log.details}
+                    </div>
+                `;
+            }
+            
+            const attemptLink = log.attempt_id ? `<a href="/mock/results/${log.attempt_id}" style="color: var(--accent); text-decoration: underline; font-weight: 600;" target="_blank">Attempt #${log.attempt_id}</a>` : "";
+
+            item.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <span style="font-weight: 700; color: var(--red); text-transform: uppercase; font-size: 0.65rem;">⚠️ ${log.error_type}</span>
+                    <span style="font-size: 0.65rem; color: var(--text2);">${log.created_at}</span>
+                </div>
+                <div style="margin: 4px 0 8px 0; font-weight: 500; line-height: 1.4; color: var(--text);">${log.message}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        ${attemptLink}
+                        ${log.details ? `<button onclick="event.stopPropagation(); document.getElementById('details-${log.id}').style.display = document.getElementById('details-${log.id}').style.display === 'none' ? 'block' : 'none'" style="background: none; border: none; color: var(--text2); cursor: pointer; text-decoration: underline; font-size: 0.75rem;">Logs</button>` : ""}
+                    </div>
+                    <button onclick="event.stopPropagation(); resolveNotification(${log.id})" style="background: var(--green); color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">Resolve</button>
+                </div>
+                ${detailsHtml}
+            `;
+            listContainer.appendChild(item);
+        });
+    } catch (e) {
+        listContainer.innerHTML = '<div style="text-align: center; color: var(--red); padding: 12px;">Failed to load logs.</div>';
+    }
+}
+
+async function resolveNotification(id) {
+    try {
+        const res = await fetch(`/mock/admin/notifications/${id}/resolve`, { method: "POST" });
+        if (res.ok) {
+            updateNotificationBadge();
+            loadOwnerNotifications();
+        }
+    } catch (e) {
+        console.error("Error resolving notification:", e);
+    }
+}
+{% endif %}
 
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
