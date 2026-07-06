@@ -167,6 +167,17 @@ def grade_speaking_submission(question_prompt: str, audio_file_path: str) -> dic
         print(f"[AI Speaking Grader] Uploading audio: {audio_file_path}")
         audio_file = genai.upload_file(path=audio_file_path)
 
+        # Wait for file to become active on Gemini servers
+        import time
+        for _ in range(30):
+            if audio_file.state.name == "PROCESSING":
+                time.sleep(1)
+                audio_file = genai.get_file(audio_file.name)
+            elif audio_file.state.name == "ACTIVE":
+                break
+            else:
+                raise ValueError(f"Gemini file processing failed: {audio_file.state.name}")
+
         prompt = f"""You are a strict, experienced IELTS Speaking Examiner.
 
 Listen carefully to the audio recording and evaluate it honestly against IELTS Speaking Band Descriptors.
