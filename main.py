@@ -40,6 +40,19 @@ app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 os.makedirs(STATIC_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+# Sync repo uploads to persistent uploads if they differ
+from config import BASE_DIR
+import shutil
+repo_uploads = BASE_DIR / "uploads"
+if repo_uploads.exists() and repo_uploads.resolve() != UPLOADS_DIR.resolve():
+    for item in repo_uploads.rglob('*'):
+        if item.is_file():
+            rel_path = item.relative_to(repo_uploads)
+            dest = UPLOADS_DIR / rel_path
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if not dest.exists():
+                shutil.copy2(item, dest)
 LANDING_IMAGES_DIR = STATIC_DIR / "landing_images"
 os.makedirs(LANDING_IMAGES_DIR, exist_ok=True)
 
