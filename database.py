@@ -240,6 +240,47 @@ def get_db(request: Request = None):
     finally:
         db.close()
 
+
+def get_db_by_pin(pin: str):
+    """
+    Returns a tenant DB session by looking up which tenant owns a PlacementSession
+    with the given access_code PIN. Used by tablet/public placement routes that
+    have no login session cookie.
+    """
+    from master_database import PlatformTenant
+    master_db = SessionMaster()
+    db_filename = None
+    try:
+        # Search all tenants for the PIN
+        all_tenants = master_db.query(PlatformTenant).all()
+        for tenant in all_tenants:
+            try:
+                engine = get_tenant_engine(tenant.db_filename)
+                SessionTenant = sessionmaker(bind=engine)
+                tdb = SessionTenant()
+                try:
+                    ps = tdb.query(PlacementSession).filter_by(access_code=pin).first()
+                    if ps:
+                        db_filename = tenant.db_filename
+                        break
+                finally:
+                    tdb.close()
+            except Exception:
+                continue
+    finally:
+        master_db.close()
+
+    if not db_filename:
+        raise HTTPException(status_code=404, detail="Invalid access code. Please ask the administrator.")
+
+    engine = get_tenant_engine(db_filename)
+    SessionTenant = sessionmaker(bind=engine)
+    db = SessionTenant()
+    try:
+        yield db
+    finally:
+        db.close()
+
 def migrate_db(db=None):
     if db is None:
         return

@@ -6,7 +6,7 @@ from sqlalchemy import or_
 from datetime import datetime
 import random
 
-from database import get_db, PlacementQuestion, PlacementSession, Group, Student
+from database import get_db, get_db_by_pin, PlacementQuestion, PlacementSession, Group, Student
 from auth import require_teacher_or_owner
 
 router = APIRouter(prefix="/placement", tags=["placement"])
@@ -277,45 +277,81 @@ async def take_placement_portal(request: Request):
 async def start_placement_test(
     request: Request,
     code: str = Form(...),
-    db: Session = Depends(get_db)
 ):
     code = code.strip()
-    session = db.query(PlacementSession).filter_by(access_code=code).first()
-    
-    if not session:
+    # Use pin-based tenant resolution — no login session needed on tablet
+    db_gen = get_db_by_pin(code)
+    try:
+        db = next(db_gen)
+    except HTTPException:
         return templates.TemplateResponse("placement_take.html", {
             "request": request,
             "step": "enter_code",
             "error": "Invalid access code. Please ask the administrator."
         })
+
+    try:
+        session = db.query(PlacementSession).filter_by(access_code=code).first()
         
-    if session.status == "completed":
+        if not session:
+            return templates.TemplateResponse("placement_take.html", {
+                "request": request,
+                "step": "enter_code",
+                "error": "Invalid access code. Please ask the administrator."
+            })
+            
+        if session.status == "completed":
+            return templates.TemplateResponse("placement_take.html", {
+                "request": request,
+                "step": "enter_code",
+                "error": "This test has already been completed."
+            })
+            
+        # Mark as active
+        session.status = "active"
+        session.started_at = datetime.utcnow()
+        db.commit()
+        
+        questions = db.query(PlacementQuestion).filter_by(level=session.target_level).all()
+        
         return templates.TemplateResponse("placement_take.html", {
             "request": request,
-            "step": "enter_code",
-            "error": "This test has already been completed."
+            "step": "test",
+            "session": session,
+            "questions": questions
         })
-        
-    # Mark as active
-    session.status = "active"
-    session.started_at = datetime.utcnow()
-    db.commit()
-    
-    questions = db.query(PlacementQuestion).filter_by(level=session.target_level).all()
-    
-    return templates.TemplateResponse("placement_take.html", {
-        "request": request,
-        "step": "test",
-        "session": session,
-        "questions": questions
-    })
+    finally:
+        try:
+            next(db_gen)
+        except StopIteration:
+            pass
+
 
 @router.post("/take/submit")
 async def submit_placement_test(
     request: Request,
     session_id: int = Form(...),
-    db: Session = Depends(get_db)
+    pin: str = Form(""),
 ):
+    # Resolve tenant DB using the PIN embedded in the form
+    db_gen = get_db_by_pin(pin) if pin else None
+    if db_gen is None:
+        raise HTTPException(status_code=400, detail="Missing pin for public placement submit")
+    try:
+        db = next(db_gen)
+    except HTTPException:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    try:
+        return await _do_submit(request, session_id, db)
+    finally:
+        try:
+            next(db_gen)
+        except StopIteration:
+            pass
+
+
+async def _do_submit(request: Request, session_id: int, db):
     session = db.query(PlacementSession).filter_by(id=session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")

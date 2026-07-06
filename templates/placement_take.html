@@ -245,6 +245,7 @@
 
             <form action="/placement/take/submit" method="POST" id="testForm" onsubmit="return confirm('Submit your test answers?');">
                 <input type="hidden" name="session_id" value="{{ session.id }}">
+                <input type="hidden" name="pin" value="{{ session.access_code }}">
                 
                 {% for q in questions %}
                 <div class="q-card">
