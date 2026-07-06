@@ -13,14 +13,26 @@
 
 {% block extra_styles %}
 <style>
-.pipe-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
-.pipe-col{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
-.pipe-title{font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
-.pipe-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;margin-bottom:7px;font-size:.8rem}
-.pipe-name{font-weight:600;color:var(--text);margin-bottom:3px}
-.pipe-meta{color:var(--text3);font-size:.72rem}
-.mode-online{color:#1098ad;font-size:.68rem;font-weight:600}
-.mode-inperson{color:var(--text3);font-size:.68rem}
+.status-select-pill {
+    border: 1px solid transparent;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    background-image: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    outline: none;
+    text-align: center;
+    font-family: var(--font-b);
+    display: inline-block;
+}
+.status-select-pill.pill-blue { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.status-select-pill.pill-orange { background: #fef3c7; color: #b45309; }
+.status-select-pill.pill-green { background: #dcfce7; color: #166534; }
+.status-select-pill.pill-grey { background: var(--grey-bg); color: var(--grey); }
 </style>
 {% endblock %}
 
@@ -120,48 +132,40 @@
 </div>
 {% endif %}
 
-<!-- Pipeline -->
-<div class="pipe-grid">
-  {% for sk,(label,pill) in status_labels.items() %}
-  <div class="pipe-col">
-    <div class="pipe-title">{{ label }}</div>
-    {% for e in entries if e.status==sk %}
-    <div class="pipe-card">
-      <div class="pipe-name">{{ e.name }}</div>
-      <div class="pipe-meta">
-        {% if e.phone %}📞 {{ e.phone }}<br>{% endif %}
-        {% if e.desired_group %}<span class="dot" style="background:{{ e.desired_group.color }};margin-right:3px"></span>{{ e.desired_group.name }}<br>{% endif %}
-        <span class="{% if e.mode=='online' %}mode-online{% else %}mode-inperson{% endif %}">
-          {% if e.mode=='online' %}🌐 Online{% else %}🏫 In-person{% endif %}
-        </span>
-        {% if e.trial_date %} · Trial: {{ e.trial_date }}{% if e.trial_done %} ✓{% endif %}{% endif %}
-      </div>
-      <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">
-        {% set statuses=['new','contacted','trial','enrolled'] %}
-        {% set idx=statuses.index(sk) %}
-        {% if idx < 3 %}
-        <form method="post" action="/waitlist/{{ e.id }}/status" style="display:inline">
-          <input type="hidden" name="status" value="{{ statuses[idx+1] }}">
-          <button class="btn btn-ghost btn-xs">→ {{ status_labels[statuses[idx+1]][0] }}</button>
-        </form>
-        {% endif %}
-        <button class="btn btn-primary btn-xs" onclick="openEnroll({{ e.id }},'{{ e.name }}')">Enroll</button>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endfor %}
-</div>
-
-<!-- Full table -->
+<!-- Filter Buttons & Enquiries Table -->
 <div class="card">
-  <div class="card-header"><span class="card-title">All Enquiries ({{ entries|length }})</span></div>
+  <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <span class="card-title">All Enquiries ({{ entries|length }})</span>
+    
+    <!-- Client-side Status Filter Toggles -->
+    <div style="display:flex; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden">
+      <button onclick="filterEnquiries('all')" id="btn-filter-all" class="btn btn-xs btn-primary" style="border-radius:0; border:none; padding:6px 12px; margin:0;">All</button>
+      <button onclick="filterEnquiries('new')" id="btn-filter-new" class="btn btn-xs btn-ghost" style="border-radius:0; border:none; border-left:1px solid var(--border); padding:6px 12px; margin:0;">New Enquiry</button>
+      <button onclick="filterEnquiries('contacted')" id="btn-filter-contacted" class="btn btn-xs btn-ghost" style="border-radius:0; border:none; border-left:1px solid var(--border); padding:6px 12px; margin:0;">Contacted</button>
+      <button onclick="filterEnquiries('trial')" id="btn-filter-trial" class="btn btn-xs btn-ghost" style="border-radius:0; border:none; border-left:1px solid var(--border); padding:6px 12px; margin:0;">Trial</button>
+      <button onclick="filterEnquiries('enrolled')" id="btn-filter-enrolled" class="btn btn-xs btn-ghost" style="border-radius:0; border:none; border-left:1px solid var(--border); padding:6px 12px; margin:0;">Enrolled</button>
+    </div>
+  </div>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Name</th><th>Phone</th><th>Parent</th><th>Mode</th><th>Wants Group</th><th>Schedule</th><th>Goal</th><th>How Found</th><th>Trial</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody>
-        {% for e in entries %}
+      <thead>
         <tr>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Parent</th>
+          <th>Mode</th>
+          <th>Wants Group</th>
+          <th>Schedule</th>
+          <th>Goal</th>
+          <th>How Found</th>
+          <th>Trial</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="enquiriesTableBody">
+        {% for e in entries %}
+        <tr data-status="{{ e.status }}">
           <td class="td-primary">{{ e.name }}</td>
           <td class="mono" style="font-size:.8rem">{{ e.phone or '—' }}</td>
           <td class="mono" style="font-size:.8rem">{{ e.parent_phone or '—' }}</td>
@@ -189,7 +193,15 @@
             </form>
             {% endif %}
           </td>
-          <td><span class="pill {{ status_labels[e.status][1] }}">{{ status_labels[e.status][0] }}</span></td>
+          <td>
+            <form method="post" action="/waitlist/{{ e.id }}/status" style="margin:0; display:inline">
+              <select name="status" onchange="this.form.submit()" class="status-select-pill {{ status_labels[e.status][1] }}">
+                {% for sk,(lbl,pill_cl) in status_labels.items() %}
+                <option value="{{ sk }}" {% if e.status==sk %}selected{% endif %}>{{ lbl }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </td>
           <td>
             <div style="display:flex;gap:5px">
               {% if e.phone %}
@@ -295,6 +307,35 @@ function openEnroll(eid, name) {
 function callWaitlist(eid, phone) {
   fetch(`/waitlist/${eid}/log-call`, { method: 'POST' }).catch(() => {});
   window.location.href = `tel:${phone}`;
+}
+function filterEnquiries(status) {
+  const statuses = ['all', 'new', 'contacted', 'trial', 'enrolled'];
+  statuses.forEach(s => {
+    const btn = document.getElementById('btn-filter-' + s);
+    if (btn) {
+      if (s === status) {
+        btn.classList.remove('btn-ghost');
+        btn.classList.add('btn-primary');
+      } else {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-ghost');
+      }
+    }
+  });
+  
+  const rows = document.querySelectorAll('#enquiriesTableBody tr');
+  rows.forEach(row => {
+    if (status === 'all') {
+      row.style.display = '';
+    } else {
+      const rowStatus = row.getAttribute('data-status');
+      if (rowStatus === status) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    }
+  });
 }
 </script>
 {% endblock %}
