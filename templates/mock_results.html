@@ -193,8 +193,12 @@
         <!-- AI is actively grading — show live status panel, poll for result -->
         <div id="aiGradingPanel" style="margin: 30px 0; padding: 32px; background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%); border: 1px solid #c7d2fe; border-radius: 24px; text-align: center;">
             <div style="font-size: 2.8rem; margin-bottom: 16px; animation: spin 3s linear infinite; display:inline-block;">🤖</div>
-            <h3 style="font-size: 1.2rem; font-weight: 800; color: #3730a3; margin-bottom: 8px;">AI is Reviewing Your Work</h3>
-            <p style="color: #6366f1; font-size: 0.9rem; margin-bottom: 20px;">Analysing your essay against official IELTS Band Descriptors. This usually takes 20–45 seconds.</p>
+            <h3 style="font-size: 1.2rem; font-weight: 800; color: #3730a3; margin-bottom: 8px;">
+                {% if "Speaking" in attempt.exam.test_scope %}AI is Evaluating Your Speaking Performance{% else %}AI is Reviewing Your Work{% endif %}
+            </h3>
+            <p style="color: #6366f1; font-size: 0.9rem; margin-bottom: 20px;">
+                {% if "Speaking" in attempt.exam.test_scope %}Analysing your audio recordings against official IELTS Speaking descriptors. This usually takes 30–60 seconds.{% else %}Analysing your essay against official IELTS Band Descriptors. This usually takes 20–45 seconds.{% endif %}
+            </p>
             <div style="height: 6px; background: #e0e7ff; border-radius: 10px; overflow: hidden; width: 280px; margin: 0 auto 16px;">
                 <div id="gradingProgressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #6366f1, #8b5cf6); border-radius: 10px; transition: width 0.8s ease;"></div>
             </div>
@@ -316,15 +320,23 @@
     {% if review and review.status == "grading" %}
     // ─── LIVE GRADING POLL ───────────────────────────────────────────────────
     const ATTEMPT_ID = {{ attempt.id }};
-    const statusMessages = [
-        "Reading your submission...",
-        "Analysing task achievement...",
-        "Checking coherence & cohesion...",
-        "Evaluating lexical resource...",
+    const isSpeaking = {% if "Speaking" in attempt.exam.test_scope %}true{% else %}false{% endif %};
+    const statusMessages = isSpeaking ? [
+        "Transcribing speech recordings...",
+        "Analyzing fluency and coherence...",
+        "Evaluating vocabulary diversity...",
+        "Assessing grammatical structures...",
+        "Checking pronunciation clarity...",
+        "Calibrating IELTS criteria scores...",
+        "Finalizing detailed report card..."
+    ] : [
+        "Reading your essay submission...",
+        "Analyzing task response parameters...",
+        "Checking structural coherence...",
+        "Evaluating academic lexical resource...",
         "Assessing grammatical accuracy...",
-        "Computing your band score...",
-        "Finalising detailed feedback...",
-        "Almost done — preparing your report..."
+        "Computing criteria band scores...",
+        "Finalizing detailed review card..."
     ];
     let msgIdx = 0;
     let progress = 0;

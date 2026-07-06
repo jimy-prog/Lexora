@@ -136,6 +136,17 @@ def extract_ielts_exam_from_pdf(pdf_path: str, test_scope: str = "Reading Sectio
         Look for questions numbered 1-40. Categorize them as "MCQ", "GAP_FILL", "TFNG" or "MATCHING".
         The `passage_text` field can be empty unless there is a specific overarching context block or audio transcript provided that relates to the questions.
         """
+    elif "Speaking" in test_scope:
+        prompt += """
+        CRITICAL SPEAKING RULES:
+        This is an IELTS Speaking Test. You MUST organize the test strictly into three parts as the `section_type`:
+        1. 'Part 1' (Introduction & Interview on general topics like family, home, studies, hobbies, childhood dreams). Usually contains 4-8 simple questions.
+        2. 'Part 2' (Individual Long Turn / Cue Card. Exactly one main prompt topic with 3-4 bullet points describing what the student must speak about). Set `layout_style` to "cue_card".
+        3. 'Part 3' (Two-way Discussion on abstract issues related to the Part 2 theme). Usually contains 4-6 abstract questions.
+        
+        You MUST set `q_type` strictly to "SPEAKING" for every question you extract.
+        For Part 2, the question prompt should contain the full cue card text (including the main topic and all bullet points).
+        """
     else:
         prompt += """
         CRITICAL READING RULES:

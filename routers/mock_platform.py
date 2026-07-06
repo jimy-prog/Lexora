@@ -312,6 +312,14 @@ async def mock_take(request: Request, exam_id: int, attempt_id: int = None, db: 
     if not attempt:
         raise HTTPException(status_code=403, detail="Attempt not found or unauthorized")
         
+    if "Speaking" in exam.test_scope:
+        return templates.TemplateResponse("mock_take_speaking.html", {
+            "request": request,
+            "user": user,
+            "exam": exam,
+            "attempt": attempt
+        })
+        
     return templates.TemplateResponse("mock_take.html", {
         "request": request,
         "user": user,

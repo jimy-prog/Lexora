@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ exam.title }} - CD-IELTS Speaking Simulator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --ielts-red: #E11B22;
+            --ielts-dark: #1F2937;
+            --ielts-gray: #F3F4F6;
+            --ielts-border: #D1D5DB;
+            --ielts-blue: #0284C7;
+            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            font-family: var(--font-main);
+            background: #F9FAFB;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            color: var(--ielts-dark);
+        }
+
+        /* Top Bar */
+        .top-bar {
+            height: 64px;
+            background: #ffffff;
+            border-bottom: 2px solid var(--ielts-red);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .candidate-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .test-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--ielts-red);
+            letter-spacing: -0.5px;
+        }
+
+        .timer-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #F3F4F6;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 1rem;
+            border: 1px solid var(--ielts-border);
+        }
+
+        /* Setup / Calibration Screen */
+        .setup-screen {
+            position: absolute;
+            inset: 0;
+            background: #ffffff;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .setup-card {
+            background: #ffffff;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .setup-header {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            color: var(--ielts-dark);
+            letter-spacing: -0.5px;
+        }
+
+        .setup-description {
+            color: #6B7280;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .mic-test-btn {
+            background: var(--ielts-dark);
+            color: #ffffff;
+            border: none;
+            padding: 14px 28px;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .mic-test-btn:hover {
+            background: #374151;
+            transform: translateY(-1px);
+        }
+
+        .mic-wave-canvas {
+            width: 100%;
+            height: 80px;
+            background: #F9FAFB;
+            border-radius: 12px;
+            margin: 20px 0;
+            border: 1px dashed var(--ielts-border);
+        }
+
+        .mic-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+
+        .mic-badge.pending {
+            background: #FEF3C7;
+            color: #D97706;
+        }
+
+        .mic-badge.ready {
+            background: #DCFCE7;
+            color: #15803D;
+        }
+
+        .mode-selection {
+            display: flex;
+            gap: 16px;
+            margin: 24px 0;
+            text-align: left;
+        }
+
+        .mode-option {
+            flex: 1;
+            border: 2px solid var(--ielts-border);
+            border-radius: 16px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .mode-option input {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            transform: scale(1.2);
+        }
+
+        .mode-option:hover {
+            border-color: var(--ielts-blue);
+            background: rgba(2, 132, 199, 0.02);
+        }
+
+        .mode-option.selected {
+            border-color: var(--ielts-blue);
+            background: rgba(2, 132, 199, 0.05);
+        }
+
+        .mode-title {
+            font-weight: 800;
+            font-size: 1rem;
+            margin-bottom: 4px;
+        }
+
+        .mode-desc {
+            font-size: 0.8rem;
+            color: #6B7280;
+            line-height: 1.4;
+        }
+
+        /* Workspace Grid */
+        .workspace {
+            display: none;
+            flex: 1;
+            height: calc(100% - 64px);
+            background: #F9FAFB;
+        }
+
+        /* Left Side: Examiner Room */
+        .examiner-panel {
+            width: 45%;
+            background: #ffffff;
+            border-right: 1px solid var(--ielts-border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            position: relative;
+        }
+
+        .examiner-card {
+            width: 100%;
+            max-width: 320px;
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 24px;
+            border: 2px solid var(--ielts-border);
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .examiner-card.speaking {
+            border-color: var(--ielts-red);
+            box-shadow: 0 10px 25px rgba(225, 27, 34, 0.15);
+        }
+
+        .examiner-card.listening {
+            border-color: var(--ielts-blue);
+            box-shadow: 0 10px 25px rgba(2, 132, 199, 0.15);
+        }
+
+        .examiner-avatar {
+            margin-bottom: 16px;
+        }
+
+        /* Eye Blinking & Breathing */
+        @keyframes breathe {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-1.5px); }
+        }
+        .examiner-avatar {
+            animation: breathe 4s ease-in-out infinite;
+        }
+
+        @keyframes talk {
+            0%, 100% { d: path("M42 50 Q50 50 58 50"); }
+            25% { d: path("M42 52 Q50 56 58 52"); }
+            50% { d: path("M42 48 Q50 44 58 48"); }
+            75% { d: path("M42 53 Q50 58 58 53"); }
+        }
+        .speaking .examiner-mouth {
+            animation: talk 0.22s infinite;
+        }
+
+        .examiner-name {
+            font-weight: 800;
+            font-size: 1.1rem;
+            margin-bottom: 6px;
+        }
+
+        .examiner-status {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6B7280;
+        }
+
+        .speaking .examiner-status {
+            color: var(--ielts-red);
+        }
+
+        .listening .examiner-status {
+            color: var(--ielts-blue);
+        }
+
+        /* Dialogue Box (Subtitles) */
+        .dialogue-box {
+            width: 100%;
+            margin-top: 32px;
+            background: #F3F4F6;
+            border-radius: 16px;
+            padding: 20px;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            border: 1px solid var(--ielts-border);
+        }
+
+        .dialogue-text {
+            font-size: 1.1rem;
+            font-weight: 700;
+            line-height: 1.5;
+            color: var(--ielts-dark);
+        }
+
+        /* Right Side: Recording Panel */
+        .recording-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 40px;
+            overflow-y: auto;
+            justify-content: space-between;
+        }
+
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .part-indicator {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--ielts-blue);
+        }
+
+        .question-number-indicator {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #6B7280;
+        }
+
+        .cue-card-box {
+            background: #FFFDF5;
+            border: 2px solid #F59E0B;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            display: none;
+            box-shadow: 0 4px 6px rgba(245, 158, 11, 0.05);
+        }
+
+        .cue-card-title {
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: #B45309;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #FDE68A;
+            padding-bottom: 8px;
+        }
+
+        .cue-card-content {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: var(--ielts-dark);
+            white-space: pre-wrap;
+        }
+
+        .draft-notepad {
+            display: none;
+            flex-direction: column;
+            margin-bottom: 24px;
+        }
+
+        .draft-notepad label {
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: #4B5563;
+        }
+
+        .draft-textarea {
+            width: 100%;
+            height: 120px;
+            padding: 12px;
+            border-radius: 12px;
+            border: 2px solid var(--ielts-border);
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            resize: none;
+            transition: border-color 0.2s;
+        }
+
+        .draft-textarea:focus {
+            border-color: var(--ielts-blue);
+        }
+
+        .active-recording-card {
+            background: #ffffff;
+            border-radius: 24px;
+            border: 1px solid var(--ielts-border);
+            padding: 32px;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .recording-light-bar {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #FEF2F2;
+            color: #EF4444;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .recording-light-bar span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #EF4444;
+            animation: pulse 1s infinite;
+        }
+
+        .recording-timer {
+            font-size: 3rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 16px;
+        }
+
+        .speaking-equalizer-canvas {
+            width: 100%;
+            max-width: 320px;
+            height: 60px;
+            margin-bottom: 24px;
+        }
+
+        /* Controls */
+        .controls-row {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .btn-sim {
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-sim-primary {
+            background: var(--ielts-red);
+            color: white;
+        }
+
+        .btn-sim-primary:hover {
+            background: #BE123C;
+        }
+
+        .btn-sim-secondary {
+            background: #E5E7EB;
+            color: var(--ielts-dark);
+        }
+
+        .btn-sim-secondary:hover {
+            background: #D1D5DB;
+        }
+
+        /* Utilities */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Hidden standard HTML form to submit to our submit_exam endpoint -->
+<form id="submitExamForm" action="/mock/{{ exam.id }}/submit" method="POST" style="display: none;">
+    <input type="hidden" name="attempt_id" value="{{ attempt.id }}">
+    <!-- Hidden inputs for each question will be auto-generated in JS when recording completes -->
+</form>
+
+<!-- Top Bar -->
+<div class="top-bar">
+    <div class="candidate-info">
+        <i class="fa-solid fa-user-circle fa-lg"></i>
+        <span>{{ user.full_name or user.username }}</span>
+    </div>
+    <div class="test-title">IELTS SPEAKING SIMULATOR</div>
+    <div class="timer-container">
+        <i class="fa-solid fa-clock"></i>
+        <span id="overallTimer">00:00</span>
+    </div>
+</div>
+
+<!-- Setup Screen -->
+<div class="setup-screen" id="setupScreen">
+    <div class="setup-card">
+        <div class="setup-header">Speaking Test Setup</div>
+        <div class="setup-description">
+            Before we begin, we need to calibrate your microphone. Please grant permission and speak into your microphone to verify audio signals.
+        </div>
+        
+        <button class="mic-test-btn" id="micAuthBtn" onclick="requestMicAccess()">
+            <i class="fa-solid fa-microphone"></i> Test Microphone
+        </button>
+
+        <canvas class="mic-wave-canvas" id="micWaveCanvas"></canvas>
+        
+        <div class="mic-badge pending" id="micStatusBadge">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Awaiting Mic Authorization...
+        </div>
+
+        <div style="margin-top: 32px; border-top: 1px solid var(--ielts-border); padding-top: 24px; text-align: left;">
+            <h4 style="font-weight: 800; font-size: 1rem; margin-bottom: 16px;">Test Preferences</h4>
+            
+            <div class="mode-selection">
+                <div class="mode-option selected" id="opt-exam" onclick="selectMode('Exam')">
+                    <input type="radio" name="test_mode_radio" checked>
+                    <div class="mode-title">Exam Mode</div>
+                    <div class="mode-desc">Standard timed test. Questions progress automatically. No replays.</div>
+                </div>
+                <div class="mode-option" id="opt-training" onclick="selectMode('Training')">
+                    <input type="radio" name="test_mode_radio">
+                    <div class="mode-title">Training Mode</div>
+                    <div class="mode-desc">Interactive review. Manual record, pause, and custom pacing.</div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <label style="font-weight: 700; font-size: 0.9rem; display: block; margin-bottom: 8px;">Evaluator Preference</label>
+                <div style="display: flex; gap: 12px;">
+                    <label style="flex: 1; padding: 12px; border: 1px solid var(--ielts-border); border-radius: 10px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="reviewer_type" value="ai" checked style="transform: scale(1.15);">
+                        <span style="font-size: 0.9rem; font-weight: 600;">AI Reviewer (Instant)</span>
+                    </label>
+                    <label style="flex: 1; padding: 12px; border: 1px solid var(--ielts-border); border-radius: 10px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="reviewer_type" value="teacher" style="transform: scale(1.15);">
+                        <span style="font-size: 0.9rem; font-weight: 600;">Teacher Review</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-sim btn-sim-primary" id="startTestBtn" disabled onclick="startSimulator()" style="width: 100%; justify-content: center; padding: 16px; border-radius: 14px; font-size: 1.1rem;">
+            Start Speaking Exam <i class="fa-solid fa-arrow-right"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Main Workspace -->
+<div class="workspace" id="workspace">
+    <!-- Left Panel: Examiner Room -->
+    <div class="examiner-panel">
+        <div class="examiner-card" id="examinerCard">
+            <svg class="examiner-avatar" viewBox="0 0 100 100" width="140" height="140">
+                <!-- Background shadow/glow -->
+                <circle cx="50" cy="50" r="48" fill="#F3F4F6" stroke="#E5E7EB" stroke-width="2"/>
+                <!-- Body suit -->
+                <path d="M15 95 C 15 65, 85 65, 85 95 Z" fill="#1E3A8A"/>
+                <!-- Red necktie -->
+                <path d="M48 65 L52 65 L54 86 L50 92 L46 86 Z" fill="#EF4444"/>
+                <!-- Neck -->
+                <rect x="44" y="58" width="12" height="10" fill="#FED7AA"/>
+                <!-- Face -->
+                <circle cx="50" cy="40" r="21" fill="#FED7AA"/>
+                <!-- Hair -->
+                <path d="M29 35 Q50 15 71 35 Q50 25 29 35" fill="#4B5563"/>
+                <!-- Eyebrows -->
+                <path d="M37 32 Q42 30 46 33" stroke="#1F2937" stroke-width="1.5" fill="none"/>
+                <path d="M63 32 Q58 30 54 33" stroke="#1F2937" stroke-width="1.5" fill="none"/>
+                <!-- Eyes -->
+                <circle cx="42" cy="37" r="2" fill="#1F2937"/>
+                <circle cx="58" cy="37" r="2" fill="#1F2937"/>
+                <!-- Mouth (Animated when speaking) -->
+                <path class="examiner-mouth" id="examinerMouth" d="M44 50 Q50 51 56 50" stroke="#1F2937" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <!-- Glasses -->
+                <circle cx="42" cy="37" r="5.5" stroke="#4B5563" stroke-width="1.5" fill="none"/>
+                <circle cx="58" cy="37" r="5.5" stroke="#4B5563" stroke-width="1.5" fill="none"/>
+                <line x1="47.5" y1="37" x2="52.5" y2="37" stroke="#4B5563" stroke-width="1.5"/>
+            </svg>
+            <div class="examiner-name">Mr. Richard</div>
+            <div class="examiner-status" id="examinerStatus">Preparing</div>
+        </div>
+
+        <div class="dialogue-box">
+            <div class="dialogue-text" id="dialogueText">
+                Initializing virtual mock classroom. Please stand by...
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Recording Control Center -->
+    <div class="recording-panel">
+        <div>
+            <div class="status-header">
+                <div class="part-indicator" id="partIndicator">Part 1: Introduction</div>
+                <div class="question-number-indicator" id="qIndicator">Question 1 of 8</div>
+            </div>
+
+            <!-- Cue Card Display for Part 2 -->
+            <div class="cue-card-box" id="cueCardBox">
+                <div class="cue-card-title"><i class="fa-solid fa-file-lines"></i> Cue Card Prompt</div>
+                <div class="cue-card-content" id="cueCardContent">
+                    Describe an occasion when you heard someone complaining about something.
+                </div>
+            </div>
+
+            <!-- Notepad for Part 2 Preparation -->
+            <div class="draft-notepad" id="draftNotepad">
+                <label for="notepadText"><i class="fa-regular fa-clipboard"></i> Preparation Notes (Scratchpad)</label>
+                <textarea id="notepadText" class="draft-textarea" placeholder="Type your keywords or outline here. These notes will remain visible during your speech."></textarea>
+            </div>
+        </div>
+
+        <!-- Active Recording Block -->
+        <div class="active-recording-card">
+            <div class="recording-light-bar" id="recLightBar">
+                <span></span> <strong id="recStatusText">RECORDING</strong>
+            </div>
+
+            <div class="recording-timer" id="recTimer">00:00</div>
+
+            <canvas class="speaking-equalizer-canvas" id="speakingEqualizerCanvas"></canvas>
+
+            <div style="font-size: 0.9rem; color: #6B7280; font-weight: 600;" id="instructionHelp">
+                Waiting for examiner to complete the question...
+            </div>
+
+            <div class="controls-row">
+                <button class="btn-sim btn-sim-primary" id="primaryControlBtn" disabled onclick="handlePrimaryControl()">
+                    <i class="fa-solid fa-microphone"></i> Start Recording
+                </button>
+                <button class="btn-sim btn-sim-secondary" id="secondaryControlBtn" style="display:none;" onclick="handleSecondaryControl()">
+                    Skip Prep
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Ingest all exam questions parsed by Jinja
+    const QUESTIONS = [
+        {% for section in exam.sections %}
+            {% for block in section.blocks %}
+                {% for q in block.questions %}
+                {
+                    id: {{ q.id }},
+                    section_type: {{ section.section_type | tojson }},
+                    layout_style: {{ block.layout_style | tojson }},
+                    instructions: {{ block.instructions | tojson }},
+                    prompt: {{ q.prompt | tojson }},
+                    question_number: {{ q.question_number }},
+                },
+                {% endfor %}
+            {% endfor %}
+        {% endfor %}
+    ];
+
+    let testMode = 'Exam'; // 'Exam' or 'Training'
+    let micStream = null;
+    let audioCtx = null;
+    let analyser = null;
+    let recorder = null;
+    let audioChunks = [];
+    
+    let currentQuestionIdx = 0;
+    let testStarted = false;
+    let overallSeconds = 0;
+    let stepTimerVal = 0;
+    let stepTimerInterval = null;
+    
+    let isPrepPhase = false;
+    let isRecordingPhase = false;
+    let isTtsPlaying = false;
+
+    // Web Speech synthesis load check
+    if (window.speechSynthesis) {
+        window.speechSynthesis.getVoices();
+    }
+
+    function selectMode(mode) {
+        testMode = mode;
+        document.getElementById('opt-exam').classList.toggle('selected', mode === 'Exam');
+        document.getElementById('opt-training').classList.toggle('selected', mode === 'Training');
+        document.querySelectorAll('input[name="test_mode_radio"]').forEach(el => {
+            el.checked = (el.parentElement.id === `opt-${mode.toLowerCase()}`);
+        });
+    }
+
+    // Audio calibration visualizer
+    function drawCalibrationVisualizer() {
+        const canvas = document.getElementById('micWaveCanvas');
+        const ctx = canvas.getContext('2d');
+        const bufferLength = analyser ? analyser.frequencyBinCount : 0;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function draw() {
+            if (!testStarted) {
+                requestAnimationFrame(draw);
+            }
+            
+            const W = canvas.width = canvas.clientWidth;
+            const H = canvas.height = canvas.clientHeight;
+            
+            ctx.fillStyle = '#F9FAFB';
+            ctx.fillRect(0, 0, W, H);
+            
+            if (!analyser) {
+                // Draw a flat baseline
+                ctx.strokeStyle = '#D1D5DB';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, H/2);
+                ctx.lineTo(W, H/2);
+                ctx.stroke();
+                return;
+            }
+
+            analyser.getByteTimeDomainData(dataArray);
+            ctx.strokeStyle = '#0284C7';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            const sliceWidth = W / bufferLength;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = (v * H) / 2;
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+
+            ctx.lineTo(W, H/2);
+            ctx.stroke();
+        }
+        draw();
+    }
+
+    async function requestMicAccess() {
+        try {
+            micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            // Set up Audio Context for visualization
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            
+            const source = audioCtx.createMediaStreamSource(micStream);
+            source.connect(analyser);
+
+            const badge = document.getElementById('micStatusBadge');
+            badge.className = "mic-badge ready";
+            badge.innerHTML = '<i class="fa-solid fa-check-circle"></i> Microphone Configured & Ready';
+
+            document.getElementById('startTestBtn').removeAttribute('disabled');
+            drawCalibrationVisualizer();
+        } catch (e) {
+            alert("Microphone authorization failed. Please allow microphone access to participate in speaking exam: " + e.message);
+            const badge = document.getElementById('micStatusBadge');
+            badge.className = "mic-badge pending";
+            badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Authorization Blocked';
+        }
+    }
+
+    // Live Equalizer for active speaking recording
+    function drawActiveEqualizer() {
+        const canvas = document.getElementById('speakingEqualizerCanvas');
+        const ctx = canvas.getContext('2d');
+        const bufferLength = analyser ? analyser.frequencyBinCount : 0;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function draw() {
+            if (testStarted) {
+                requestAnimationFrame(draw);
+            }
+            
+            const W = canvas.width = canvas.clientWidth;
+            const H = canvas.height = canvas.clientHeight;
+            ctx.clearRect(0, 0, W, H);
+
+            if (!isRecordingPhase || !analyser) return;
+
+            analyser.getByteFrequencyData(dataArray);
+            
+            const barWidth = (W / bufferLength) * 1.5;
+            let barHeight;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                barHeight = dataArray[i] / 2;
+                
+                // Color gradient from blue to purple
+                ctx.fillStyle = `rgb(${barHeight + 50}, 132, 199)`;
+                ctx.fillRect(x, H - barHeight, barWidth - 1, barHeight);
+
+                x += barWidth;
+            }
+        }
+        draw();
+    }
+
+    function startSimulator() {
+        testStarted = true;
+        document.getElementById('setupScreen').style.display = 'none';
+        document.getElementById('workspace').style.display = 'flex';
+
+        // Apply evaluator setting to the form
+        const selectedReviewer = document.querySelector('input[name="reviewer_type"]:checked').value;
+        const hiddenForm = document.getElementById('submitExamForm');
+        
+        let revInput = document.createElement('input');
+        revInput.type = 'hidden';
+        revInput.name = 'reviewer_type';
+        revInput.value = selectedReviewer;
+        hiddenForm.appendChild(revInput);
+
+        // Start overall timer
+        setInterval(() => {
+            overallSeconds++;
+            const m = Math.floor(overallSeconds / 60).toString().padStart(2,'0');
+            const s = (overallSeconds % 60).toString().padStart(2,'0');
+            document.getElementById('overallTimer').textContent = `${m}:${s}`;
+        }, 1000);
+
+        drawActiveEqualizer();
+        runQuestionFlow();
+    }
+
+    // Mr Richard Speech engine
+    function speakText(text, callback) {
+        isTtsPlaying = true;
+        document.getElementById('examinerCard').classList.add('speaking');
+        document.getElementById('examinerCard').classList.remove('listening');
+        document.getElementById('examinerStatus').textContent = "Speaking";
+
+        // Visual subtitles
+        document.getElementById('dialogueText').textContent = text;
+
+        if (!window.speechSynthesis) {
+            // Text fallback for unsupported speech engines
+            setTimeout(() => {
+                document.getElementById('examinerCard').classList.remove('speaking');
+                isTtsPlaying = false;
+                if (callback) callback();
+            }, Math.max(2000, text.length * 50));
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        
+        const voices = window.speechSynthesis.getVoices();
+        // Prefer UK English voice if available to simulate traditional IELTS examiners
+        const voice = voices.find(v => v.lang.startsWith('en-GB')) || voices.find(v => v.lang.startsWith('en-US')) || voices[0];
+        if (voice) utterance.voice = voice;
+
+        utterance.onend = () => {
+            document.getElementById('examinerCard').classList.remove('speaking');
+            isTtsPlaying = false;
+            if (callback) callback();
+        };
+
+        utterance.onerror = () => {
+            document.getElementById('examinerCard').classList.remove('speaking');
+            isTtsPlaying = false;
+            if (callback) callback();
+        };
+
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function runQuestionFlow() {
+        if (currentQuestionIdx >= QUESTIONS.length) {
+            finishExam();
+            return;
+        }
+
+        const q = QUESTIONS[currentQuestionIdx];
+        
+        // Update indicators
+        document.getElementById('partIndicator').textContent = q.section_type;
+        document.getElementById('qIndicator').textContent = `Question ${currentQuestionIdx + 1} of ${QUESTIONS.length}`;
+
+        // Reset display card elements
+        document.getElementById('cueCardBox').style.display = 'none';
+        document.getElementById('draftNotepad').style.display = 'none';
+        document.getElementById('recLightBar').style.display = 'none';
+        document.getElementById('instructionHelp').textContent = "Examiner is reading the question...";
+        
+        const primaryBtn = document.getElementById('primaryControlBtn');
+        const secondaryBtn = document.getElementById('secondaryControlBtn');
+        
+        primaryBtn.setAttribute('disabled', 'true');
+        primaryBtn.textContent = "Start Recording";
+        secondaryBtn.style.display = 'none';
+
+        // Part 2 special preparation notepad handling
+        const isPart2 = q.layout_style === 'cue_card' || q.section_type.toLowerCase().includes('part 2');
+
+        if (isPart2) {
+            document.getElementById('cueCardBox').style.display = 'block';
+            document.getElementById('cueCardContent').innerHTML = q.prompt;
+            
+            // Introduce cue card
+            speakText("For Part 2, I am going to give you a card with a topic. You will have 1 minute to prepare your response, and then you should speak for 1 to 2 minutes. Your preparation time starts now.", () => {
+                startPreparationPhase(60, () => {
+                    // Prep finished, start speaking automatically
+                    speakText("Please start speaking now. You have 2 minutes.", () => {
+                        startRecordingPhase(120);
+                    });
+                });
+            });
+        } else {
+            // General Interview questioning
+            speakText(q.prompt, () => {
+                const speakingTimeLimit = q.section_type.toLowerCase().includes('part 3') ? 40 : 30;
+                if (testMode === 'Exam') {
+                    // In Exam Mode, start recording automatically when TTS finishes
+                    startRecordingPhase(speakingTimeLimit);
+                } else {
+                    // In Training Mode, allow student to manually initiate recording
+                    primaryBtn.removeAttribute('disabled');
+                    document.getElementById('instructionHelp').textContent = "Microphone ready. Press 'Start Recording' when prepared to answer.";
+                }
+            });
+        }
+    }
+
+    // Countdown / Prep timer
+    function startTimer(durationSeconds, onTick, onComplete) {
+        clearInterval(stepTimerInterval);
+        stepTimerVal = durationSeconds;
+        onTick(stepTimerVal);
+
+        stepTimerInterval = setInterval(() => {
+            stepTimerVal--;
+            if (stepTimerVal <= 0) {
+                clearInterval(stepTimerInterval);
+                onComplete();
+            } else {
+                onTick(stepTimerVal);
+            }
+        }, 1000);
+    }
+
+    function formatTime(sec) {
+        const m = Math.floor(sec / 60).toString().padStart(2,'0');
+        const s = (sec % 60).toString().padStart(2,'0');
+        return `${m}:${s}`;
+    }
+
+    // Part 2 Cue Card Prep logic
+    function startPreparationPhase(seconds, callback) {
+        isPrepPhase = true;
+        isRecordingPhase = false;
+        
+        document.getElementById('draftNotepad').style.display = 'flex';
+        document.getElementById('instructionHelp').textContent = "Drafting preparation notes. Take keywords or structure guidelines.";
+        document.getElementById('recLightBar').style.display = 'none';
+
+        const secBtn = document.getElementById('secondaryControlBtn');
+        secBtn.style.display = 'inline-flex';
+        secBtn.textContent = "Skip Prep";
+        secBtn.onclick = () => {
+            clearInterval(stepTimerInterval);
+            isPrepPhase = false;
+            callback();
+        };
+
+        startTimer(seconds, (t) => {
+            document.getElementById('recTimer').textContent = formatTime(t);
+        }, () => {
+            isPrepPhase = false;
+            callback();
+        });
+    }
+
+    // Recording workflow
+    function startRecordingPhase(limitSeconds) {
+        isRecordingPhase = true;
+        isPrepPhase = false;
+
+        document.getElementById('examinerCard').classList.remove('speaking');
+        document.getElementById('examinerCard').classList.add('listening');
+        document.getElementById('examinerStatus').textContent = "Listening";
+        document.getElementById('recLightBar').style.display = 'inline-flex';
+        document.getElementById('recStatusText').textContent = "RECORDING";
+        document.getElementById('instructionHelp').textContent = "Record your answer clearly. Speak into your microphone.";
+
+        const primaryBtn = document.getElementById('primaryControlBtn');
+        primaryBtn.removeAttribute('disabled');
+        primaryBtn.textContent = "Stop Recording";
+        primaryBtn.className = "btn-sim btn-sim-primary";
+
+        const secBtn = document.getElementById('secondaryControlBtn');
+        secBtn.style.display = 'none';
+
+        audioChunks = [];
+        recorder = new MediaRecorder(micStream);
+        
+        recorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
+        };
+
+        recorder.onstop = () => {
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = () => {
+                saveAudioInput(QUESTIONS[currentQuestionIdx].id, reader.result);
+                
+                // Go to next question
+                currentQuestionIdx++;
+                isRecordingPhase = false;
+                setTimeout(runQuestionFlow, 1000);
+            };
+        };
+
+        recorder.start();
+
+        startTimer(limitSeconds, (t) => {
+            document.getElementById('recTimer').textContent = formatTime(t);
+        }, () => {
+            // Auto stop recording when time limit ends
+            stopRecordingAndProgress();
+        });
+    }
+
+    // Stop and save
+    function stopRecordingAndProgress() {
+        if (recorder && recorder.state === 'recording') {
+            recorder.stop();
+        }
+    }
+
+    function handlePrimaryControl() {
+        const primaryBtn = document.getElementById('primaryControlBtn');
+        
+        if (!isRecordingPhase) {
+            // Manual Start Recording (Training Mode)
+            const q = QUESTIONS[currentQuestionIdx];
+            const speakingTimeLimit = q.section_type.toLowerCase().includes('part 3') ? 40 : 30;
+            startRecordingPhase(speakingTimeLimit);
+        } else {
+            // Manual Stop Recording
+            clearInterval(stepTimerInterval);
+            stopRecordingAndProgress();
+            primaryBtn.setAttribute('disabled', 'true');
+        }
+    }
+
+    function handleSecondaryControl() {
+        // Handled dynamically in contextual steps
+    }
+
+    // Save candidate answers to form inputs dynamically
+    function saveAudioInput(questionId, dataUrl) {
+        const form = document.getElementById('submitExamForm');
+        
+        // Check if input exists, update if so, create if not
+        let input = document.getElementById(`qinput_${questionId}`);
+        if (!input) {
+            input = document.createElement('input');
+            input.type = 'hidden';
+            input.id = `qinput_${questionId}`;
+            input.name = `q${questionId}`;
+            form.appendChild(input);
+        }
+        input.value = dataUrl;
+    }
+
+    function finishExam() {
+        clearInterval(stepTimerInterval);
+        document.getElementById('dialogueText').textContent = "Exam completed successfully! Uploading answers for review. Please hold on...";
+        document.getElementById('submitExamForm').submit();
+    }
+</script>
+
+</body>
+</html>
