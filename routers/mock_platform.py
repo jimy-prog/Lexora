@@ -904,6 +904,120 @@ async def mock_results_status(request: Request, attempt_id: int, db: SessionMast
         "feedback": review.feedback or ""
     })
 
+@router.post("/results/{attempt_id}/recheck")
+async def mock_recheck(attempt_id: int, request: Request, db: SessionMaster = Depends(get_mdb)):
+    """Re-runs AI evaluation on a completed attempt's saved responses."""
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+        
+    attempt = db.query(MockAttempt).filter(MockAttempt.id == attempt_id).first()
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+        
+    if attempt.student_id != user.id and user.role != "owner":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    # Gather essays and recorded audios from database answers
+    writing_responses = []
+    speaking_responses = []
+    
+    for ans in attempt.answers:
+        q = ans.question
+        if q:
+            is_writing = (q.q_type == "WRITING")
+            if not is_writing and q.block and q.block.section:
+                is_writing = "writing" in q.block.section.section_type.lower()
+            
+            is_speaking = (q.q_type == "SPEAKING")
+            
+            if is_writing and ans.text_response:
+                writing_responses.append((q.prompt, ans.text_response))
+            elif is_speaking and ans.text_response:
+                if ans.text_response.startswith("/uploads/"):
+                    filepath = ans.text_response.lstrip("/")
+                    if os.path.exists(filepath):
+                        speaking_responses.append((q.prompt, filepath))
+                        
+    # Nuke existing ReviewRequests, insert grading placeholder
+    db.query(ReviewRequest).filter_by(attempt_id=attempt.id).delete()
+    placeholder_req = ReviewRequest(
+        attempt_id=attempt.id,
+        student_id=attempt.student_id,
+        teacher_id=1,
+        status="grading",
+        feedback=None,
+        score=None
+    )
+    db.add(placeholder_req)
+    attempt.band_score = None
+    db.commit()
+    
+    # Spawn background thread for consolidated scoring
+    _attempt_id = attempt.id
+    _writing = list(writing_responses)
+    _speaking = list(speaking_responses)
+    
+    def _run_ai_grading(attempt_id, writing_list, speaking_list):
+        bg_db = SessionMaster()
+        try:
+            from services.ai_grader import grade_writing_submission, grade_speaking_exam_consolidated
+            ai_scores = []
+            feedback_parts = []
+            
+            for prompt_text, essay_text in writing_list:
+                res = grade_writing_submission(prompt_text, essay_text)
+                band = res.get("overall_band", 0)
+                if band:
+                    ai_scores.append(band)
+                feedback_parts.append(f"### Writing Task Feedback\n\n{res.get('feedback_markdown', '')}")
+            
+            if speaking_list:
+                res = grade_speaking_exam_consolidated(speaking_list)
+                band = res.get("overall_band", 0)
+                if band:
+                    ai_scores.append(band)
+                feedback_parts.append(f"### Speaking Exam Feedback\n\n{res.get('feedback_markdown', '')}")
+            
+            overall_band = 0.0
+            if ai_scores:
+                overall_band = round(sum(ai_scores) / len(ai_scores) * 2) / 2
+            
+            combined_feedback = "\n\n---\n\n".join(feedback_parts)
+            
+            review_row = bg_db.query(ReviewRequest).filter_by(attempt_id=attempt_id).first()
+            if review_row:
+                review_row.status = "reviewed"
+                review_row.score = overall_band
+                review_row.feedback = combined_feedback
+                review_row.reviewed_at = datetime.utcnow()
+            
+            attempt_row = bg_db.query(MockAttempt).filter_by(id=attempt_id).first()
+            if attempt_row:
+                attempt_row.band_score = overall_band
+            
+            bg_db.commit()
+            print(f"[AI Grader Recheck] Attempt {attempt_id} complete. Band: {overall_band}")
+        except Exception as e:
+            print(f"[AI Grader Recheck] Grading error for attempt {attempt_id}: {e}")
+            try:
+                review_row = bg_db.query(ReviewRequest).filter_by(attempt_id=attempt_id).first()
+                if review_row:
+                    review_row.status = "reviewed"
+                    review_row.score = 0.0
+                    review_row.feedback = f"**AI Recheck Error**\n\nTechnical details: {str(e)}"
+                    review_row.reviewed_at = datetime.utcnow()
+                bg_db.commit()
+            except Exception:
+                pass
+        finally:
+            bg_db.close()
+            
+    t = threading.Thread(target=_run_ai_grading, args=(_attempt_id, _writing, _speaking), daemon=True)
+    t.start()
+    
+    return RedirectResponse(f"/mock/results/{attempt_id}", status_code=303)
+
 @router.get("/results/{attempt_id}", response_class=HTMLResponse)
 async def mock_results(request: Request, attempt_id: int, db: SessionMaster = Depends(get_mdb)):
     user = get_current_user(request)

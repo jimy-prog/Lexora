@@ -271,7 +271,14 @@
         {% endif %}
         {% endif %}
         
-        <div style="display:flex; gap:12px; justify-content:center;">
+        <div style="display:flex; gap:12px; justify-content:center; margin-top:24px; flex-wrap:wrap;">
+            {% if attempt.reviewer_type != "teacher" %}
+            <form action="/mock/results/{{ attempt.id }}/recheck" method="POST" style="display:inline;">
+                <button type="submit" class="btn-anim" style="margin:0; background:#4B5563; border:none; color:#fff; cursor:pointer;">
+                    <i class="fa-solid fa-arrows-rotate" style="margin-right:6px;"></i> Recheck with AI
+                </button>
+            </form>
+            {% endif %}
             <a href="/mock/" class="btn-anim" style="margin:0;">Return to Dashboard</a>
             <a href="/mock/history" class="btn-anim" style="margin:0; background:var(--bg3); color:var(--text2); box-shadow:none;">View History</a>
         </div>
