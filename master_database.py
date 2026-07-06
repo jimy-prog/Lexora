@@ -234,6 +234,41 @@ class PlatformErrorLog(MasterBase):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class ClassTask(MasterBase):
+    __tablename__ = "class_tasks"
+    id = Column(Integer, primary_key=True)
+    class_id = Column(Integer, ForeignKey("public_classes.id"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    mock_exam_id = Column(Integer, ForeignKey("mock_exams.id"), nullable=True)
+    deadline_str = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    public_class = relationship("PublicClass")
+    mock_exam = relationship("MockExam")
+
+
+class ClassMessage(MasterBase):
+    __tablename__ = "class_messages"
+    id = Column(Integer, primary_key=True)
+    class_id = Column(Integer, ForeignKey("public_classes.id"), nullable=False)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    message = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    sender = relationship("User")
+
+
+class ClassTimelineEvent(MasterBase):
+    __tablename__ = "class_timeline_events"
+    id = Column(Integer, primary_key=True)
+    class_id = Column(Integer, ForeignKey("public_classes.id"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    event_date_str = Column(String, nullable=False)  # Date string for easy display
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 def init_master_db():
     MasterBase.metadata.create_all(bind=engine_master)
     

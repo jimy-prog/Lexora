@@ -28,9 +28,9 @@
         </div>
 
         <div style="margin-top:20px; display:flex; gap:10px;">
-            <button class="btn btn-ghost btn-sm" style="flex:1;"><i class="fa-solid fa-users"></i> Students</button>
+            <a href="/classes/{{ cls.id }}" class="btn btn-primary btn-sm" style="flex:1;"><i class="fa-solid fa-eye"></i> View Class Portal</a>
             <form action="/classes/{{ cls.id }}/delete" method="POST" onsubmit="return confirm('Delete this class? Students will lose access.');" style="display:contents;">
-                <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red);"><i class="fa-solid fa-trash"></i></button>
+                <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red); padding: 0 12px;"><i class="fa-solid fa-trash"></i></button>
             </form>
         </div>
     </div>

@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+{% block title %}{{ klass.name }} | Class Portal{% endblock %}
+{% block page_title %}Class: {{ klass.name }}{% endblock %}
+
+{% block content %}
+<!-- Main Class Layout -->
+<div style="display: grid; grid-template-columns: 1fr 320px; gap: 24px; padding: 20px; max-width: 1300px; margin: 0 auto; align-items: start;">
+    
+    <!-- Left Column: Content Area -->
+    <div>
+        <!-- Navigation Tabs -->
+        <div style="display: flex; gap: 8px; border-bottom: 2px solid var(--border); padding-bottom: 1px; margin-bottom: 24px;">
+            <button onclick="switchTab('tasks')" id="tab-tasks" class="class-tab active">
+                📝 Assignments & Tasks
+            </button>
+            <button onclick="switchTab('timeline')" id="tab-timeline" class="class-tab">
+                📅 Course Timeline
+            </button>
+            <button onclick="switchTab('chat')" id="tab-chat" class="class-tab">
+                💬 Class Discussion
+            </button>
+        </div>
+
+        <!-- Tab 1: Tasks / Assignments -->
+        <div id="section-tasks" class="class-section active">
+            <div class="flex-between mb-4">
+                <div>
+                    <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text);">Assignments & Mock Exams</h3>
+                    <p style="color: var(--text2); font-size: 0.85rem; margin-top: 2px;">Assigned class work, deadlines, and direct practice links.</p>
+                </div>
+                {% if user.role in ('teacher', 'owner') %}
+                <button class="btn btn-primary btn-sm" onclick="openModal('addTaskModal')">
+                    <i class="fa-solid fa-plus"></i> Assign New Task
+                </button>
+                {% endif %}
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                {% for task in tasks %}
+                <div class="card hover-scale" style="padding: 20px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 20px;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <h4 style="font-size: 1.05rem; font-weight: 600; color: var(--text);">{{ task.title }}</h4>
+                            {% if task.deadline_str %}
+                            <span style="font-size: 0.72rem; font-weight: 700; background: var(--orange-bg); color: var(--orange); padding: 2px 8px; border-radius: 6px;">
+                                Due: {{ task.deadline_str }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <p style="color: var(--text2); font-size: 0.88rem; margin-top: 6px; line-height: 1.5;">{{ task.description }}</p>
+                        
+                        {% if task.mock_exam %}
+                        <div style="display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 0.82rem; color: var(--text3);">
+                            <i class="fa-solid fa-laptop"></i> Linked Test: <strong style="color: var(--text2);">{{ task.mock_exam.title }}</strong>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        {% if task.mock_exam %}
+                        <a href="/mock/{{ task.mock_exam.id }}/start" class="btn btn-primary btn-sm" style="margin: 0; white-space: nowrap;">
+                            <i class="fa-solid fa-play"></i> Start Assignment
+                        </a>
+                        {% else %}
+                        <span style="color: var(--text3); font-size: 0.85rem; font-style: italic; white-space: nowrap;">Self-guided reading</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div style="text-align: center; padding: 48px; border: 1px dashed var(--border); border-radius: var(--radius); background: var(--bg2);">
+                    <i class="fa-solid fa-circle-check" style="font-size: 2.5rem; color: var(--border); margin-bottom: 12px;"></i>
+                    <p style="color: var(--text2); font-size: 0.9rem;">No tasks assigned yet. You're all caught up!</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Tab 2: Course Timeline -->
+        <div id="section-timeline" class="class-section">
+            <div class="flex-between mb-4">
+                <div>
+                    <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text);">Course Curriculum & Roadmap</h3>
+                    <p style="color: var(--text2); font-size: 0.85rem; margin-top: 2px;">Chronological timeline of topics, weekly themes, and lectures.</p>
+                </div>
+                {% if user.role in ('teacher', 'owner') %}
+                <button class="btn btn-primary btn-sm" onclick="openModal('addTimelineModal')">
+                    <i class="fa-solid fa-plus"></i> Add Event
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- Timeline Visualization -->
+            <div style="position: relative; padding-left: 28px; margin-top: 20px;">
+                <div style="position: absolute; left: 8px; top: 8px; bottom: 8px; width: 2px; background: var(--border);"></div>
+                
+                {% for event in timeline %}
+                <div style="position: relative; margin-bottom: 24px;">
+                    <!-- Bullet Point -->
+                    <div style="position: absolute; left: -26px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg2); box-shadow: 0 0 0 4px var(--accent-glow);"></div>
+                    
+                    <div class="card" style="padding: 16px; border: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+                            <h4 style="font-size: 0.98rem; font-weight: 600; color: var(--text);">{{ event.title }}</h4>
+                            <span style="font-size: 0.72rem; font-weight: 700; background: var(--bg4); color: var(--text2); padding: 2px 8px; border-radius: 6px;">
+                                {{ event.event_date_str }}
+                            </span>
+                        </div>
+                        <p style="color: var(--text2); font-size: 0.88rem; margin-top: 6px; line-height: 1.5;">{{ event.description }}</p>
+                    </div>
+                </div>
+                {% else %}
+                <div style="text-align: center; padding: 48px; border: 1px dashed var(--border); border-radius: var(--radius); background: var(--bg2);">
+                    <i class="fa-solid fa-route" style="font-size: 2.5rem; color: var(--border); margin-bottom: 12px;"></i>
+                    <p style="color: var(--text2); font-size: 0.9rem;">Course timeline is currently empty. Check back soon!</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Tab 3: Discussion Chat -->
+        <div id="section-chat" class="class-section">
+            <div class="mb-4">
+                <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text);">Classroom Discussion</h3>
+                <p style="color: var(--text2); font-size: 0.85rem; margin-top: 2px;">Ask questions, share advice, and collaborate with classmates.</p>
+            </div>
+
+            <!-- Chat Window -->
+            <div id="chatBox" class="card" style="padding: 0; border: 1px solid var(--border); height: 420px; display: flex; flex-direction: column; overflow: hidden; background: var(--bg2);">
+                <!-- Messages Panel -->
+                <div style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px;" id="chatMessages">
+                    {% for msg in messages %}
+                    <div style="display: flex; gap: 12px; align-items: flex-start; {% if msg.sender_id == user.id %}align-self: flex-end; flex-direction: row-reverse;{% endif %} max-width: 70%;">
+                        <!-- Avatar -->
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg4); display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; color: var(--text2); flex-shrink: 0;">
+                            {{ msg.sender.full_name[:1].upper() or msg.sender.username[:1].upper() }}
+                        </div>
+                        
+                        <!-- Bubble -->
+                        <div>
+                            <div style="font-size: 0.72rem; color: var(--text2); margin-bottom: 3px; font-weight: 500; {% if msg.sender_id == user.id %}text-align: right;{% endif %}">
+                                {{ msg.sender.full_name or msg.sender.username }}
+                            </div>
+                            <div style="padding: 10px 14px; border-radius: 12px; font-size: 0.9rem; line-height: 1.5;
+                                        {% if msg.sender_id == user.id %}
+                                            background: var(--accent); color: white; border-top-right-radius: 2px;
+                                        {% else %}
+                                            background: var(--bg3); color: var(--text); border-top-left-radius: 2px;
+                                        {% endif %}">
+                                {{ msg.message }}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div style="text-align: center; color: var(--text3); font-style: italic; margin: auto;">No messages in this class yet. Say hello!</div>
+                    {% endfor %}
+                </div>
+
+                <!-- Chat Input Footer -->
+                <form action="/classes/{{ klass.id }}/send-message" method="POST" style="border-top: 1px solid var(--border); padding: 12px; background: var(--bg3); display: flex; gap: 10px; align-items: center;">
+                    <input type="text" name="message" class="form-control" placeholder="Type a message..." required style="margin: 0; flex: 1; background: var(--bg2); border-radius: 20px; padding: 10px 16px;">
+                    <button type="submit" class="btn btn-primary" style="margin: 0; border-radius: 20px; padding: 10px 20px;">
+                        <i class="fa-solid fa-paper-plane"></i> Send
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Sidebar -->
+    <div>
+        <!-- Class Meta Information -->
+        <div class="card" style="padding: 20px; border: 1px solid var(--border); margin-bottom: 20px;">
+            <span class="pill pill-blue mb-2">Invite Code</span>
+            <div style="font-family: var(--font-m); font-size: 1.6rem; font-weight: 700; color: var(--accent); letter-spacing: 2px; margin-bottom: 12px; background: var(--bg3); padding: 10px; border-radius: 8px; text-align: center; border: 1px dashed var(--accent);">
+                {{ klass.invite_code }}
+            </div>
+            
+            <p style="color: var(--text2); font-size: 0.85rem; line-height: 1.5; margin-bottom: 16px;">
+                {{ klass.description or "No description provided." }}
+            </p>
+            
+            <div style="font-size: 0.8rem; color: var(--text3); border-top: 1px solid var(--border); padding-top: 12px;">
+                Teacher: <strong style="color: var(--text2);">{{ klass.teacher.full_name or klass.teacher.username }}</strong>
+            </div>
+        </div>
+
+        <!-- Class Members / Students List -->
+        <div class="card" style="padding: 20px; border: 1px solid var(--border);">
+            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span>Students List</span>
+                <span style="font-size: 0.75rem; color: var(--text2); font-weight: normal;">{{ members | length }} members</span>
+            </div>
+
+            <!-- Add Student Box (Teachers/Owners Only) -->
+            {% if user.role in ('teacher', 'owner') %}
+            <form action="/classes/{{ klass.id }}/add-student" method="POST" style="display: flex; gap: 6px; margin-bottom: 16px;">
+                <input type="text" name="username" class="form-control form-control-sm" placeholder="Add student by username..." required style="margin: 0; font-size: 0.8rem; padding: 6px 10px; flex: 1;">
+                <button type="submit" class="btn btn-primary btn-sm" style="margin: 0; padding: 6px 12px;">Add</button>
+            </form>
+            {% endif %}
+
+            <!-- Members List -->
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% for m in members %}
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg4); display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; color: var(--text2);">
+                            {{ m.student.full_name[:1].upper() or m.student.username[:1].upper() }}
+                        </div>
+                        <div>
+                            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text);">{{ m.student.full_name or m.student.username }}</div>
+                            <div style="font-size: 0.72rem; color: var(--text3);">@{{ m.student.username }}</div>
+                        </div>
+                    </div>
+                    {% if user.role in ('teacher', 'owner') %}
+                    <form action="/classes/{{ klass.id }}/remove-student/{{ m.student_id }}" method="POST" onsubmit="return confirm('Remove student from this class?');">
+                        <button type="submit" style="background: none; border: none; color: var(--red); cursor: pointer; padding: 4px; font-size: 0.8rem;" title="Remove student">
+                            <i class="fa-solid fa-user-xmark"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div style="text-align: center; color: var(--text3); font-size: 0.85rem; font-style: italic; padding: 12px 0;">
+                    No students in this class yet.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 1: Assign New Task -->
+<div class="modal-overlay" id="addTaskModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Assign Class Assignment</div>
+            <button class="modal-close" onclick="closeModal('addTaskModal')">&times;</button>
+        </div>
+        <form action="/classes/{{ klass.id }}/add-task" method="POST" class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Task Title</label>
+                <input type="text" name="title" class="form-control" placeholder="e.g. IELTS Writing Practice 1" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Instructions / Description</label>
+                <textarea name="description" class="form-control" rows="3" placeholder="Provide instructions for your students..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Link to Mock Exam (Optional)</label>
+                <select name="mock_exam_id" class="form-control">
+                    <option value="">-- No Exam Link (Self Guided) --</option>
+                    {% for exam in all_exams %}
+                    <option value="{{ exam.id }}">{{ exam.title }} ({{ exam.test_scope }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Deadline / Due Date (Optional)</label>
+                <input type="text" name="deadline_str" class="form-control" placeholder="e.g. Next Tuesday at 5 PM">
+            </div>
+            <div class="mt-6 flex gap-2">
+                <button type="button" class="btn btn-ghost" style="flex:1;" onclick="closeModal('addTaskModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">Assign Task</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 2: Add Timeline Event -->
+<div class="modal-overlay" id="addTimelineModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Add Curriculum Timeline Event</div>
+            <button class="modal-close" onclick="closeModal('addTimelineModal')">&times;</button>
+        </div>
+        <form action="/classes/{{ klass.id }}/add-timeline-event" method="POST" class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Topic / Event Title</label>
+                <input type="text" name="title" class="form-control" placeholder="e.g. Week 3: Academic Task 1 Line Graphs" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Topics Covered / Description</label>
+                <textarea name="description" class="form-control" rows="3" placeholder="Brief details about lessons taught..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Target Date / Period</label>
+                <input type="text" name="event_date_str" class="form-control" placeholder="e.g. Oct 12 - Oct 18" required>
+            </div>
+            <div class="mt-6 flex gap-2">
+                <button type="button" class="btn btn-ghost" style="flex:1;" onclick="closeModal('addTimelineModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">Add Event</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_styles_bottom %}
+<style>
+.class-tab {
+    background: none;
+    border: none;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text2);
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    font-family: var(--font-d);
+}
+.class-tab:hover {
+    color: var(--text);
+}
+.class-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+.class-section {
+    display: none;
+}
+.class-section.active {
+    display: block;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchTab(tabName) {
+    // Deactivate all tabs
+    document.querySelectorAll('.class-tab').forEach(t => t.classList.remove('active'));
+    // Hide all sections
+    document.querySelectorAll('.class-section').forEach(s => s.classList.remove('active'));
+    
+    // Activate target
+    document.getElementById('tab-' + tabName).classList.add('active');
+    document.getElementById('section-' + tabName).classList.add('active');
+    
+    // If chat, scroll to bottom
+    if (tabName === 'chat') {
+        const chatMessages = document.getElementById('chatMessages');
+        if (chatMessages) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+}
+
+// Auto-scroll chat on load
+document.addEventListener("DOMContentLoaded", () => {
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // Handle error/msg query alerts
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('error')) {
+        alert("Error: " + params.get('error'));
+    }
+    if (params.has('msg')) {
+        // Clear history parameter cleanly
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+});
+</script>
+{% endblock %}
