@@ -4,7 +4,8 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Foreign
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 
-MASTER_DB_URL = "sqlite:///./master.db"
+from config import DATA_DIR
+MASTER_DB_URL = f"sqlite:///{DATA_DIR / 'master.db'}"
 engine_master = create_engine(MASTER_DB_URL, connect_args={"check_same_thread": False})
 SessionMaster = sessionmaker(autocommit=False, autoflush=False, bind=engine_master)
 MasterBase = declarative_base()

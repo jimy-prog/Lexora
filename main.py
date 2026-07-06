@@ -53,6 +53,27 @@ if repo_uploads.exists() and repo_uploads.resolve() != UPLOADS_DIR.resolve():
             dest.parent.mkdir(parents=True, exist_ok=True)
             if not dest.exists():
                 shutil.copy2(item, dest)
+
+# Sync SQLite databases to persistent volume if repo version is richer in data
+from config import DATA_DIR
+if BASE_DIR.resolve() != DATA_DIR.resolve():
+    os.makedirs(DATA_DIR / "database_tenants", exist_ok=True)
+    
+    # Sync master.db
+    repo_master = BASE_DIR / "master.db"
+    data_master = DATA_DIR / "master.db"
+    if repo_master.exists():
+        if not data_master.exists() or data_master.stat().st_size < repo_master.stat().st_size:
+            shutil.copy2(repo_master, data_master)
+            
+    # Sync tenant databases
+    repo_tenants = BASE_DIR / "database_tenants"
+    data_tenants = DATA_DIR / "database_tenants"
+    if repo_tenants.exists():
+        for db_file in repo_tenants.glob("*.db"):
+            dest_db = data_tenants / db_file.name
+            if not dest_db.exists() or dest_db.stat().st_size < db_file.stat().st_size:
+                shutil.copy2(db_file, dest_db)
 LANDING_IMAGES_DIR = STATIC_DIR / "landing_images"
 os.makedirs(LANDING_IMAGES_DIR, exist_ok=True)
 
