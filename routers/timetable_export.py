@@ -16,7 +16,7 @@ def nm(d):
 def filter_groups(groups, show):
     if show == "active":   return [g for g in groups if g.status == "active"]
     if show == "archived": return [g for g in groups if g.status == "archived"]
-    return groups
+    return [g for g in groups if g.status != "archived"]
 
 @router.get("/")
 def export_view(request: Request,

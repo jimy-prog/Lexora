@@ -67,20 +67,20 @@ def generate_month_lessons(db: Session, year: int, month: int):
     return created
 
 def fix_archived_future_lessons(db: Session):
-    """Remove future lessons for archived/paused groups."""
+    """Remove scheduled/future lessons for archived/paused groups."""
     today = date.today()
     archived = db.query(Group).filter(
-        Group.status.in_(["archived","paused"])
+        Group.status.in_(["archived", "paused"])
     ).all()
     removed = 0
     for g in archived:
+        start_date = g.archived_date if (g.status == "archived" and g.archived_date) else today
         future = db.query(Lesson).filter(
             Lesson.group_id == g.id,
-            Lesson.date > today,
-            Lesson.auto_generated == True
+            Lesson.status == "Scheduled",
+            Lesson.date >= start_date
         ).all()
         for l in future:
-            # Delete attendance first
             for a in l.attendance:
                 db.delete(a)
             db.delete(l)

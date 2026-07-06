@@ -30,7 +30,8 @@ def filter_lessons(lessons, show):
         return [l for l in lessons if l.group and l.group.status == "active"]
     if show == "archived":
         return [l for l in lessons if l.group and l.group.status == "archived"]
-    return lessons  # "all"
+    # 'all' shows active and paused groups, but excludes archived groups
+    return [l for l in lessons if l.group and l.group.status != "archived"]
 
 @router.get("/")
 def daily(request: Request, d: str = None, show: str = "all", db: Session = Depends(get_db)):

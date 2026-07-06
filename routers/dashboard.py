@@ -4,7 +4,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from datetime import date, timedelta
 from database import get_db, Group, Student, Lesson, Attendance, Notification, Payment
-from scheduler import generate_month_lessons, check_unmarked_lessons
+from scheduler import generate_month_lessons, check_unmarked_lessons, fix_archived_future_lessons
 from auth import get_current_user
 
 router = APIRouter()
@@ -26,6 +26,7 @@ def dashboard(request: Request, show_marked: int = 0, db: Session = Depends(get_
     me = _nm(ms)
 
     generate_month_lessons(db, today.year, today.month)
+    fix_archived_future_lessons(db)
     check_unmarked_lessons(db)
 
     # Show active groups on dashboard (status=active only)
