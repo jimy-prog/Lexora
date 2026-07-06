@@ -249,3 +249,151 @@ You must output ONLY valid JSON. DO NOT wrap in markdown code blocks:
                 f"Technical details: {str(e)}"
             )
         }
+
+
+def grade_speaking_exam_consolidated(speaking_list: list) -> dict:
+    """
+    Consolidates and grades an entire IELTS speaking test in a single Gemini API call.
+    Uploads all audio files, waits for them to become active concurrently,
+    and asks Gemini to evaluate them all at once.
+    """
+    model = _get_model()
+    if not model:
+        return {
+            "overall_band": 0.0,
+            "criteria_scores": {
+                "fluency_coherence": 0.0,
+                "lexical_resource": 0.0,
+                "grammar_accuracy": 0.0,
+                "pronunciation": 0.0
+            },
+            "feedback_markdown": "AI Grading service is not configured."
+        }
+
+    uploaded_files = []
+    try:
+        # 1. Upload all valid files
+        for idx, (prompt_text, filepath) in enumerate(speaking_list):
+            if not filepath or not os.path.exists(filepath):
+                continue
+            print(f"[AI Speaking Grader] Uploading audio {idx+1}/{len(speaking_list)}: {filepath}")
+            audio_file = genai.upload_file(path=filepath)
+            uploaded_files.append((idx, prompt_text, audio_file))
+
+        # 2. Wait for all files to become ACTIVE concurrently
+        import time
+        max_retries = 30
+        for retry in range(max_retries):
+            all_active = True
+            for i, (idx, prompt_text, file_obj) in enumerate(uploaded_files):
+                file_obj = genai.get_file(file_obj.name)
+                uploaded_files[i] = (idx, prompt_text, file_obj)
+                if file_obj.state.name == "PROCESSING":
+                    all_active = False
+                elif file_obj.state.name != "ACTIVE":
+                    # Mismatch or failed
+                    pass
+            if all_active:
+                break
+            time.sleep(1)
+
+        # 3. Build consolidated media mapping and prompt
+        content_parts = []
+        file_mapping_text = []
+        for idx, prompt_text, file_obj in uploaded_files:
+            if file_obj.state.name == "ACTIVE":
+                content_parts.append(file_obj)
+                file_mapping_text.append(
+                    f"- Audio File {len(content_parts)} (index {len(content_parts)-1} in the uploaded files below): "
+                    f"Prompt: '{prompt_text}'"
+                )
+
+        if not content_parts:
+            return {
+                "overall_band": 0.0,
+                "criteria_scores": {
+                    "fluency_coherence": 0.0,
+                    "lexical_resource": 0.0,
+                    "grammar_accuracy": 0.0,
+                    "pronunciation": 0.0
+                },
+                "feedback_markdown": "No valid active speaking recordings could be processed."
+            }
+
+        mappings_str = "\n".join(file_mapping_text)
+
+        prompt = f"""You are a strict, experienced IELTS Speaking Examiner.
+
+Evaluate the student's entire speaking exam recordings mapped below:
+
+{mappings_str}
+
+CRITICAL RULES:
+- If all audios are silent or unintelligible, award Band 1.0 or 0.0.
+- Evaluate objectively against official IELTS Speaking descriptors for the 4 criteria:
+  1. Fluency & Coherence
+  2. Lexical Resource
+  3. Grammatical Range & Accuracy
+  4. Pronunciation
+- Provide a summary and brief transcript/review of responses for Part 1, Part 2, and Part 3.
+
+Provide constructive feedback in markdown with headings:
+- **Transcribed Responses Summary**: Short review or transcription highlights.
+- **Overall Assessment**: Synthesis of their performance.
+- **Fluency & Coherence Feedback**: Analysis.
+- **Lexical Resource & Grammar**: Improvements.
+- **Pronunciation & Pacing Suggestions**: Advice.
+
+You must output ONLY valid JSON matching this schema exactly. DO NOT wrap in markdown code blocks:
+{{
+  "overall_band": 6.5,
+  "criteria_scores": {{
+    "fluency_coherence": 6.0,
+    "lexical_resource": 6.5,
+    "grammar_accuracy": 6.5,
+    "pronunciation": 7.0
+  }},
+  "feedback_markdown": "Feedback text here..."
+}}"""
+
+        content_parts.append(prompt)
+
+        # 4. Generate evaluation in a single call
+        response = model.generate_content(
+            content_parts,
+            generation_config={"response_mime_type": "application/json"}
+        )
+
+        # 5. Clean up files on Gemini servers
+        for _, _, file_obj in uploaded_files:
+            try:
+                file_obj.delete()
+            except Exception:
+                pass
+
+        raw = response.text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        data = json.loads(raw)
+        return data
+
+    except Exception as e:
+        print(f"[AI Speaking Grader Consolidated Error] {e}")
+        # Clean up files in case of crash
+        for _, _, file_obj in uploaded_files:
+            try:
+                file_obj.delete()
+            except Exception:
+                pass
+        return {
+            "overall_band": 0.0,
+            "criteria_scores": {
+                "fluency_coherence": 0.0,
+                "lexical_resource": 0.0,
+                "grammar_accuracy": 0.0,
+                "pronunciation": 0.0
+            },
+            "feedback_markdown": f"**AI Consolidated Grading Error**\n\nTechnical details: {str(e)}"
+        }

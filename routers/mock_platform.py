@@ -817,7 +817,7 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
                 """Runs AI grading in a separate thread and updates the DB when done."""
                 bg_db = SessionMaster()
                 try:
-                    from services.ai_grader import grade_writing_submission, grade_speaking_submission
+                    from services.ai_grader import grade_writing_submission, grade_speaking_exam_consolidated
                     ai_scores = []
                     feedback_parts = []
                     
@@ -828,12 +828,12 @@ async def submit_exam(request: Request, exam_id: int, db: SessionMaster = Depend
                             ai_scores.append(band)
                         feedback_parts.append(f"### Writing Task Feedback\n\n{res.get('feedback_markdown', '')}")
                     
-                    for prompt_text, audio_path in speaking_list:
-                        res = grade_speaking_submission(prompt_text, audio_path)
+                    if speaking_list:
+                        res = grade_speaking_exam_consolidated(speaking_list)
                         band = res.get("overall_band", 0)
                         if band:
                             ai_scores.append(band)
-                        feedback_parts.append(f"### Speaking Task Feedback\n\n{res.get('feedback_markdown', '')}")
+                        feedback_parts.append(f"### Speaking Exam Feedback\n\n{res.get('feedback_markdown', '')}")
                     
                     overall_band = 0.0
                     if ai_scores:
