@@ -22,6 +22,36 @@ def _get_model():
     return genai.GenerativeModel("gemini-2.5-flash")
 
 
+def _generate_content_with_retry(model, contents, generation_config=None):
+    import time
+    import re
+    for attempt in range(5):
+        try:
+            if generation_config:
+                return model.generate_content(contents, generation_config=generation_config)
+            else:
+                return model.generate_content(contents)
+        except Exception as e:
+            err_str = str(e).lower()
+            if "429" in err_str or "quota" in err_str or "rate limit" in err_str:
+                delay = 15
+                if "retry in" in err_str:
+                    try:
+                        match = re.search(r"retry in ([\d\.]+)", err_str)
+                        if match:
+                            delay = int(float(match.group(1))) + 2
+                    except Exception:
+                        pass
+                print(f"[AI Grader] Hit 429 Rate Limit. Waiting {delay} seconds (attempt {attempt+1}/5)...")
+                time.sleep(delay)
+            else:
+                raise e
+    if generation_config:
+        return model.generate_content(contents, generation_config=generation_config)
+    else:
+        return model.generate_content(contents)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # WRITING GRADER
 # ─────────────────────────────────────────────────────────────────────────────
@@ -98,7 +128,8 @@ You must output ONLY valid JSON matching this schema. DO NOT wrap in markdown co
 }}"""
 
     try:
-        response = model.generate_content(
+        response = _generate_content_with_retry(
+            model,
             prompt,
             generation_config={"response_mime_type": "application/json"}
         )
@@ -164,8 +195,8 @@ def grade_speaking_submission(question_prompt: str, audio_file_path: str) -> dic
         }
 
     try:
-        print(f"[AI Speaking Grader] Uploading audio: {audio_file_path}")
-        audio_file = genai.upload_file(path=audio_file_path)
+        mime_type = "audio/webm" if audio_file_path.endswith(".webm") else None
+        audio_file = genai.upload_file(path=audio_file_path, mime_type=mime_type)
 
         # Wait for file to become active on Gemini servers
         import time
@@ -216,7 +247,8 @@ You must output ONLY valid JSON. DO NOT wrap in markdown code blocks:
   "feedback_markdown": "Feedback text here..."
 }}"""
 
-        response = model.generate_content(
+        response = _generate_content_with_retry(
+            model,
             [audio_file, prompt],
             generation_config={"response_mime_type": "application/json"}
         )
@@ -277,7 +309,8 @@ def grade_speaking_exam_consolidated(speaking_list: list) -> dict:
             if not filepath or not os.path.exists(filepath):
                 continue
             print(f"[AI Speaking Grader] Uploading audio {idx+1}/{len(speaking_list)}: {filepath}")
-            audio_file = genai.upload_file(path=filepath)
+            mime_type = "audio/webm" if filepath.endswith(".webm") else None
+            audio_file = genai.upload_file(path=filepath, mime_type=mime_type)
             uploaded_files.append((idx, prompt_text, audio_file))
 
         # 2. Wait for all files to become ACTIVE concurrently
@@ -359,7 +392,8 @@ You must output ONLY valid JSON matching this schema exactly. DO NOT wrap in mar
         content_parts.append(prompt)
 
         # 4. Generate evaluation in a single call
-        response = model.generate_content(
+        response = _generate_content_with_retry(
+            model,
             content_parts,
             generation_config={"response_mime_type": "application/json"}
         )
