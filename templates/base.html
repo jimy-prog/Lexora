@@ -349,6 +349,12 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
     <a class="nav-link {% if active_page=='waitlist' %}active{% endif %}" href="/waitlist/">
       <span class="nav-icon">⏳</span> Waitlist
     </a>
+    <a class="nav-link {% if active_page=='homework' %}active{% endif %}" href="/homework/">
+      <span class="nav-icon">📝</span> Homework
+    </a>
+    <a class="nav-link {% if active_page=='performance' %}active{% endif %}" href="/performance/">
+      <span class="nav-icon">📈</span> Performance
+    </a>
     {% endif %}
 
     <div class="nav-section">Content</div>
@@ -363,6 +369,9 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
       <span class="nav-icon">⚙️</span> Manage Mocks
     </a>
     {% endif %}
+    <a class="nav-link {% if active_page=='courses' %}active{% endif %}" href="/courses/">
+      <span class="nav-icon">📚</span> Courses
+    </a>
     <a class="nav-link {% if active_page=='mock' %}active{% endif %}" href="/mock/">
       <span class="nav-icon">💻</span> Mock Tests
     </a>
@@ -371,12 +380,6 @@ body.dark .alert-success{border-color:rgba(74,222,128,.2);color:var(--green)}
     </a>
     <a class="nav-link {% if active_page=='support' %}active{% endif %}" href="/support">
       <span class="nav-icon">🎧</span> Support
-    </a>
-    <a class="nav-link {% if active_page=='homework' %}active{% endif %}" href="/homework/">
-      <span class="nav-icon">📝</span> Homework
-    </a>
-    <a class="nav-link {% if active_page=='performance' %}active{% endif %}" href="/performance/">
-      <span class="nav-icon">📈</span> Performance
     </a>
 
     {% if _is_staff %}
