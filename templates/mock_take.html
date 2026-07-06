@@ -167,7 +167,8 @@
         }
     </style>
 </head>
-<body>
+<form id="submitExamForm" action="/mock/{{ exam.id }}/submit" method="POST" style="display: contents;">
+    <input type="hidden" name="attempt_id" value="{{ attempt.id }}">
 
     <div class="top-bar">
         <div class="candidate-info">
@@ -207,11 +208,8 @@
             <i class="fa-solid fa-clock timer-icon"></i> 00:00
         </div>
         <div class="top-controls">
-            <form id="submitExamForm" action="/mock/{{ exam.id }}/submit" method="POST" style="display: contents;">
-                <input type="hidden" name="attempt_id" value="{{ attempt.id }}">
-                <button type="button" onclick="confirmSubmit()" class="btn btn-sm" style="background:#4B5563; color:#fff; border:none; padding:8px 16px; border-radius:20px; font-weight:600; margin-right:8px;">Submit</button>
-            </form>
-            <button class="icon-btn" onclick="toggleFullscreen()" title="Fullscreen"><i class="fa-solid fa-compress"></i></button>
+            <button type="button" onclick="confirmSubmit()" class="btn btn-sm" style="background:#4B5563; color:#fff; border:none; padding:8px 16px; border-radius:20px; font-weight:600; margin-right:8px;">Submit</button>
+            <button type="button" class="icon-btn" onclick="toggleFullscreen()" title="Fullscreen"><i class="fa-solid fa-compress"></i></button>
         </div>
     </div>
 
@@ -702,5 +700,6 @@
             }
         }
     </script>
+</form>
 </body>
 </html>
