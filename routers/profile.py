@@ -75,6 +75,12 @@ def profile_page(request: Request, db: Session = Depends(get_db)):
             mdb.close()
 
     tab      = request.query_params.get("tab", "profile")
+    if current_user:
+        if tab == "finance" and current_user.role not in ["owner", "teacher"]:
+            tab = "profile"
+        elif tab == "system" and current_user.role != "owner":
+            tab = "profile"
+            
     return templates.TemplateResponse("settings_page.html", {
         "request":request, "profile":profile, "settings":settings,
         "groups":groups, "users":users, "tab":tab, "active_page":"settings",

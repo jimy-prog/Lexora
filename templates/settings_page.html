@@ -34,9 +34,13 @@
     <div class="settings-nav-header">Preferences</div>
     <a class="nav-st {% if tab=='profile' or not tab %}active{% endif %}" href="/profile/?tab=profile"><span class="icon">👤</span> General Profile</a>
     <a class="nav-st {% if tab=='appearance' %}active{% endif %}" href="/profile/?tab=appearance"><span class="icon">🎨</span> Appearance</a>
+    {% if current_user and current_user.role in ['owner', 'teacher'] %}
     <a class="nav-st {% if tab=='finance' %}active{% endif %}" href="/profile/?tab=finance"><span class="icon">💰</span> Billing & Rates</a>
+    {% endif %}
     <a class="nav-st {% if tab=='security' %}active{% endif %}" href="/profile/?tab=security"><span class="icon">🔐</span> Security</a>
+    {% if current_user and current_user.role == 'owner' %}
     <a class="nav-st {% if tab=='system' %}active{% endif %}" href="/profile/?tab=system"><span class="icon">🔧</span> System Admin</a>
+    {% endif %}
   </div>
   
   <div class="settings-content">
@@ -145,6 +149,7 @@
 </div>
 
 <!-- ── FINANCE RATES ───────────────────────────────────────────────────── -->
+{% if current_user and current_user.role in ['owner', 'teacher'] %}
 <div class="tp {% if tab=='finance' %}on{% endif %}">
   <div class="card mb-6">
     <div class="card-header"><span class="card-title">Global Finance Settings</span></div>
@@ -168,6 +173,7 @@
     and click the <strong>⚙ Edit</strong> button on any group card.
   </div>
 </div>
+{% endif %}
 
 <!-- ── SECURITY ────────────────────────────────────────────────────────── -->
 <div class="tp {% if tab=='security' %}on{% endif %}">
@@ -265,6 +271,7 @@
 </div>
 
 <!-- ── SYSTEM ──────────────────────────────────────────────────────────── -->
+{% if current_user and current_user.role == 'owner' %}
 <div class="tp {% if tab=='system' %}on{% endif %}">
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
     <div class="sys-card">
@@ -293,13 +300,14 @@
         <button class="btn btn-primary btn-sm" type="submit">Save Import Settings</button>
       </form>
     </div>
-<div class="sys-card">
+    <div class="sys-card">
       <div class="sys-card-title">🗓 Uzbekistan Holidays</div>
       <div class="sys-card-desc">Manage public holidays. Toggle any holiday if you taught that day — it will count for finance.</div>
       <a href="/holidays/" class="btn btn-ghost btn-sm">Manage Holidays →</a>
     </div>
   </div>
 </div>
+{% endif %}
 
 {% endblock %}
 

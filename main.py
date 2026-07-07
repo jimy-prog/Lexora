@@ -54,25 +54,131 @@ if repo_uploads.exists() and repo_uploads.resolve() != UPLOADS_DIR.resolve():
             if not dest.exists():
                 shutil.copy2(item, dest)
 
-# Sync SQLite databases to persistent volume if repo version is richer in data
+# Sync SQLite databases to persistent volume safely
 from config import DATA_DIR
 if BASE_DIR.resolve() != DATA_DIR.resolve():
     os.makedirs(DATA_DIR / "database_tenants", exist_ok=True)
     
-    # Sync master.db
+    # Sync master.db: Copy only if it does not exist to avoid overwriting live user accounts/data
     repo_master = BASE_DIR / "master.db"
     data_master = DATA_DIR / "master.db"
     if repo_master.exists():
-        if not data_master.exists() or data_master.stat().st_size < repo_master.stat().st_size:
+        if not data_master.exists():
             shutil.copy2(repo_master, data_master)
+        else:
+            # If it already exists, merge mock tests from git repo to persistent volume
+            # so that new mock tests added locally appear on the live site without losing any live database changes!
+            try:
+                import sqlite3
+                src_conn = sqlite3.connect(str(repo_master))
+                dest_conn = sqlite3.connect(str(data_master))
+                src_cursor = src_conn.cursor()
+                dest_cursor = dest_conn.cursor()
+                
+                # Get all exams from src
+                src_cursor.execute("SELECT id, title, exam_type, test_scope, test_mode, is_published, audio_url, original_pdf_url, created_at FROM mock_exams")
+                src_exams = src_cursor.fetchall()
+                src_exam_ids = [e[0] for e in src_exams]
+                
+                # 1. Delete exams in dest that do not exist in src
+                if src_exam_ids:
+                    placeholders = ",".join("?" for _ in src_exam_ids)
+                    dest_cursor.execute(f"DELETE FROM mock_exams WHERE id NOT IN ({placeholders})", src_exam_ids)
+                else:
+                    dest_cursor.execute("DELETE FROM mock_exams")
+                    
+                # 2. Sync each exam
+                for exam in src_exams:
+                    exam_id = exam[0]
+                    dest_cursor.execute("SELECT id FROM mock_exams WHERE id = ?", (exam_id,))
+                    exists = dest_cursor.fetchone()
+                    
+                    if exists:
+                        # Preserve published status if it is already True on the live site
+                        dest_cursor.execute("SELECT is_published FROM mock_exams WHERE id = ?", (exam_id,))
+                        dest_is_published = dest_cursor.fetchone()[0]
+                        final_is_published = 1 if (exam[5] or dest_is_published) else 0
+                        
+                        # Update exam metadata
+                        dest_cursor.execute(
+                            "UPDATE mock_exams SET title=?, exam_type=?, test_scope=?, test_mode=?, is_published=?, audio_url=?, original_pdf_url=? WHERE id=?",
+                            (exam[1], exam[2], exam[3], exam[4], final_is_published, exam[6], exam[7], exam_id)
+                        )
+                        # Delete sub-tables manually to avoid constraint/orphaning issues
+                        dest_cursor.execute("SELECT id FROM mock_exam_sections WHERE exam_id = ?", (exam_id,))
+                        sec_ids = [r[0] for r in dest_cursor.fetchall()]
+                        if sec_ids:
+                            sec_placeholders = ",".join("?" for _ in sec_ids)
+                            dest_cursor.execute(f"SELECT id FROM mock_question_blocks WHERE section_id IN ({sec_placeholders})", sec_ids)
+                            block_ids = [r[0] for r in dest_cursor.fetchall()]
+                            if block_ids:
+                                b_placeholders = ",".join("?" for _ in block_ids)
+                                dest_cursor.execute(f"SELECT id FROM mock_questions WHERE block_id IN ({b_placeholders})", block_ids)
+                                q_ids = [r[0] for r in dest_cursor.fetchall()]
+                                if q_ids:
+                                    q_placeholders = ",".join("?" for _ in q_ids)
+                                    dest_cursor.execute(f"DELETE FROM mock_answer_options WHERE question_id IN ({q_placeholders})", q_ids)
+                                dest_cursor.execute(f"DELETE FROM mock_questions WHERE block_id IN ({b_placeholders})", block_ids)
+                            dest_cursor.execute(f"DELETE FROM mock_question_blocks WHERE section_id IN ({sec_placeholders})", sec_ids)
+                        dest_cursor.execute("DELETE FROM mock_exam_sections WHERE exam_id = ?", (exam_id,))
+                    else:
+                        # Insert exam
+                        dest_cursor.execute(
+                            "INSERT INTO mock_exams (id, title, exam_type, test_scope, test_mode, is_published, audio_url, original_pdf_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            exam
+                        )
+                        
+                    # Copy structure: sections -> blocks -> questions -> options
+                    src_cursor.execute("SELECT id, exam_id, section_type, [order], time_limit_minutes FROM mock_exam_sections WHERE exam_id = ?", (exam_id,))
+                    sections = src_cursor.fetchall()
+                    for sec in sections:
+                        sec_id = sec[0]
+                        dest_cursor.execute(
+                            "INSERT INTO mock_exam_sections (id, exam_id, section_type, [order], time_limit_minutes) VALUES (?, ?, ?, ?, ?)",
+                            sec
+                        )
+                        
+                        src_cursor.execute("SELECT id, section_id, part_number, instructions, passage_text, media_url, layout_style FROM mock_question_blocks WHERE section_id = ?", (sec_id,))
+                        blocks = src_cursor.fetchall()
+                        for block in blocks:
+                            block_id = block[0]
+                            dest_cursor.execute(
+                                "INSERT INTO mock_question_blocks (id, section_id, part_number, instructions, passage_text, media_url, layout_style) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                block
+                            )
+                            
+                            src_cursor.execute("SELECT id, block_id, q_type, question_number, prompt, correct_answer_text, points, low_confidence FROM mock_questions WHERE block_id = ?", (block_id,))
+                            questions = src_cursor.fetchall()
+                            for q in questions:
+                                q_id = q[0]
+                                dest_cursor.execute(
+                                    "INSERT INTO mock_questions (id, block_id, q_type, question_number, prompt, correct_answer_text, points, low_confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                    q
+                                )
+                                
+                                src_cursor.execute("SELECT id, question_id, text, is_correct, [order] FROM mock_answer_options WHERE question_id = ?", (q_id,))
+                                options = src_cursor.fetchall()
+                                for opt in options:
+                                    dest_cursor.execute(
+                                        "INSERT INTO mock_answer_options (id, question_id, text, is_correct, [order]) VALUES (?, ?, ?, ?, ?)",
+                                        opt
+                                    )
+                dest_conn.commit()
+            except Exception as e:
+                if 'dest_conn' in locals():
+                    dest_conn.rollback()
+                print(f"Error merging mock exams: {e}")
+            finally:
+                if 'src_conn' in locals(): src_conn.close()
+                if 'dest_conn' in locals(): dest_conn.close()
             
-    # Sync tenant databases
+    # Sync tenant databases: Copy only if they do not exist
     repo_tenants = BASE_DIR / "database_tenants"
     data_tenants = DATA_DIR / "database_tenants"
     if repo_tenants.exists():
         for db_file in repo_tenants.glob("*.db"):
             dest_db = data_tenants / db_file.name
-            if not dest_db.exists() or dest_db.stat().st_size < db_file.stat().st_size:
+            if not dest_db.exists():
                 shutil.copy2(db_file, dest_db)
 LANDING_IMAGES_DIR = STATIC_DIR / "landing_images"
 os.makedirs(LANDING_IMAGES_DIR, exist_ok=True)

@@ -3,7 +3,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from datetime import date, timedelta
-from database import get_db, Group, Student, Lesson, Attendance, Notification, Payment
+from database import get_db, Group, Student, Lesson, Attendance, Notification, Payment, WeeklyPerformance
 from scheduler import generate_month_lessons, check_unmarked_lessons, fix_archived_future_lessons
 from auth import get_current_user
 
@@ -20,10 +20,93 @@ def dashboard(request: Request, show_marked: int = 0, db: Session = Depends(get_
     if not user:
         return RedirectResponse("/login")
 
-
     today = date.today()
     ms = today.replace(day=1)
     me = _nm(ms)
+    month_str = today.strftime("%Y-%m")
+    last_ms = (ms - timedelta(days=1)).replace(day=1)
+    last_me = ms
+
+    if user.role == "student":
+        student = db.query(Student).filter(
+            (Student.email == user.email) | (Student.phone == user.phone) | (Student.name == user.full_name)
+        ).first()
+        
+        group = None
+        leaderboard = []
+        perf_list = []
+        att_rate = 0
+        att_trend = 0
+        held_count = 0
+        lessons_expected = 0
+        lessons_pct = 0
+        
+        if student and student.group_id:
+            group = db.query(Group).filter(Group.id == student.group_id, Group.status == "active").first()
+            if group:
+                # Lessons
+                held_count = db.query(Lesson).filter(Lesson.group_id == group.id, Lesson.date >= ms, Lesson.status == "Held").count()
+                lessons_expected = group.lessons_per_week * group.weeks_per_month
+                lessons_pct = round(held_count / lessons_expected * 100) if lessons_expected else 0
+
+                # Attendance
+                total_rec = db.query(Attendance).join(Lesson).filter(Lesson.date >= ms, Attendance.student_id == student.id, Lesson.group_id == group.id).count()
+                present_rec = db.query(Attendance).join(Lesson).filter(Lesson.date >= ms, Attendance.student_id == student.id, Attendance.status == "Present", Lesson.group_id == group.id).count()
+                att_rate = round(present_rec / total_rec * 100) if total_rec else 0
+
+                # Trend
+                last_total = db.query(Attendance).join(Lesson).filter(Lesson.date >= last_ms, Lesson.date < last_me, Attendance.student_id == student.id, Lesson.group_id == group.id).count()
+                last_present = db.query(Attendance).join(Lesson).filter(Lesson.date >= last_ms, Lesson.date < last_me, Attendance.status == "Present", Attendance.student_id == student.id, Lesson.group_id == group.id).count()
+                last_rate = round(last_present / last_total * 100) if last_total else 0
+                att_trend = att_rate - last_rate
+
+                # Weekly Performance
+                perf_list = db.query(WeeklyPerformance).filter(WeeklyPerformance.student_id == student.id, WeeklyPerformance.month == month_str).order_by(WeeklyPerformance.week_num).all()
+
+                # Leaderboard
+                group_students = db.query(Student).filter(Student.group_id == group.id, Student.active == True, Student.archived == False, Student.banned == False).all()
+                for s in group_students:
+                    s_total = db.query(Attendance).join(Lesson).filter(Lesson.date >= ms, Attendance.student_id == s.id, Lesson.group_id == group.id).count()
+                    s_present = db.query(Attendance).join(Lesson).filter(Lesson.date >= ms, Attendance.student_id == s.id, Attendance.status == "Present", Lesson.group_id == group.id).count()
+                    s_att_rate = round(s_present / s_total * 100) if s_total else 0
+                    
+                    s_perf = db.query(WeeklyPerformance).filter(WeeklyPerformance.student_id == s.id, WeeklyPerformance.month == month_str).all()
+                    scores = []
+                    for wp in s_perf:
+                        for v in [wp.grammar, wp.activity, wp.vocabulary]:
+                            if v is not None:
+                                scores.append(v)
+                    s_perf_avg = round(sum(scores) / len(scores), 1) if scores else 0.0
+                    
+                    att_score = (s_att_rate / 10)
+                    perf_score = (s_perf_avg / 3) * 10
+                    overall = round((att_score + perf_score) / 2, 1) if (s_total or scores) else 0.0
+                    
+                    parts = s.name.strip().split()
+                    display_name = s.name
+                    if len(parts) > 1:
+                        display_name = f"{parts[0]} {parts[1][0]}."
+                    
+                    leaderboard.append({
+                        "name": display_name,
+                        "is_self": s.id == student.id,
+                        "att_rate": s_att_rate,
+                        "perf_avg": s_perf_avg,
+                        "overall": overall
+                    })
+                leaderboard.sort(key=lambda x: x["overall"], reverse=True)
+
+        todays_lessons = db.query(Lesson).filter(Lesson.date == today, Lesson.group_id == (group.id if group else -1)).order_by(Lesson.time).all()
+        upcoming_lessons = db.query(Lesson).filter(Lesson.date > today, Lesson.date <= today + timedelta(days=7), Lesson.group_id == (group.id if group else -1)).order_by(Lesson.date, Lesson.time).all()
+
+        return templates.TemplateResponse("dashboard_student.html", {
+            "request": request, "user": user, "student": student, "group": group,
+            "att_rate": att_rate, "att_trend": att_trend,
+            "held_count": held_count, "lessons_expected": lessons_expected, "lessons_pct": lessons_pct,
+            "perf_list": perf_list, "leaderboard": leaderboard,
+            "todays_lessons": todays_lessons, "upcoming_lessons": upcoming_lessons,
+            "active_page": "dashboard"
+        })
 
     generate_month_lessons(db, today.year, today.month)
     fix_archived_future_lessons(db)

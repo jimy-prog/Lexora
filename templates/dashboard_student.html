@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block topbar_actions %}
+<span class="badge">{{ today.strftime('%A, %d %B %Y') if today else '' }}</span>
+{% endblock %}
+
+{% block content %}
+
+{% if not student or not group %}
+<div class="card" style="padding:40px; text-align:center; color:var(--text3)">
+    <div style="font-size:3rem; margin-bottom:16px">🎓</div>
+    <h3>Welcome to Lexora!</h3>
+    <p style="max-width:480px; margin:8px auto; line-height:1.5; font-size:.9rem">
+        You are currently not assigned to any active academic group. Please contact your teacher or administrator to get enrolled in your class.
+    </p>
+</div>
+{% else %}
+
+<!-- Greeting & Class Summary -->
+<div style="margin-bottom: 24px;">
+    <h2 style="margin: 0; font-family: var(--font-b); font-size: 1.6rem; color: var(--text);">Welcome back, {{ student.name }}! 👋</h2>
+    <p style="margin: 4px 0 0 0; font-size: .88rem; color: var(--text3);">
+        Class: <strong style="color:var(--text2)">{{ group.name }}</strong> &nbsp;·&nbsp; 
+        Schedule: <strong style="color:var(--text2)">{{ group.schedule or 'Not set' }}</strong> &nbsp;·&nbsp;
+        Teacher: <strong style="color:var(--text2)">{{ profile.name if profile else 'Assigned Teacher' }}</strong>
+    </p>
+</div>
+
+<!-- ── STUDENT STATS ────────────────────────────────────────────────── -->
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <!-- Lessons Done -->
+    <div class="card" style="padding: 18px;">
+        <div class="stat-label" style="font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text3);">Lessons Done</div>
+        <div style="font-family: var(--font-d); font-size: 1.8rem; color: var(--accent); margin: 6px 0;">
+            {{ held_count }} <span style="font-size: 1rem; color: var(--text3);">/ {{ lessons_expected }}</span>
+        </div>
+        <div style="font-size: .72rem; color: var(--text3)">held this month</div>
+        <div style="margin-top: 10px;">
+            <div class="progress" style="height: 6px; background: var(--bg3); border-radius: 4px; overflow: hidden;">
+                <div class="progress-bar pb-blue" style="width: {{ lessons_pct }}%; height: 100%; background: var(--accent); border-radius: 4px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Rate -->
+    <div class="card" style="padding: 18px;">
+        <div class="stat-label" style="font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text3);">My Attendance</div>
+        <div style="font-family: var(--font-d); font-size: 1.8rem; color: {% if att_rate >= 85 %}var(--green){% elif att_rate >= 70 %}var(--yellow){% else %}var(--red){% endif %}; margin: 6px 0;">
+            {{ att_rate }}%
+            <span style="font-size: .95rem; font-weight: 500; color: var(--text3)">
+                ({% if att_trend > 0 %}+{{ att_trend }}%{% elif att_trend < 0 %}{{ att_trend }}%{% else %}0%{% endif %} vs last month)
+            </span>
+        </div>
+        <div style="font-size: .72rem; color: var(--text3)">Active attendance rate</div>
+        <div style="margin-top: 10px;">
+            <div class="progress" style="height: 6px; background: var(--bg3); border-radius: 4px; overflow: hidden;">
+                <div class="progress-bar" style="width: {{ att_rate }}%; height: 100%; background: {% if att_rate >= 85 %}var(--green){% elif att_rate >= 70 %}var(--yellow){% else %}var(--red){% endif %}; border-radius: 4px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Rank -->
+    <div class="card" style="padding: 18px;">
+        <div class="stat-label" style="font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text3);">My Ranking</div>
+        <div style="font-family: var(--font-d); font-size: 1.8rem; color: var(--green); margin: 6px 0;">
+            {% set rank = namespace(val=1) %}
+            {% for entry in leaderboard %}
+                {% if entry.is_self %}
+                    #{{ loop.index }} <span style="font-size: 1.1rem; color: var(--text3);">out of {{ leaderboard|length }}</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <div style="font-size: .72rem; color: var(--text3)">Based on attendance and performance</div>
+        <div style="margin-top: 10px; font-size: .75rem; color: var(--text2); font-weight: 500;">
+            Keep up the great work! 🚀
+        </div>
+    </div>
+</div>
+
+<!-- ── TWO COLUMN DETAILS ───────────────────────────────────────────── -->
+<div style="display:grid; grid-template-columns: 3fr 2fr; gap: 20px; align-items: start; margin-bottom: 30px;">
+    
+    <!-- Left Column: Performance & Timetable -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- Weekly Performance Card -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Weekly Performance (🔴 Needs Work · 🟡 Revise · 🟢 Good)</span>
+            </div>
+            {% if perf_list %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th style="text-align:center">Week</th>
+                            <th style="text-align:center">Grammar</th>
+                            <th style="text-align:center">Activity</th>
+                            <th style="text-align:center">Vocabulary</th>
+                            <th style="text-align:center">Avg Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for wp in perf_list %}
+                        {% set scores = [wp.grammar, wp.activity, wp.vocabulary]|select('ne', none)|list %}
+                        {% set avg = (scores|sum / scores|length)|round(1) if scores else none %}
+                        <tr>
+                            <td class="td-primary">{{ wp.month }}</td>
+                            <td style="text-align:center; font-weight: 600; color: var(--text3)">{{ wp.week_num }}</td>
+                            <td style="text-align:center; font-size: 1.1rem;">
+                                {% if wp.grammar == 1 %}🔴{% elif wp.grammar == 2 %}🟡{% elif wp.grammar == 3 %}🟢{% else %}—{% endif %}
+                            </td>
+                            <td style="text-align:center; font-size: 1.1rem;">
+                                {% if wp.activity == 1 %}🔴{% elif wp.activity == 2 %}🟡{% elif wp.activity == 3 %}🟢{% else %}—{% endif %}
+                            </td>
+                            <td style="text-align:center; font-size: 1.1rem;">
+                                {% if wp.vocabulary == 1 %}🔴{% elif wp.vocabulary == 2 %}🟡{% elif wp.vocabulary == 3 %}🟢{% else %}—{% endif %}
+                            </td>
+                            <td style="text-align:center; font-weight: 700; color: {% if avg and avg >= 2.5 %}var(--green){% elif avg and avg >= 1.8 %}var(--yellow){% else %}var(--red){% endif %}">
+                                {{ avg or '—' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="card-body" style="text-align:center; padding:30px; color:var(--text3)">
+                No performance records for this month yet.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Lessons Schedule Card -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Class Schedule & Timetable</span>
+            </div>
+            <div class="card-body" style="display:flex; flex-direction:column; gap:12px">
+                {% if todays_lessons %}
+                <div style="font-size: .72rem; font-weight: 600; text-transform: uppercase; color: var(--accent);">Today's Lesson</div>
+                {% for l in todays_lessons %}
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:var(--accent-glow); border-left:4px solid var(--accent); border-radius:6px">
+                    <div>
+                        <strong style="font-size: .88rem; color: var(--text);">{{ l.time or 'No Time Set' }}</strong>
+                        <div style="font-size: .75rem; color: var(--text3); margin-top:2px">Topic: {{ l.topic or 'Introduction/General Practice' }}</div>
+                    </div>
+                    <span class="pill pill-green">Scheduled</span>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <div style="font-size: .72rem; font-weight: 600; text-transform: uppercase; color: var(--text3); margin-top: 8px;">Upcoming Lessons</div>
+                {% if upcoming_lessons %}
+                <div style="display:flex; flex-direction:column; gap:8px">
+                    {% for l in upcoming_lessons[:4] %}
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg2); border:1px solid var(--border); border-radius:6px">
+                        <div>
+                            <span style="font-size: .8rem; font-weight: 600; color: var(--text2)">{{ l.date.strftime('%a, %d %b') }}</span>
+                            <span style="font-size: .75rem; color: var(--text3); margin-left: 8px">{{ l.time }}</span>
+                        </div>
+                        <span style="font-size: .75rem; color: var(--text3)">{{ l.topic or '—' }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div style="font-size: .8rem; color: var(--text3); text-align:center; padding: 12px 0;">No upcoming lessons scheduled.</div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Right Column: Leaderboard -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">🏆 Group Leaderboard</span>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div style="padding: 12px 16px; font-size: .75rem; color: var(--text3); border-bottom: 1px solid var(--border)">
+                Based on current month's attendance rate and academic scores.
+            </div>
+            {% for entry in leaderboard %}
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom: 1px solid var(--border); {% if entry.is_self %}background: var(--accent-glow); border-left: 3px solid var(--accent);{% endif %}">
+                <div style="display:flex; align-items:center; gap:12px">
+                    <span style="font-family: var(--font-b); font-size: .95rem; font-weight:700; width: 24px; color:{% if loop.index==1 %}#f59f00{% elif loop.index==2 %}#adb5bd{% elif loop.index==3 %}#ca8a04{% else %}var(--text3){% endif %}">
+                        {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}
+                    </span>
+                    <div>
+                        <strong style="font-size: .88rem; color: var(--text);">{{ entry.name }}</strong>
+                        {% if entry.is_self %}<span class="pill pill-blue" style="font-size: .65rem; padding: 2px 6px; margin-left:6px">You</span>{% endif %}
+                    </div>
+                </div>
+                <div style="text-align: right">
+                    <div style="font-size: .9rem; font-weight:700; color: var(--accent)">{{ entry.overall }}/10</div>
+                    <div style="font-size: .68rem; color: var(--text3)">Att: {{ entry.att_rate }}% · Score: {{ entry.perf_avg }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+{% endif %}
+
+{% endblock %}
